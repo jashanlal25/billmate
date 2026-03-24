@@ -37,60 +37,94 @@ app.secret_key = 'medicinesearch_supersecret_key'  # Needed for sessions
 # Store processed results temporarily
 processed_results = {}
 
-def process_htm_content(html_content, decrease_value=1, stock_format=False):
+def process_htm_content(html_content, decrease_value=1, stock_format=False, new_format=False):
     """Process HTM content and extract medicine names with discount rates."""
     soup = BeautifulSoup(html_content, "html.parser")
-    items = soup.find_all("tr", class_="item")
-
-    # Column index for medicine name differs based on file format
-    # Stock format: columns[2], Default format: columns[1]
-    name_index = 2 if stock_format else 1
-
     results = []
-    for item in items:
-        columns = item.find_all("td")
-        if len(columns) >= 4:
-            # Extract medicine name and apply title case
-            medicine_name = columns[name_index].text.strip().title()
-            discount_rate = columns[3].text.strip()
 
-            # Check if discount is 0.00% and get bonus rate if available
-            if discount_rate == "0.00%" and len(columns) >= 5:
-                discount_rate = columns[4].text.strip()
+    if new_format:
+        # New format: <tr class="item-row"> with data-disc/data-bonus attributes
+        items = soup.find_all("tr", class_="item-row")
+        for item in items:
+            columns = item.find_all("td")
+            if len(columns) < 2:
+                continue
 
-            # Extract numeric part and any additional separators
-            original_discount = discount_rate
-            percent_pos = original_discount.find('%')
+            # Name is in td.cell-name (td[1])
+            name_td = item.find("td", class_="cell-name")
+            medicine_name = (name_td.text.strip() if name_td else columns[1].text.strip()).title()
 
-            if percent_pos != -1:
-                # Has a percentage - extract numeric part and any separators after %
-                num_part = original_discount[:percent_pos+1]  # Include the %
-                separators = original_discount[percent_pos+1:]  # Everything after %
+            # Prefer data-disc attribute; fall back to data-bonus if disc is 0
+            disc_attr = item.get("data-disc", "").strip()
+            bonus_attr = item.get("data-bonus", "").strip()
 
-                try:
-                    rate_value = float(num_part.strip('%'))
-                    rate_value -= decrease_value
-                    rate_value = max(rate_value, 0)
-                    discount_rate = f"{rate_value:.2f}%" + separators
-                except ValueError:
-                    # If conversion fails, keep the original
-                    discount_rate = original_discount
+            try:
+                disc_num = float(disc_attr) if disc_attr else 0.0
+            except ValueError:
+                disc_num = 0.0
+
+            if disc_num > 0:
+                disc_num -= decrease_value
+                disc_num = max(disc_num, 0)
+                discount_rate = f"{disc_num:.2f}%"
+            elif bonus_attr:
+                discount_rate = bonus_attr
             else:
-                # No percentage found, treat as special case (like TP, NET, etc.)
-                try:
-                    # Check if it's a numeric value without %
-                    rate_value = float(original_discount)
-                    rate_value -= decrease_value
-                    rate_value = max(rate_value, 0)
-                    discount_rate = f"{rate_value:.2f}"  # No % since original had none
-                except ValueError:
-                    # Keep original value if it's not numeric
-                    discount_rate = original_discount
+                discount_rate = "0.00%"
 
-            results.append({
-                'name': medicine_name,
-                'discount': discount_rate
-            })
+            results.append({'name': medicine_name, 'discount': discount_rate})
+
+    else:
+        # Default / stock format: <tr class="item">
+        items = soup.find_all("tr", class_="item")
+        # Column index for medicine name differs based on file format
+        # Stock format: columns[2], Default format: columns[1]
+        name_index = 2 if stock_format else 1
+
+        for item in items:
+            columns = item.find_all("td")
+            if len(columns) >= 4:
+                # Extract medicine name and apply title case
+                medicine_name = columns[name_index].text.strip().title()
+                discount_rate = columns[3].text.strip()
+
+                # Check if discount is 0.00% and get bonus rate if available
+                if discount_rate == "0.00%" and len(columns) >= 5:
+                    discount_rate = columns[4].text.strip()
+
+                # Extract numeric part and any additional separators
+                original_discount = discount_rate
+                percent_pos = original_discount.find('%')
+
+                if percent_pos != -1:
+                    # Has a percentage - extract numeric part and any separators after %
+                    num_part = original_discount[:percent_pos+1]  # Include the %
+                    separators = original_discount[percent_pos+1:]  # Everything after %
+
+                    try:
+                        rate_value = float(num_part.strip('%'))
+                        rate_value -= decrease_value
+                        rate_value = max(rate_value, 0)
+                        discount_rate = f"{rate_value:.2f}%" + separators
+                    except ValueError:
+                        # If conversion fails, keep the original
+                        discount_rate = original_discount
+                else:
+                    # No percentage found, treat as special case (like TP, NET, etc.)
+                    try:
+                        # Check if it's a numeric value without %
+                        rate_value = float(original_discount)
+                        rate_value -= decrease_value
+                        rate_value = max(rate_value, 0)
+                        discount_rate = f"{rate_value:.2f}"  # No % since original had none
+                    except ValueError:
+                        # Keep original value if it's not numeric
+                        discount_rate = original_discount
+
+                results.append({
+                    'name': medicine_name,
+                    'discount': discount_rate
+                })
 
     return results
 
@@ -140,13 +174,16 @@ def upload_file():
     # Get stock format checkbox (default to False)
     stock_format = request.form.get('stock_format', 'false').lower() == 'true'
 
+    # Get new format checkbox (default to False)
+    new_format = request.form.get('new_format', 'false').lower() == 'true'
+
     try:
         html_content = file.read().decode('utf-8')
     except UnicodeDecodeError:
         file.seek(0)
         html_content = file.read().decode('latin-1')
 
-    results = process_htm_content(html_content, decrease_value, stock_format)
+    results = process_htm_content(html_content, decrease_value, stock_format, new_format)
     text_output = generate_text_output(results, separator)
 
     # Store for download

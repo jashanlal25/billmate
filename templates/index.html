@@ -1551,6 +1551,14 @@
                         </label>
                         <small class="input-hint">Check this if uploading stock.htm (different column layout)</small>
                     </div>
+                    <div class="input-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="newFormat">
+                            <span class="checkmark"></span>
+                            New format
+                        </label>
+                        <small class="input-hint">Check this for new_pattern.htm style files (item-row layout)</small>
+                    </div>
                     <button class="btn btn-primary" id="processBtn">🚀 Process File</button>
                 </div>
 
@@ -1711,6 +1719,7 @@
         const decreaseValue = document.getElementById('decreaseValue');
         const separatorValue = document.getElementById('separatorValue');
         const stockFormat = document.getElementById('stockFormat');
+        const newFormat = document.getElementById('newFormat');
         const processBtn = document.getElementById('processBtn');
         const fileCounter = document.getElementById('fileCounter');
 
@@ -1808,6 +1817,7 @@
             formData.append('decrease_value', decreaseValue.value);
             formData.append('separator', separatorValue.value);
             formData.append('stock_format', stockFormat.checked);
+            formData.append('new_format', newFormat.checked);
 
             try {
                 const response = await fetch('/upload', {
@@ -1961,6 +1971,7 @@
             decreaseValue.value = 1;
             separatorValue.value = '';
             stockFormat.checked = false;
+            newFormat.checked = false;
         }
 
         let editorCount = 0;
