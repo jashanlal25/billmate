@@ -2,7 +2,6 @@
   "version": 2,
   "functions": {
     "backend/app.py": {
-      "runtime": "python3.12",
       "maxDuration": 30
     }
   },
