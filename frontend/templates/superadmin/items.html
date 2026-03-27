@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin — Global Items</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scrollbar-gutter:stable;background:#0f0c29}
+    body{min-height:100vh;background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0}
+
+    .topnav{display:flex;align-items:center;gap:12px;padding:0 24px;height:58px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+    .nav-logo{font-size:1.2em;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.3px}
+    .nav-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:.72em;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+    .nav-spacer{flex:1}
+    .logout-btn{padding:7px 16px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:.82em;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+    .logout-btn:hover{background:rgba(239,68,68,.25)}
+    .users-btn{padding:7px 16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.7);font-size:.82em;font-weight:600;text-decoration:none;transition:all .2s;margin-right:4px}
+    .users-btn:hover{background:rgba(255,255,255,.12)}
+
+    .page{max-width:1100px;margin:0 auto;padding:28px 20px}
+    .page-head{display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+    .page-title{font-size:1.2em;font-weight:700;color:#fff;flex:1}
+    .search-box{padding:10px 16px;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.07);color:#fff;font-size:.88em;width:220px;outline:none;transition:border .2s}
+    .search-box:focus{border-color:#a78bfa}
+    .search-box::placeholder{color:rgba(255,255,255,.3)}
+    .add-btn{padding:10px 20px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:12px;color:#fff;font-size:.88em;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+    .add-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(124,58,237,.4)}
+
+    .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    th{padding:12px 16px;text-align:left;font-size:.78em;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap}
+    td{padding:12px 16px;font-size:.88em;color:#cbd5e1;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(255,255,255,.03)}
+    .iname{font-weight:700;color:#fff}
+    .icode{font-family:monospace;font-size:.82em;color:rgba(255,255,255,.4)}
+    .num{text-align:right;color:#a78bfa;font-weight:700}
+    .empty{text-align:center;padding:60px;color:rgba(255,255,255,.3)}
+    .empty-icon{font-size:3em;margin-bottom:12px}
+    .act-btn{padding:5px 13px;border:none;border-radius:7px;font-size:.78em;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .ab-edit{background:rgba(245,158,11,.2);color:#fcd34d;margin-right:5px}
+    .ab-edit:hover{background:rgba(245,158,11,.35)}
+    .ab-del{background:rgba(239,68,68,.15);color:#f87171}
+    .ab-del:hover{background:rgba(239,68,68,.28)}
+
+    /* Modal */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+    .overlay.open{display:flex}
+    .modal{background:#1e1b4b;border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:32px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+    .modal-title{font-size:1.1em;font-weight:700;color:#fff;margin-bottom:20px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .fg{margin-bottom:14px}
+    .fg label{display:block;color:rgba(255,255,255,.5);font-size:.78em;font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:5px}
+    .fg input,.fg select{width:100%;padding:10px 14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-size:.9em;outline:none;transition:border .2s}
+    .fg input:focus,.fg select:focus{border-color:#a78bfa}
+    .fg input::placeholder{color:rgba(255,255,255,.25)}
+    .fg select option{background:#1e1b4b}
+    .m-err{color:#f87171;font-size:.82em;margin-bottom:10px;min-height:1em}
+    .m-actions{display:flex;gap:10px;margin-top:6px}
+    .mbtn{flex:1;padding:12px;border:none;border-radius:11px;font-size:.9em;font-weight:700;cursor:pointer;transition:all .2s}
+    .mbtn:hover{transform:translateY(-1px)}
+    .mbtn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
+    .mbtn-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1)}
+    .hint{font-size:.75em;color:rgba(255,255,255,.3);margin-top:3px}
+
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e1b4b;border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 24px;border-radius:12px;font-size:.88em;font-weight:600;z-index:9999;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+
+    @media(max-width:600px){
+      .form-row{grid-template-columns:1fr}
+      table,thead,tbody,th,td,tr{display:block}
+      thead tr{display:none}
+      tr{border-bottom:1.5px solid rgba(255,255,255,.07);padding:10px 0}
+      td{padding:6px 16px;display:flex;justify-content:space-between;align-items:center}
+      td::before{content:attr(data-label);font-size:.75em;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;min-width:80px}
+    }
+  </style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="/superadmin/users" class="nav-logo">⚡ BillMate</a>
+  <span class="nav-badge">SUPER ADMIN</span>
+  <div class="nav-spacer"></div>
+  <a href="/superadmin/users" class="users-btn">👥 Users</a>
+  <a href="/auth/logout" class="logout-btn">Logout</a>
+</nav>
+
+<div class="page">
+  <div class="page-head">
+    <div class="page-title">🌐 Global Items Catalogue <span id="countBadge" style="font-size:.75em;font-weight:500;color:rgba(255,255,255,.4)"></span></div>
+    <input class="search-box" id="searchBox" type="search" placeholder="Search items..." oninput="filterItems(this.value)">
+    <button class="add-btn" onclick="openAdd()">+ Add Global Item</button>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Retail (MRP)</th>
+          <th>Trade Price</th>
+          <th>Tax/unit</th>
+          <th>Bonus</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="itemsTbody">
+        <tr><td colspan="7" class="empty"><div class="empty-icon">⏳</div>Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="overlay" id="itemOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Add Global Item</div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="fg">
+        <label>Item Code</label>
+        <input id="f_code" placeholder="Auto (GITM0001…)">
+      </div>
+      <div class="fg">
+        <label>Category</label>
+        <select id="f_category"><option value="">— None —</option></select>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Item Name *</label>
+      <input id="f_name" placeholder="e.g. Panadol 500mg Tab">
+    </div>
+    <div class="form-row">
+      <div class="fg">
+        <label>Retail Price / MRP *</label>
+        <input id="f_retail" type="number" step="0.01" min="0" placeholder="0.00" oninput="onRetailInput()">
+        <div class="hint">TP auto-calculates as Retail × 0.85</div>
+      </div>
+      <div class="fg">
+        <label>Trade Price (TP)</label>
+        <input id="f_tp" type="number" step="0.01" min="0" placeholder="Auto" oninput="onTpInput()">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="fg">
+        <label>Bonus</label>
+        <input id="f_bonus" placeholder="e.g. 5+5">
+      </div>
+      <div class="fg">
+        <label>Tax (Rs. per unit)</label>
+        <input id="f_tax" type="number" step="0.01" min="0" placeholder="0.00">
+      </div>
+    </div>
+    <div class="m-err" id="itemErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="saveItem()">Save Global Item</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var _allItems = [];
+
+function toast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+async function loadItems(){
+  const r=await fetch('/api/items').catch(()=>null);
+  if(!r||!r.ok){renderItems([]);return;}
+  _allItems=await r.json();
+  document.getElementById('countBadge').textContent='('+_allItems.length+' items)';
+  renderItems(_allItems);
+}
+
+async function loadCategories(){
+  const r=await fetch('/api/categories').catch(()=>null);
+  if(!r||!r.ok) return;
+  const cats=await r.json();
+  const sel=document.getElementById('f_category');
+  cats.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id; o.textContent=c.name;
+    sel.appendChild(o);
+  });
+}
+
+function filterItems(q){
+  const term=q.toLowerCase();
+  const filtered=term?_allItems.filter(i=>i.name.toLowerCase().includes(term)||i.code.toLowerCase().includes(term)):_allItems;
+  renderItems(filtered);
+}
+
+function renderItems(items){
+  const tb=document.getElementById('itemsTbody');
+  if(!items.length){
+    tb.innerHTML='<tr><td colspan="7" class="empty"><div class="empty-icon">💊</div>No global items yet.<br>Click "+ Add Global Item" to share items with all users.</td></tr>';
+    return;
+  }
+  tb.innerHTML=items.map(i=>`
+    <tr>
+      <td data-label="Code"><span class="icode">${esc(i.code)}</span></td>
+      <td data-label="Name"><span class="iname">${esc(i.name)}</span>${i.category?'<br><span style="font-size:.75em;color:rgba(255,255,255,.35)">'+esc(i.category)+'</span>':''}</td>
+      <td data-label="Retail" class="num">Rs. ${(+i.retail_price).toFixed(2)}</td>
+      <td data-label="TP" class="num">Rs. ${(+i.tp).toFixed(2)}</td>
+      <td data-label="Tax" class="num" style="color:rgba(255,255,255,.5)">${(+i.tax_pct)>0?'Rs. '+(+i.tax_pct).toFixed(2):'—'}</td>
+      <td data-label="Bonus" style="color:rgba(255,255,255,.5)">${esc(i.bonus_text)||'—'}</td>
+      <td data-label="Actions">
+        <button class="act-btn ab-edit" onclick="openEdit(${i.id})">Edit</button>
+        <button class="act-btn ab-del" onclick="delItem(${i.id},'${esc(i.name)}')">Delete</button>
+      </td>
+    </tr>`).join('');
+}
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function onRetailInput(){
+  const r=parseFloat(document.getElementById('f_retail').value);
+  if(r>0&&!document.getElementById('f_tp').dataset.manual)
+    document.getElementById('f_tp').value=(r*0.85).toFixed(2);
+}
+function onTpInput(){ document.getElementById('f_tp').dataset.manual='1'; }
+
+function openAdd(){
+  document.getElementById('modalTitle').textContent='Add Global Item';
+  document.getElementById('editId').value='';
+  document.getElementById('f_code').value='';
+  document.getElementById('f_name').value='';
+  document.getElementById('f_retail').value='';
+  document.getElementById('f_tp').value='';
+  document.getElementById('f_tp').dataset.manual='';
+  document.getElementById('f_bonus').value='';
+  document.getElementById('f_tax').value='';
+  document.getElementById('f_category').value='';
+  document.getElementById('itemErr').textContent='';
+  document.getElementById('itemOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f_name').focus(),100);
+}
+
+function openEdit(id){
+  const i=_allItems.find(x=>x.id===id);
+  if(!i) return;
+  document.getElementById('modalTitle').textContent='Edit Global Item';
+  document.getElementById('editId').value=i.id;
+  document.getElementById('f_code').value=i.code;
+  document.getElementById('f_name').value=i.name;
+  document.getElementById('f_retail').value=(+i.retail_price).toFixed(2);
+  document.getElementById('f_tp').value=(+i.tp).toFixed(2);
+  document.getElementById('f_tp').dataset.manual='1';
+  document.getElementById('f_bonus').value=i.bonus_text||'';
+  document.getElementById('f_tax').value=(+i.tax_pct)>0?(+i.tax_pct).toFixed(2):'';
+  document.getElementById('f_category').value=i.category_id||'';
+  document.getElementById('itemErr').textContent='';
+  document.getElementById('itemOverlay').classList.add('open');
+}
+
+function closeModal(){ document.getElementById('itemOverlay').classList.remove('open'); }
+document.getElementById('itemOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+async function saveItem(){
+  const id=document.getElementById('editId').value;
+  const name=document.getElementById('f_name').value.trim();
+  const retail=parseFloat(document.getElementById('f_retail').value);
+  const err=document.getElementById('itemErr');
+  err.textContent='';
+  if(!name){err.textContent='Item name is required';return;}
+  if(!retail||retail<=0){err.textContent='Retail price must be greater than 0';return;}
+  const tp=parseFloat(document.getElementById('f_tp').value)||(retail*0.85);
+  const payload={
+    code: document.getElementById('f_code').value.trim(),
+    name,
+    retail_price: retail,
+    tp,
+    bonus_text: document.getElementById('f_bonus').value.trim(),
+    tax_pct: parseFloat(document.getElementById('f_tax').value)||0,
+    category_id: document.getElementById('f_category').value||null,
+    is_global: true,
+  };
+  const url=id?'/api/items/'+id:'/api/items';
+  const method=id?'PUT':'POST';
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(r&&r.ok){ closeModal(); toast(id?'Item updated!':'Global item added!'); loadItems(); }
+  else{ err.textContent=d.error||'Failed to save item'; }
+}
+
+async function delItem(id,name){
+  if(!confirm('Delete global item "'+name+'"?\nThis will remove it from all users\' catalogues.')) return;
+  const r=await fetch('/api/items/'+id,{method:'DELETE'}).catch(()=>null);
+  if(r&&r.ok){ toast('Deleted'); loadItems(); }
+  else toast('Failed to delete','error');
+}
+
+loadItems();
+loadCategories();
+</script>
+</body>
+</html>

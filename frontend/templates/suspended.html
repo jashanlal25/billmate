@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Suspended</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a0a0a,#2d0f0f,#1a0a0a);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px}
+    .card{background:rgba(239,68,68,.07);border:1.5px solid rgba(239,68,68,.25);border-radius:24px;padding:48px 40px;width:100%;max-width:420px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .icon{font-size:4em;margin-bottom:16px;display:block}
+    .title{font-size:1.5em;font-weight:800;color:#fca5a5;margin-bottom:10px}
+    .msg{font-size:.92em;color:rgba(252,165,165,.7);line-height:1.6;margin-bottom:28px}
+    .badge{display:inline-block;background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.4);color:#f87171;font-size:.78em;font-weight:700;padding:5px 16px;border-radius:20px;letter-spacing:.5px;margin-bottom:28px}
+    .logout-btn{display:inline-block;padding:12px 28px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.6);font-size:.9em;font-weight:600;text-decoration:none;transition:all .2s}
+    .logout-btn:hover{background:rgba(255,255,255,.13);color:#fff}
+    .note{font-size:.75em;color:rgba(255,255,255,.25);margin-top:20px;line-height:1.5}
+  </style>
+</head>
+<body>
+<div class="card">
+  <span class="icon">🔒</span>
+  <div class="badge">ACCOUNT SUSPENDED</div>
+  <div class="title">Your account has been locked</div>
+  <div class="msg">
+    Access to this account has been suspended by the Administrator.<br><br>
+    Please contact your Admin to have your account restored.
+  </div>
+  <a href="/auth/logout" class="logout-btn">Logout</a>
+  <div class="note">If you believe this is a mistake, reach out to your system administrator.</div>
+</div>
+</body>
+</html>

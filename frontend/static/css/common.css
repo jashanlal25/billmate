@@ -1,0 +1,80 @@
+/* === Reset & Theme Variables === */
+*{margin:0;padding:0;box-sizing:border-box}
+html{scrollbar-gutter:stable;background:#1a1a2e}
+:root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row:#f9f9f9;--row-hover:#f0f0ff;--red:#ef4444;--green:#10b981}
+[data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row:#252535;--row-hover:#2e2e44}
+[data-theme=dim]{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#d8d8d8;--text:#000;--sub:#444;--border:#c0c0c0;--inp:#cecece;--shadow:0 4px 15px rgba(0,0,0,.12);--accent:#7c8ef0;--row:#c8c8c8;--row-hover:#d0d0d0;--red:#ef4444;--green:#10b981}
+@view-transition{navigation:auto}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 16px 40px}
+
+/* === Navigation === */
+.nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:4px}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
+.nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.nav-right{display:flex;align-items:center;gap:8px}
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-btn:hover{background:rgba(255,255,255,.15)}
+.user-menu{position:relative;cursor:pointer;padding:7px 14px;border-radius:10px;background:rgba(102,126,234,.15);color:#a5b4fc;font-size:.82em;font-weight:600;user-select:none}
+.user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:120px;z-index:1000}
+.user-menu.open .user-dropdown{display:block}
+.user-dropdown-item{display:block;padding:10px 16px;color:#ef4444;font-size:.9em;font-weight:600;text-decoration:none;transition:background .15s}
+.user-dropdown-item:hover{background:#fef2f2}
+.nav-hamburger{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+.nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
+@media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
+
+/* === Toast === */
+.toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.error{background:#ef4444}
+
+/* === Modal / Overlay === */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+
+/* === Cards === */
+.card{background:var(--card);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+
+/* === Tables === */
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;text-align:left;font-size:.88em;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;color:var(--text);font-size:.88em;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--row-hover)}
+.num{text-align:right;font-family:monospace}
+.empty{text-align:center;padding:60px 20px;color:var(--sub)}
+.empty-icon{font-size:3em;margin-bottom:12px}
+
+/* === Buttons === */
+.btn{padding:10px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(102,126,234,.4)}
+.btn-sm{padding:6px 12px;font-size:.8em;border-radius:8px}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.btn-edit{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.btn-green{background:linear-gradient(135deg,#10b981,#059669)}
+.btn-outline{background:none;border:1.5px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--row-hover);transform:none;box-shadow:none}
+.btn-cancel{background:var(--border);color:var(--text)}
+
+/* === Forms === */
+.form-group{margin-bottom:16px}
+label{display:block;font-size:.82em;font-weight:600;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+input,select{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--accent)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.modal-footer .btn{flex:1}
+
+/* === Number input: hide spinner arrows === */
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+
+/* === Inline inputs (billing/purchase line items) === */
+.qty-inp{width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font-size:.88em;text-align:center;outline:none}
+.qty-inp:focus{border-color:var(--accent)}

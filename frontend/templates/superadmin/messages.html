@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin — Messages</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scrollbar-gutter:stable;background:#0f0c29}
+    body{min-height:100vh;background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0}
+
+    .topnav{display:flex;align-items:center;gap:12px;padding:0 24px;height:58px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+    .nav-logo{font-size:1.2em;font-weight:800;color:#fff;text-decoration:none}
+    .nav-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:.72em;font-weight:700;padding:3px 10px;border-radius:20px}
+    .nav-spacer{flex:1}
+    .nav-link{padding:7px 16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.7);font-size:.82em;font-weight:600;text-decoration:none;transition:all .2s;margin-right:4px}
+    .nav-link:hover{background:rgba(255,255,255,.12)}
+    .logout-btn{padding:7px 16px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:.82em;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+    .logout-btn:hover{background:rgba(239,68,68,.25)}
+
+    .page{max-width:900px;margin:0 auto;padding:28px 20px}
+    .page-head{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+    .page-title{font-size:1.2em;font-weight:700;color:#fff;flex:1}
+
+    .empty{text-align:center;padding:80px 20px;color:rgba(255,255,255,.3)}
+    .empty-icon{font-size:3.5em;margin-bottom:14px}
+    .empty-text{font-size:.95em}
+
+    .req-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 24px;margin-bottom:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .req-card.resolved{opacity:.5}
+    .req-card.dismissed{opacity:.4}
+    .req-icon{font-size:2em;flex-shrink:0}
+    .req-info{flex:1;min-width:0}
+    .req-user{font-size:1em;font-weight:700;color:#fff}
+    .req-time{font-size:.78em;color:rgba(255,255,255,.4);margin-top:3px}
+    .req-status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75em;font-weight:700;margin-top:6px}
+    .s-pending{background:rgba(245,158,11,.15);color:#fcd34d}
+    .s-resolved{background:rgba(16,185,129,.15);color:#6ee7b7}
+    .s-dismissed{background:rgba(100,116,139,.15);color:#94a3b8}
+    .req-actions{display:flex;gap:8px;flex-shrink:0}
+    .act-btn{padding:8px 16px;border:none;border-radius:9px;font-size:.82em;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .ab-reset{background:rgba(124,58,237,.2);color:#a78bfa}
+    .ab-reset:hover{background:rgba(124,58,237,.35)}
+    .ab-dismiss{background:rgba(100,116,139,.15);color:#94a3b8}
+    .ab-dismiss:hover{background:rgba(100,116,139,.25)}
+
+    /* Modal */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+    .overlay.open{display:flex}
+    .modal{background:#1e1b4b;border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+    .modal-icon{font-size:2.5em;text-align:center;margin-bottom:10px}
+    .modal-title{font-size:1.1em;font-weight:700;color:#fff;text-align:center;margin-bottom:4px}
+    .modal-sub{font-size:.85em;color:rgba(255,255,255,.45);text-align:center;margin-bottom:22px}
+    .m-label{display:block;color:rgba(255,255,255,.5);font-size:.78em;font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+    .m-inp{width:100%;padding:12px 16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;font-size:.92em;outline:none;margin-bottom:14px;transition:border .2s}
+    .m-inp:focus{border-color:#a78bfa}
+    .m-err{color:#f87171;font-size:.82em;margin-bottom:10px;min-height:1em;text-align:center}
+    .m-actions{display:flex;gap:10px;margin-top:4px}
+    .mbtn{flex:1;padding:12px;border:none;border-radius:11px;font-size:.9em;font-weight:700;cursor:pointer;transition:all .2s}
+    .mbtn:hover{transform:translateY(-1px)}
+    .mbtn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
+    .mbtn-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1)}
+
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e1b4b;border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 24px;border-radius:12px;font-size:.88em;font-weight:600;z-index:9999;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="/superadmin/users" class="nav-logo">⚡ BillMate</a>
+  <span class="nav-badge">SUPER ADMIN</span>
+  <div class="nav-spacer"></div>
+  <a href="/superadmin/users" class="nav-link">👥 Users</a>
+  <a href="/superadmin/items" class="nav-link">🌐 Items</a>
+  <a href="/auth/logout" class="logout-btn">Logout</a>
+</nav>
+
+<div class="page">
+  <div class="page-head">
+    <div class="page-title">📬 Password Reset Requests</div>
+  </div>
+  <div id="reqList"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Loading…</div></div></div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="overlay" id="resetOverlay">
+  <div class="modal">
+    <div class="modal-icon">🔑</div>
+    <div class="modal-title">Reset User Password</div>
+    <div class="modal-sub" id="resetModalSub">Set a new password for this user</div>
+    <input type="hidden" id="resetReqId">
+    <label class="m-label">New Password</label>
+    <input class="m-inp" id="resetNewPwd" type="password" placeholder="Min. 4 characters" autocomplete="new-password">
+    <label class="m-label">Confirm Password</label>
+    <input class="m-inp" id="resetConfirmPwd" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doResolve()">
+    <div class="m-err" id="resetErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="doResolve()">Reset &amp; Resolve</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var _requests = [];
+
+function toast(msg,dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+async function loadRequests(){
+  const r=await fetch('/api/superadmin/messages').catch(()=>null);
+  if(!r||!r.ok){document.getElementById('reqList').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load requests</div></div>';return;}
+  const d=await r.json();
+  _requests=d.requests||[];
+  render();
+}
+
+function render(){
+  const el=document.getElementById('reqList');
+  if(!_requests.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No password reset requests yet.</div></div>';
+    return;
+  }
+  el.innerHTML=_requests.map(r=>`
+    <div class="req-card ${r.status}">
+      <div class="req-icon">${r.status==='pending'?'🔔':r.status==='resolved'?'✅':'🚫'}</div>
+      <div class="req-info">
+        <div class="req-user">👤 ${esc(r.username)}</div>
+        <div class="req-time">Requested: ${r.requested_at}${r.resolved_at?' &nbsp;·&nbsp; Resolved: '+r.resolved_at:''}</div>
+        <span class="req-status s-${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span>
+      </div>
+      ${r.status==='pending'?`
+      <div class="req-actions">
+        <button class="act-btn ab-reset" onclick="openReset(${r.id},'${esc(r.username)}')">Reset Password</button>
+        <button class="act-btn ab-dismiss" onclick="doDismiss(${r.id})">Dismiss</button>
+      </div>`:''}
+    </div>`).join('');
+}
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function openReset(id,uname){
+  document.getElementById('resetReqId').value=id;
+  document.getElementById('resetModalSub').textContent='Setting new password for: '+uname;
+  document.getElementById('resetNewPwd').value='';
+  document.getElementById('resetConfirmPwd').value='';
+  document.getElementById('resetErr').textContent='';
+  document.getElementById('resetOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('resetNewPwd').focus(),100);
+}
+function closeModal(){document.getElementById('resetOverlay').classList.remove('open');}
+document.getElementById('resetOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+async function doResolve(){
+  const id=document.getElementById('resetReqId').value;
+  const p=document.getElementById('resetNewPwd').value.trim();
+  const c=document.getElementById('resetConfirmPwd').value.trim();
+  const err=document.getElementById('resetErr');
+  err.textContent='';
+  if(!p){err.textContent='Password is required';return;}
+  if(p.length<4){err.textContent='At least 4 characters required';return;}
+  if(p!==c){err.textContent='Passwords do not match';return;}
+  const r=await fetch('/api/superadmin/messages/'+id+'/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({new_password:p})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){closeModal();toast('Password reset successfully');loadRequests();}
+  else{err.textContent=d.error||'Failed to reset password';}
+}
+
+async function doDismiss(id){
+  if(!confirm('Dismiss this request?')) return;
+  const r=await fetch('/api/superadmin/messages/'+id+'/dismiss',{method:'POST'}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){toast('Request dismissed');loadRequests();}
+  else toast('Failed to dismiss');
+}
+
+loadRequests();
+</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome — BillMate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
+@view-transition{navigation:auto}
+body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:100%;max-width:420px}
+.logo{text-align:center;margin-bottom:36px}
+.logo-text{font-size:2.2em;font-weight:800;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{color:rgba(255,255,255,.5);font-size:.95em;margin-top:6px}
+.card{background:#fff;border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.tab-row{display:flex;gap:0;margin-bottom:28px;background:#f1f3f9;border-radius:12px;padding:4px}
+.tab{flex:1;padding:10px;border:none;border-radius:10px;font-size:.9em;font-weight:600;cursor:pointer;background:transparent;color:#888;transition:all .2s}
+.tab.active{background:#fff;color:#1a1a2e;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.form{display:none}
+.form.active{display:block}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.78em;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.field input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:11px;font-size:.95em;outline:none;color:#1a1a2e;background:#f8f9fa;transition:border-color .2s}
+.field input:focus{border-color:#667eea;background:#fff}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:42px}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:#aaa;line-height:1;padding:2px}
+.btn-main{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
+.btn-main:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.err{color:#ef4444;font-size:.82em;margin-top:8px;display:none}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#bbb;font-size:.82em}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e0e0e0}
+.btn-guest{width:100%;padding:12px;border:1.5px solid #e0e0e0;border-radius:12px;background:#fff;color:#555;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-guest:hover{border-color:#667eea;color:#667eea}
+.guest-note{font-size:.78em;color:#aaa;text-align:center;margin-top:10px}
+.denied-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;color:#dc2626;font-size:.85em;margin-bottom:20px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-text">BillMate</div>
+    <div class="logo-sub">Smart billing for your business</div>
+  </div>
+
+  <div class="card">
+    {% if denied %}
+    <div class="denied-msg">🔒 That page requires a registered account.</div>
+    {% endif %}
+
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('login')">Login</button>
+      <button class="tab" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <!-- Login -->
+    <div class="form active" id="formLogin">
+      <div class="field"><label>Username</label><input id="l_user" type="text" placeholder="Your username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><div class="pw-wrap"><input id="l_pass" type="password" placeholder="Your password" autocomplete="current-password"><button type="button" class="eye-btn" onclick="toggleEye('l_pass',this)">👁️</button></div></div>
+      <div class="err" id="l_err"></div>
+      <button class="btn-main" onclick="doLogin()">Login</button>
+      <div style="text-align:center;margin-top:12px"><a href="#" onclick="showResetForm();return false" style="font-size:.82em;color:#667eea;text-decoration:none;font-weight:600">Forgot Password?</a></div>
+    </div>
+
+    <!-- Forgot Password — request to superadmin -->
+    <div class="form" id="formReset">
+      <div style="font-size:.85em;color:#888;margin-bottom:6px;text-align:center">Enter your username and send a reset request to the Admin.</div>
+      <div style="font-size:.78em;color:#aaa;margin-bottom:18px;text-align:center">Admin will reset your password and inform you.</div>
+      <div class="field"><label>Username</label><input id="rs_user" type="text" placeholder="Your username" autocomplete="username"></div>
+      <div class="err" id="rs_err"></div>
+      <div class="ok" id="rs_ok" style="display:none;font-size:.85em;color:#10b981;background:#f0fdf4;border-radius:8px;padding:10px 14px;text-align:center;margin-bottom:10px"></div>
+      <button class="btn-main" id="rs_btn" onclick="doReset()">Send Reset Request</button>
+      <div style="text-align:center;margin-top:12px"><a href="#" onclick="backToLogin();return false" style="font-size:.82em;color:#667eea;text-decoration:none;font-weight:600">← Back to Login</a></div>
+    </div>
+
+    <!-- Register -->
+    <div class="form" id="formRegister">
+      <div class="field"><label>Username</label><input id="r_user" type="text" placeholder="Choose a username"></div>
+      <div class="field"><label>Password</label><div class="pw-wrap"><input id="r_pass" type="password" placeholder="Min 4 characters"><button type="button" class="eye-btn" onclick="toggleEye('r_pass',this)">👁️</button></div></div>
+      <div class="field"><label>Confirm Password</label><div class="pw-wrap"><input id="r_pass2" type="password" placeholder="Repeat password"><button type="button" class="eye-btn" onclick="toggleEye('r_pass2',this)">👁️</button></div></div>
+      <div class="field" style="border-top:1.5px solid #e0e0e0;padding-top:16px;margin-top:20px"><label style="color:#764ba2">Admin Password</label><div class="pw-wrap"><input id="r_admin_pass" type="password" placeholder="Set admin panel password"><button type="button" class="eye-btn" onclick="toggleEye('r_admin_pass',this)">👁️</button></div><div style="font-size:.72em;color:#aaa;margin-top:4px">Separate password to access admin panel</div></div>
+      <div class="err" id="r_err"></div>
+      <button class="btn-main" onclick="doRegister()">Create Account</button>
+    </div>
+
+    <div class="divider">or</div>
+    <button class="btn-guest" onclick="location.href='/auth/guest'">👤 Continue as Guest</button>
+    <div class="guest-note">Guest: billing &amp; items only &nbsp;·&nbsp; max 3 invoices / 12 hrs</div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['login','register'][i]===tab));
+  document.getElementById('formLogin').classList.toggle('active',tab==='login');
+  document.getElementById('formRegister').classList.toggle('active',tab==='register');
+}
+
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block';}
+function hideErr(id){document.getElementById(id).style.display='none';}
+
+async function doLogin(){
+  hideErr('l_err');
+  const username=document.getElementById('l_user').value.trim();
+  const password=document.getElementById('l_pass').value;
+  if(!username||!password){showErr('l_err','Please fill in all fields');return;}
+  const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+  const res=await r.json();
+  if(r.ok) location.href=res.redirect||'/billing';
+  else showErr('l_err',res.error||'Login failed');
+}
+
+async function doRegister(){
+  hideErr('r_err');
+  const username=document.getElementById('r_user').value.trim();
+  const password=document.getElementById('r_pass').value;
+  const pass2=document.getElementById('r_pass2').value;
+  if(!username||!password){showErr('r_err','Please fill in all fields');return;}
+  if(password!==pass2){showErr('r_err','Passwords do not match');return;}
+  const admin_password=document.getElementById('r_admin_pass').value;
+  const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,admin_password})});
+  const res=await r.json();
+  if(r.ok) location.href=res.needs_setup?'/admin/setup':'/billing';
+  else showErr('r_err',res.error||'Registration failed');
+}
+
+function toggleEye(id, btn){
+  const inp=document.getElementById(id);
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+}
+
+function showResetForm(){
+  document.querySelectorAll('.form').forEach(f=>f.classList.remove('active'));
+  document.getElementById('formReset').classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+}
+function backToLogin(){
+  document.querySelectorAll('.form').forEach(f=>f.classList.remove('active'));
+  document.getElementById('formLogin').classList.add('active');
+  document.querySelectorAll('.tab')[0].classList.add('active');
+}
+async function doReset(){
+  hideErr('rs_err');
+  document.getElementById('rs_ok').style.display='none';
+  const username=document.getElementById('rs_user').value.trim();
+  if(!username){showErr('rs_err','Please enter your username');return;}
+  const btn=document.getElementById('rs_btn');
+  btn.disabled=true;btn.textContent='Sending…';
+  const r=await fetch('/api/forgot-password-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});
+  const res=await r.json();
+  btn.disabled=false;btn.textContent='Send Reset Request';
+  if(r.ok){
+    const ok=document.getElementById('rs_ok');
+    ok.textContent='Request sent! Please contact your Admin to get your new password.';
+    ok.style.display='block';
+    document.getElementById('rs_user').value='';
+  } else showErr('rs_err',res.error||'Request failed');
+}
+
+// Enter key support
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  if(document.getElementById('formLogin').classList.contains('active')) doLogin();
+  else if(document.getElementById('formReset').classList.contains('active')) doReset();
+  else doRegister();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
+:root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row-hover:#f0f0ff}
+[data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row-hover:#2e2e44}
+@view-transition{navigation:auto}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 20px 40px}
+.nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:4px}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
+.nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.nav-right{display:flex;align-items:center;gap:8px}
+.user-menu{position:relative;cursor:pointer;padding:7px 14px;border-radius:10px;background:rgba(102,126,234,.15);color:#a5b4fc;font-size:.82em;font-weight:600;user-select:none}
+.user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:120px;z-index:1000}
+.user-menu.open .user-dropdown{display:block}
+.user-dropdown-item{display:block;padding:10px 16px;color:#ef4444;font-size:.9em;font-weight:600;text-decoration:none;transition:background .15s}
+.user-dropdown-item:hover{background:#fef2f2}
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.container{max-width:1000px;margin:0 auto}
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+h1{color:#fff;font-size:1.5em;font-weight:700;flex:1}
+.search-box{padding:10px 16px;border:1.5px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:.9em;width:220px;outline:none}
+.search-box::placeholder{color:rgba(255,255,255,.4)}
+.btn{padding:10px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(102,126,234,.4)}
+.btn-sm{padding:6px 12px;font-size:.8em;border-radius:8px}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.btn-edit{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.btn-bill{background:linear-gradient(135deg,#10b981,#059669)}
+.card{background:var(--card);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;text-align:left;font-size:.8em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+td{padding:12px 16px;color:var(--text);font-size:.9em;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--row-hover)}
+.bal-pos{color:#ef4444;font-weight:600}
+.bal-zero{color:#888}
+.empty{text-align:center;padding:60px 20px;color:var(--sub)}
+.empty-icon{font-size:3em;margin-bottom:12px}
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal h2{color:var(--text);font-size:1.2em;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+label{display:block;font-size:.82em;font-weight:600;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+input,textarea{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none;transition:border-color .2s}
+input:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:70px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.modal-footer .btn{flex:1}
+.btn-cancel{background:var(--border);color:var(--text)}
+.toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.error{background:#ef4444}
+.nav-hamburger{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+.nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
+@media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
+@media(max-width:640px){
+  .search-box{width:100%}
+  table,thead,tbody,th,td,tr{display:block}
+  thead tr{display:none}
+  tr{border-bottom:2px solid var(--border);padding:8px 0}
+  tr:last-child{border-bottom:none}
+  td{padding:6px 16px;display:flex;justify-content:space-between;align-items:center;font-size:.88em}
+  td::before{content:attr(data-label);font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;min-width:80px;flex-shrink:0}
+  td:last-child{flex-direction:column;align-items:flex-start}
+  td:last-child::before{content:'Actions'}
+  td:last-child>*{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .btn-sm{padding:9px 14px;font-size:.82em}
+  body{padding-top:80px}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
+  <div class="nav-links">
+    <a href="/billing"   class="nav-link">🧾 Billing</a>
+    <a href="/items"     class="nav-link">💊 Items</a>
+    <a href="/customers" class="nav-link active">👥 Customers</a>
+    <a href="/purchase" class="nav-link">🛒 Purchase</a>
+    <a href="/admin"  class="nav-link">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-btn" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu" onclick="this.classList.toggle('open')">
+      <span class="user-name">{{ session.username or 'Guest' }}</span>
+      <div class="user-dropdown">
+        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
+      </div>
+    </div>
+    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing" class="nav-link">🧾 Billing</a>
+  <a href="/items" class="nav-link">💊 Items</a>
+  <a href="/customers" class="nav-link active">👥 Customers</a>
+  <a href="/purchase" class="nav-link">🛒 Purchase</a>
+  <a href="/admin" class="nav-link">🛡️ Admin</a>
+</div>
+
+<div class="container">
+  <div class="top-bar">
+    <h1>👥 Customers</h1>
+    <input class="search-box" id="searchBox" placeholder="Search by name or phone..." oninput="search(this.value)">
+    <button class="btn" onclick="openModal()">+ Add Customer</button>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>WhatsApp</th>
+          <th>Address</th>
+          <th>Credit Limit</th>
+          <th>Balance Due</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="custBody">
+        <tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div>Loading...</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="modal" onclick="closeOnBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Add Customer</h2>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label>Full Name *</label>
+      <input id="f_name" placeholder="Customer or shop name" oninput="this.value=toTitleCase(this.value)">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone</label>
+        <input id="f_phone" type="tel" placeholder="03xxxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input id="f_wa" type="tel" placeholder="923xxxxxxxxx">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Address</label>
+      <textarea id="f_addr" placeholder="Shop / delivery address"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Credit Limit (Rs.)</label>
+      <input id="f_credit" type="number" step="0.01" min="0" placeholder="0 = cash only">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input id="f_notes" placeholder="Any notes...">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="saveCustomer()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="viewModal" onclick="if(event.target===this)closeViewModal()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 id="vm_name" style="color:var(--text);font-size:1.2em"></h2>
+      <button onclick="closeViewModal()" style="background:none;border:none;font-size:1.3em;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Phone</span><span id="vm_phone" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">WhatsApp</span><span id="vm_wa" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Address</span><span id="vm_addr" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Credit Limit</span><span id="vm_credit" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Balance Due</span><span id="vm_balance" style="font-weight:600"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Notes</span><span id="vm_notes" style="font-weight:600;color:var(--text)"></span></div>
+    </div>
+    <div style="margin-top:20px">
+      <button id="vm_bill_btn" class="btn" style="width:100%">🧾 New Bill</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const theme = localStorage.getItem('theme') || 'light';
+if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+
+let allCustomers = [];
+
+function toast(msg, err=false){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show'+(err?' error':'');
+  setTimeout(()=>t.className='toast', 2800);
+}
+
+async function loadCustomers(q=''){
+  const r = await fetch('/api/customers?q='+encodeURIComponent(q));
+  allCustomers = await r.json();
+  render(allCustomers);
+}
+
+function render(list){
+  const body = document.getElementById('custBody');
+  if(!list.length){
+    body.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div>No customers yet.<br>Click "+ Add Customer" to get started.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(c=>`
+    <tr>
+      <td data-label="Name" style="font-weight:600">${c.name}</td>
+      <td data-label="Phone">${c.phone||'—'}</td>
+      <td data-label="WhatsApp">${c.whatsapp?`<a href="https://wa.me/${c.whatsapp}" target="_blank" style="color:#25d366">${c.whatsapp}</a>`:'—'}</td>
+      <td data-label="Address" style="font-size:.85em;color:#888;max-width:180px;overflow:hidden;text-overflow:ellipsis">${c.address||'—'}</td>
+      <td data-label="Credit Limit">Rs. ${(+c.credit_limit).toFixed(0)}</td>
+      <td data-label="Balance Due" class="${c.balance>0?'bal-pos':'bal-zero'}">Rs. ${(+c.balance).toFixed(2)}</td>
+      <td><div><button class="btn btn-sm" onclick="viewCustomer(${c.id})">View</button><button class="btn btn-sm btn-bill" onclick="newBill(${c.id})">Bill</button></div></td>
+    </tr>`).join('');
+}
+
+let searchTimer;
+function search(q){ clearTimeout(searchTimer); searchTimer = setTimeout(()=>loadCustomers(q), 300); }
+function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
+
+function openModal(reset=true){
+  if(reset){
+    document.getElementById('modalTitle').textContent = 'Add Customer';
+    document.getElementById('editId').value='';
+    ['f_name','f_phone','f_wa','f_addr','f_credit','f_notes'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function closeOnBg(e){ if(e.target===document.getElementById('modal')) closeModal(); }
+
+function editCustomer(id){
+  const c = allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('modalTitle').textContent='Edit Customer';
+  document.getElementById('editId').value=c.id;
+  document.getElementById('f_name').value=c.name;
+  document.getElementById('f_phone').value=c.phone||'';
+  document.getElementById('f_wa').value=c.whatsapp||'';
+  document.getElementById('f_addr').value=c.address||'';
+  document.getElementById('f_credit').value=c.credit_limit||'';
+  document.getElementById('f_notes').value=c.notes||'';
+  openModal(false);
+}
+
+async function saveCustomer(){
+  const id=document.getElementById('editId').value;
+  const name=document.getElementById('f_name').value.trim();
+  if(!name){toast('Name required',true);return;}
+  const payload={
+    name,
+    phone:document.getElementById('f_phone').value.trim(),
+    whatsapp:document.getElementById('f_wa').value.trim(),
+    address:document.getElementById('f_addr').value.trim(),
+    credit_limit:parseFloat(document.getElementById('f_credit').value)||0,
+    notes:document.getElementById('f_notes').value.trim(),
+  };
+  const url=id?`/api/customers/${id}`:'/api/customers';
+  const method=id?'PUT':'POST';
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const res=await r.json();
+  if(r.ok){toast(id?'Customer updated!':'Customer added!');closeModal();loadCustomers(document.getElementById('searchBox').value);}
+  else toast(res.error||'Error',true);
+}
+
+async function deleteCustomer(id,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  const r=await fetch(`/api/customers/${id}`,{method:'DELETE'});
+  if(r.ok){toast('Deleted');loadCustomers(document.getElementById('searchBox').value);}
+  else toast('Error',true);
+}
+
+function viewCustomer(id){
+  const c = allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('vm_name').textContent = c.name;
+  document.getElementById('vm_phone').textContent = c.phone||'—';
+  document.getElementById('vm_wa').textContent = c.whatsapp||'—';
+  document.getElementById('vm_addr').textContent = c.address||'—';
+  document.getElementById('vm_credit').textContent = 'Rs. '+(+c.credit_limit).toFixed(0);
+  const bal = document.getElementById('vm_balance');
+  bal.textContent = 'Rs. '+(+c.balance).toFixed(2);
+  bal.style.color = c.balance>0?'#ef4444':'#888';
+  document.getElementById('vm_notes').textContent = c.notes||'—';
+  document.getElementById('vm_bill_btn').onclick = ()=>{ closeViewModal(); newBill(id); };
+  document.getElementById('viewModal').classList.add('open');
+}
+function closeViewModal(){ document.getElementById('viewModal').classList.remove('open'); }
+
+function newBill(customerId){
+  window.location.href = `/billing?customer=${customerId}`;
+}
+
+function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+loadCustomers();
+(function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
+fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
+document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
+</script>
+</body>
+</html>

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin — Users</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scrollbar-gutter:stable;background:#0f0c29}
+    body{min-height:100vh;background:linear-gradient(135deg,#0f0c29 0%,#1a1a3e 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#e2e8f0}
+
+    /* Top nav */
+    .topnav{display:flex;align-items:center;gap:12px;padding:0 24px;height:58px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+    .nav-logo{font-size:1.2em;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.3px}
+    .nav-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:.72em;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+    .nav-spacer{flex:1}
+    .nav-user{color:rgba(255,255,255,.5);font-size:.85em}
+    .logout-btn{padding:7px 16px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:.82em;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
+    .logout-btn:hover{background:rgba(239,68,68,.25)}
+
+    /* Page */
+    .page{max-width:1100px;margin:0 auto;padding:28px 20px}
+
+    /* Stats */
+    .stats-row{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+    .stat-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px 24px;flex:1;min-width:140px}
+    .stat-val{font-size:2em;font-weight:800;color:#a78bfa;line-height:1}
+    .stat-label{font-size:.8em;color:rgba(255,255,255,.45);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+
+    /* Section header */
+    .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .sec-title{font-size:1.05em;font-weight:700;color:#fff;flex:1}
+    .search-box{padding:10px 16px;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(255,255,255,.07);color:#fff;font-size:.88em;width:230px;outline:none;transition:border .2s}
+    .search-box:focus{border-color:#a78bfa}
+    .search-box::placeholder{color:rgba(255,255,255,.3)}
+
+    /* Table card */
+    .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    th{padding:12px 16px;text-align:left;font-size:.8em;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap}
+    td{padding:13px 16px;font-size:.88em;color:#cbd5e1;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(255,255,255,.03)}
+    .uname{font-weight:700;color:#fff}
+    .shop{font-size:.82em;color:rgba(255,255,255,.45)}
+    .badge-setup{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75em;font-weight:700}
+    .b-done{background:rgba(16,185,129,.15);color:#6ee7b7}
+    .b-pend{background:rgba(245,158,11,.15);color:#fcd34d}
+    .num{color:#a78bfa;font-weight:700}
+    .empty{text-align:center;padding:60px;color:rgba(255,255,255,.3)}
+    .empty-icon{font-size:3em;margin-bottom:12px}
+
+    /* Action buttons */
+    .act-btns{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+    .act-btn{padding:5px 13px;border:none;border-radius:7px;font-size:.78em;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;margin:0}
+    .ab-pwd{background:rgba(124,58,237,.2);color:#a78bfa}
+    .ab-pwd:hover{background:rgba(124,58,237,.35)}
+    .ab-suspend{background:rgba(245,158,11,.15);color:#fcd34d}
+    .ab-suspend:hover{background:rgba(245,158,11,.28)}
+    .ab-unsuspend{background:rgba(16,185,129,.15);color:#6ee7b7}
+    .ab-unsuspend:hover{background:rgba(16,185,129,.28)}
+    .ab-del{background:rgba(239,68,68,.15);color:#f87171}
+    .ab-del:hover{background:rgba(239,68,68,.28)}
+    .ab-unlock{background:rgba(249,115,22,.18);color:#fb923c}
+    .ab-unlock:hover{background:rgba(249,115,22,.32)}
+    .badge-suspended{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7em;font-weight:700;background:rgba(239,68,68,.2);color:#f87171;margin-left:6px;vertical-align:middle}
+    .badge-adminlock{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7em;font-weight:700;background:rgba(249,115,22,.2);color:#fb923c;margin-left:6px;vertical-align:middle}
+    .uname-link{cursor:pointer;border-bottom:1px dashed rgba(167,139,250,.5);transition:color .2s}
+    .uname-link:hover{color:#a78bfa}
+    .profile-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+    .profile-row:last-child{border-bottom:none}
+    .profile-icon{font-size:1.2em;width:28px;text-align:center;flex-shrink:0;padding-top:1px}
+    .profile-info{flex:1}
+    .profile-label{font-size:.72em;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:2px}
+    .profile-val{font-size:.9em;color:#e2e8f0;word-break:break-word}
+    .profile-val a{color:#a78bfa;text-decoration:none}
+    .profile-val a:hover{text-decoration:underline}
+    .uid-chip{display:inline-block;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:#a78bfa;font-size:.75em;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:18px}
+    .no-info{color:rgba(255,255,255,.25);font-style:italic;font-size:.85em}
+
+    /* Overlays */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+    .overlay.open{display:flex}
+    .modal{background:#1e1b4b;border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:32px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+    .modal-icon{font-size:2.5em;text-align:center;margin-bottom:10px}
+    .modal-title{font-size:1.15em;font-weight:700;color:#fff;text-align:center;margin-bottom:4px}
+    .modal-sub{font-size:.85em;color:rgba(255,255,255,.45);text-align:center;margin-bottom:24px}
+    .m-label{display:block;color:rgba(255,255,255,.55);font-size:.78em;font-weight:600;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px}
+    .m-inp{width:100%;padding:12px 16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;font-size:.92em;outline:none;margin-bottom:14px;transition:border .2s}
+    .m-inp:focus{border-color:#a78bfa}
+    .pwd-wrap{position:relative;margin-bottom:14px}
+    .pwd-wrap .m-inp{margin-bottom:0;padding-right:46px}
+    .pwd-wrap .eye-btn{position:absolute;right:0;top:0;height:100%;width:44px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);font-size:1.1em;display:flex;align-items:center;justify-content:center;transition:color .2s}
+    .pwd-wrap .eye-btn:hover{color:rgba(255,255,255,.75)}
+    .m-err{color:#f87171;font-size:.82em;margin-bottom:12px;min-height:1em;text-align:center}
+    .m-actions{display:flex;gap:10px;margin-top:6px}
+    .mbtn{flex:1;padding:12px;border:none;border-radius:11px;font-size:.9em;font-weight:700;cursor:pointer;transition:all .2s}
+    .mbtn:hover{transform:translateY(-1px)}
+    .mbtn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
+    .mbtn-danger{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff}
+    .mbtn-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1)}
+    .del-name{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 16px;text-align:center;color:#f87171;font-weight:700;margin-bottom:16px}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e1b4b;border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 24px;border-radius:12px;font-size:.88em;font-weight:600;z-index:9999;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+
+    @media(max-width:640px){
+      .stats-row{flex-direction:column}
+      .search-box{width:100%}
+      table,thead,tbody,th,td,tr{display:block}
+      thead tr{display:none}
+      tr{border-bottom:1.5px solid rgba(255,255,255,.07);padding:10px 0}
+      td{padding:6px 16px;display:flex;justify-content:space-between;align-items:center}
+      td::before{content:attr(data-label);font-size:.75em;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;min-width:80px}
+      td:last-child{flex-direction:column;align-items:flex-start;gap:6px}
+      td:last-child .act-btns{flex-wrap:wrap;gap:5px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top nav -->
+<nav class="topnav">
+  <a href="/superadmin/users" class="nav-logo">⚡ BillMate</a>
+  <span class="nav-badge">SUPER ADMIN</span>
+  <div class="nav-spacer"></div>
+  <span class="nav-user">{{ session.username }}</span>
+  <a href="/superadmin/messages" class="logout-btn" style="background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;margin-right:6px">📬 Messages <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.78em;margin-left:3px"></span></a>
+  <a href="/superadmin/items" class="logout-btn" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;margin-right:6px">🌐 Global Items</a>
+  <button class="logout-btn" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.4);color:#a78bfa;margin-right:6px" onclick="openOwnPwdModal()">Change Password</button>
+  <a href="/auth/logout" class="logout-btn">Logout</a>
+</nav>
+
+<div class="page">
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-val" id="statTotal">—</div>
+      <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statSetup">—</div>
+      <div class="stat-label">Setup Complete</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statInvoices">—</div>
+      <div class="stat-label">Total Invoices</div>
+    </div>
+  </div>
+
+  <!-- Table section -->
+  <div class="sec-head">
+    <div class="sec-title">All Users</div>
+    <input class="search-box" id="searchBox" type="search" placeholder="Search username..." oninput="filterUsers(this.value)">
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Username</th>
+          <th>Shop Name</th>
+          <th>Setup</th>
+          <th>Invoices</th>
+          <th>Items</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersTbody">
+        <tr><td colspan="8" class="empty"><div class="empty-icon">⏳</div>Loading users…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="overlay" id="pwdOverlay">
+  <div class="modal">
+    <div class="modal-icon">🔑</div>
+    <div class="modal-title">Change Login Password</div>
+    <div class="modal-sub" id="pwdModalSub">Set a new login password for this user</div>
+    <input type="hidden" id="pwdUserId">
+    <label class="m-label">New Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="newPwd" type="password" placeholder="Min. 4 characters" autocomplete="new-password"><button type="button" class="eye-btn" onclick="toggleEye('newPwd',this)">👁</button></div>
+    <label class="m-label">Confirm Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="confirmPwd" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')savePwd()"><button type="button" class="eye-btn" onclick="toggleEye('confirmPwd',this)">👁</button></div>
+    <div class="m-err" id="pwdErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closePwdModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="savePwd()">Save Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change Own Password Modal -->
+<div class="overlay" id="ownPwdOverlay">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">Change Super Admin Password</div>
+    <div class="modal-sub">Set a new password for your Super Admin account</div>
+    <label class="m-label">New Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="ownNewPwd" type="password" placeholder="Min. 4 characters" autocomplete="new-password"><button type="button" class="eye-btn" onclick="toggleEye('ownNewPwd',this)">👁</button></div>
+    <label class="m-label">Confirm Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="ownConfirmPwd" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')saveOwnPwd()"><button type="button" class="eye-btn" onclick="toggleEye('ownConfirmPwd',this)">👁</button></div>
+    <div class="m-err" id="ownPwdErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeOwnPwdModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="saveOwnPwd()">Update Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unlock Admin Modal -->
+<div class="overlay" id="unlockAdminOverlay">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">Unlock Admin Panel</div>
+    <div class="modal-sub" id="unlockAdminSub">Set a new admin panel password for this user</div>
+    <input type="hidden" id="unlockAdminUserId">
+    <input type="hidden" id="unlockAdminUserName">
+    <label class="m-label">New Admin Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="unlockAdminPwd" type="password" placeholder="Min. 4 characters" autocomplete="new-password"><button type="button" class="eye-btn" onclick="toggleEye('unlockAdminPwd',this)">👁</button></div>
+    <label class="m-label">Confirm Password</label>
+    <div class="pwd-wrap"><input class="m-inp" id="unlockAdminConfirm" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doUnlockAdmin()"><button type="button" class="eye-btn" onclick="toggleEye('unlockAdminConfirm',this)">👁</button></div>
+    <div class="m-err" id="unlockAdminErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeUnlockAdminModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="doUnlockAdmin()">Unlock &amp; Set Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Profile Modal -->
+<div class="overlay" id="profileOverlay">
+  <div class="modal">
+    <div class="modal-icon">👤</div>
+    <div class="modal-title" id="profileName">—</div>
+    <div style="text-align:center"><span class="uid-chip" id="profileUid">ID #—</span></div>
+    <div id="profileBody"></div>
+    <div class="m-actions" style="margin-top:16px">
+      <button class="mbtn mbtn-close" onclick="closeProfile()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="overlay" id="delOverlay">
+  <div class="modal">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">Delete User</div>
+    <div class="modal-sub">This will permanently delete all data including invoices, items, customers, and purchases.</div>
+    <div class="del-name" id="delUserName">username</div>
+    <input type="hidden" id="delUserId">
+    <div class="m-err" id="delErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeDelModal()">Cancel</button>
+      <button class="mbtn mbtn-danger" onclick="confirmDelete()">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+var _allUsers = [];
+
+function toggleEye(id, btn){
+  const inp=document.getElementById(id);
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁';
+}
+
+function toast(msg, dur=2500){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+async function loadUsers(){
+  const r=await fetch('/api/superadmin/users').catch(()=>null);
+  if(!r||!r.ok){renderUsers([]);return;}
+  const d=await r.json();
+  _allUsers=d.users||[];
+  renderStats(_allUsers);
+  renderUsers(_allUsers);
+}
+
+function renderStats(users){
+  document.getElementById('statTotal').textContent=users.length;
+  document.getElementById('statSetup').textContent=users.filter(u=>u.setup_done).length;
+  const totalInv=users.reduce((s,u)=>s+u.invoice_count,0);
+  document.getElementById('statInvoices').textContent=totalInv;
+}
+
+function filterUsers(q){
+  const term=q.toLowerCase();
+  const filtered=term?_allUsers.filter(u=>u.username.toLowerCase().includes(term)||u.shop_name.toLowerCase().includes(term)):_allUsers;
+  renderUsers(filtered);
+}
+
+function renderUsers(users){
+  const tb=document.getElementById('usersTbody');
+  if(!users.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty"><div class="empty-icon">👤</div>No users found</td></tr>';
+    return;
+  }
+  tb.innerHTML=users.map((u,i)=>`
+    <tr>
+      <td data-label="#" style="color:rgba(255,255,255,.4);font-size:.8em;font-weight:700">#${u.id}</td>
+      <td data-label="Username"><span class="uname uname-link" onclick="openProfile(${u.id})">${esc(u.username)}</span>${u.is_suspended?'<span class="badge-suspended">🔒 Suspended</span>':''}${u.admin_locked?'<span class="badge-adminlock">🔐 Admin Locked</span>':''}</td>
+      <td data-label="Shop">${esc(u.shop_name)||'<span style="color:rgba(255,255,255,.25)">—</span>'}</td>
+      <td data-label="Setup"><span class="badge-setup ${u.setup_done?'b-done':'b-pend'}">${u.setup_done?'Done':'Pending'}</span></td>
+      <td data-label="Invoices" class="num">${u.invoice_count}</td>
+      <td data-label="Items" class="num">${u.item_count}</td>
+      <td data-label="Joined">${u.created_at}</td>
+      <td data-label="Actions"><div class="act-btns">
+        <button class="act-btn ab-pwd" onclick="openPwdModal(${u.id},'${esc(u.username)}')">Change Pwd</button>
+        ${u.is_suspended
+          ? `<button class="act-btn ab-unsuspend" onclick="toggleSuspend(${u.id},false,'${esc(u.username)}')">Unsuspend</button>`
+          : `<button class="act-btn ab-suspend" onclick="toggleSuspend(${u.id},true,'${esc(u.username)}')">Suspend</button>`
+        }
+        ${u.admin_locked?`<button class="act-btn ab-unlock" onclick="unlockAdmin(${u.id},'${esc(u.username)}')">Unlock Admin</button>`:''}
+        <button class="act-btn ab-del" onclick="openDelModal(${u.id},'${esc(u.username)}')">Delete</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// Password modal
+function openPwdModal(uid,uname){
+  document.getElementById('pwdUserId').value=uid;
+  document.getElementById('pwdModalSub').textContent='Set new login password for: '+uname;
+  document.getElementById('newPwd').value='';
+  document.getElementById('confirmPwd').value='';
+  document.getElementById('pwdErr').textContent='';
+  document.getElementById('pwdOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('newPwd').focus(),100);
+}
+function closePwdModal(){document.getElementById('pwdOverlay').classList.remove('open');}
+
+async function savePwd(){
+  const uid=document.getElementById('pwdUserId').value;
+  const p=document.getElementById('newPwd').value.trim();
+  const c=document.getElementById('confirmPwd').value.trim();
+  const err=document.getElementById('pwdErr');
+  err.textContent='';
+  if(!p){err.textContent='Password is required';return;}
+  if(p.length<4){err.textContent='At least 4 characters required';return;}
+  if(p!==c){err.textContent='Passwords do not match';return;}
+  const r=await fetch('/api/superadmin/users/'+uid+'/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({new_password:p})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){closePwdModal();toast('Password changed successfully');}
+  else{err.textContent=d.error||'Failed to change password';}
+}
+
+// Delete modal
+function openDelModal(uid,uname){
+  document.getElementById('delUserId').value=uid;
+  document.getElementById('delUserName').textContent=uname;
+  document.getElementById('delErr').textContent='';
+  document.getElementById('delOverlay').classList.add('open');
+}
+function closeDelModal(){document.getElementById('delOverlay').classList.remove('open');}
+
+async function confirmDelete(){
+  const uid=document.getElementById('delUserId').value;
+  const err=document.getElementById('delErr');
+  err.textContent='';
+  const r=await fetch('/api/superadmin/users/'+uid,{method:'DELETE'}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    closeDelModal();
+    toast('User deleted');
+    _allUsers=_allUsers.filter(u=>u.id!=uid);
+    renderStats(_allUsers);
+    renderUsers(_allUsers);
+  } else {
+    err.textContent=d.error||'Failed to delete user';
+  }
+}
+
+// Suspend / Unsuspend
+async function toggleSuspend(uid, suspend, uname){
+  const action = suspend ? 'suspend' : 'unsuspend';
+  const confirmMsg = suspend
+    ? `Suspend "${uname}"?\nThey will see a locked message and cannot use the app.`
+    : `Unlock "${uname}"?\nThey will regain full access.`;
+  if(!confirm(confirmMsg)) return;
+  const r=await fetch('/api/superadmin/users/'+uid+'/'+action,{method:'POST'}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    toast(suspend?'User suspended':'User unlocked');
+    const u=_allUsers.find(x=>x.id===uid);
+    if(u) u.is_suspended=suspend;
+    renderUsers(_allUsers);
+  } else toast(d.error||'Failed','error');
+}
+
+// User profile
+function openProfile(uid){
+  const u=_allUsers.find(x=>x.id===uid);
+  if(!u) return;
+  document.getElementById('profileName').textContent=u.username;
+  document.getElementById('profileUid').textContent='User ID #'+u.id;
+  const waNum=u.whatsapp?u.whatsapp.replace(/\D/g,''):'';
+  const wa=waNum?`<a href="https://wa.me/${waNum}" target="_blank">${esc(u.whatsapp)}</a>`:'';
+  const rows=[
+    {icon:'🏪',label:'Shop Name',val:u.shop_name},
+    {icon:'📞',label:'Phone',val:u.phone},
+    {icon:'💬',label:'WhatsApp',val:wa},
+    {icon:'📍',label:'Address',val:u.address},
+  ];
+  document.getElementById('profileBody').innerHTML=rows.map(r=>`
+    <div class="profile-row">
+      <div class="profile-icon">${r.icon}</div>
+      <div class="profile-info">
+        <div class="profile-label">${r.label}</div>
+        <div class="profile-val">${r.val||'<span class="no-info">Not provided</span>'}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('profileOverlay').classList.add('open');
+}
+function closeProfile(){document.getElementById('profileOverlay').classList.remove('open');}
+
+// Unlock admin panel
+function unlockAdmin(uid, uname){
+  document.getElementById('unlockAdminUserId').value=uid;
+  document.getElementById('unlockAdminUserName').value=uname;
+  document.getElementById('unlockAdminSub').textContent='Set a new admin panel password for: '+uname;
+  document.getElementById('unlockAdminPwd').value='';
+  document.getElementById('unlockAdminConfirm').value='';
+  document.getElementById('unlockAdminErr').textContent='';
+  document.getElementById('unlockAdminOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('unlockAdminPwd').focus(),100);
+}
+function closeUnlockAdminModal(){document.getElementById('unlockAdminOverlay').classList.remove('open');}
+async function doUnlockAdmin(){
+  const uid=+document.getElementById('unlockAdminUserId').value;
+  const uname=document.getElementById('unlockAdminUserName').value;
+  const p=document.getElementById('unlockAdminPwd').value.trim();
+  const c=document.getElementById('unlockAdminConfirm').value.trim();
+  const err=document.getElementById('unlockAdminErr');
+  err.textContent='';
+  if(!p){err.textContent='Password is required';return;}
+  if(p.length<4){err.textContent='At least 4 characters required';return;}
+  if(p!==c){err.textContent='Passwords do not match';return;}
+  const r=await fetch('/api/superadmin/users/'+uid+'/unlock-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({new_password:p})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    closeUnlockAdminModal();
+    toast('Admin panel unlocked for '+uname);
+    const u=_allUsers.find(x=>x.id===uid);
+    if(u) u.admin_locked=false;
+    renderUsers(_allUsers);
+  } else {
+    err.textContent=d.error||'Failed to unlock';
+  }
+}
+
+// Change own password
+function openOwnPwdModal(){
+  document.getElementById('ownNewPwd').value='';
+  document.getElementById('ownConfirmPwd').value='';
+  document.getElementById('ownPwdErr').textContent='';
+  document.getElementById('ownPwdOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('ownNewPwd').focus(),100);
+}
+function closeOwnPwdModal(){document.getElementById('ownPwdOverlay').classList.remove('open');}
+async function saveOwnPwd(){
+  const p=document.getElementById('ownNewPwd').value.trim();
+  const c=document.getElementById('ownConfirmPwd').value.trim();
+  const err=document.getElementById('ownPwdErr');
+  err.textContent='';
+  if(!p){err.textContent='Password is required';return;}
+  if(p.length<4){err.textContent='At least 4 characters required';return;}
+  if(p!==c){err.textContent='Passwords do not match';return;}
+  const r=await fetch('/api/superadmin/change-own-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({new_password:p})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){closeOwnPwdModal();toast('Super Admin password updated!');}
+  else{err.textContent=d.error||'Failed to update password';}
+}
+
+// Close modal on overlay click
+document.getElementById('ownPwdOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeOwnPwdModal();});
+document.getElementById('pwdOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closePwdModal();});
+document.getElementById('delOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeDelModal();});
+document.getElementById('unlockAdminOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeUnlockAdminModal();});
+document.getElementById('profileOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeProfile();});
+
+loadUsers();
+
+// Load pending message badge
+fetch('/api/superadmin/pending-count').then(r=>r.json()).then(d=>{
+  if(d.count>0){
+    const b=document.getElementById('msgBadge');
+    b.textContent=d.count;
+    b.style.display='inline';
+  }
+}).catch(()=>{});
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BillMate{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+  <style>{% block page_styles %}{% endblock %}</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
+  <div class="nav-links">
+    <a href="/billing"   class="nav-link {% block nav_billing %}{% endblock %}">🧾 Billing</a>
+    <a href="/items"     class="nav-link {% block nav_items %}{% endblock %}">💊 Items</a>
+    <a href="/customers" class="nav-link {% block nav_customers %}{% endblock %}">👥 Customers</a>
+    <a href="/purchase"  class="nav-link {% block nav_purchase %}{% endblock %}">🛒 Purchase</a>
+    <a href="/admin"     class="nav-link {% block nav_admin %}{% endblock %}">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    {% block nav_right_extra %}
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu" onclick="this.classList.toggle('open')">
+      <span class="user-name">{{ session.username or 'Guest' }}</span>
+      <div class="user-dropdown">
+        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
+      </div>
+    </div>
+    {% endblock %}
+    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing" class="nav-link {% block mnav_billing %}{% endblock %}">🧾 Billing</a>
+  <a href="/items" class="nav-link {% block mnav_items %}{% endblock %}">💊 Items</a>
+  <a href="/customers" class="nav-link {% block mnav_customers %}{% endblock %}">👥 Customers</a>
+  <a href="/purchase" class="nav-link {% block mnav_purchase %}{% endblock %}">🛒 Purchase</a>
+  <a href="/admin" class="nav-link {% block mnav_admin %}{% endblock %}">🛡️ Admin</a>
+</div>
+
+{% block content %}{% endblock %}
+
+<div class="toast" id="toast"></div>
+
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Restricted — BillMate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:24px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;max-width:400px;width:100%}
+.icon{font-size:3em;margin-bottom:16px}
+.title{font-size:1.3em;font-weight:800;color:#1a1a2e;margin-bottom:10px}
+.msg{font-size:.92em;color:#666;line-height:1.6;margin-bottom:28px}
+.btn-row{display:flex;gap:10px}
+.btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:.92em;font-weight:700;cursor:pointer;text-decoration:none;text-align:center;transition:all .2s}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.btn-outline{background:#fff;color:#555;border:1.5px solid #e0e0e0}
+.btn-outline:hover{border-color:#667eea;color:#667eea}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🔒</div>
+  <div class="title">Registered Accounts Only</div>
+  <div class="msg">This page is available only for registered account holders. Create a free account to unlock full access.</div>
+  <div class="btn-row">
+    <a href="/auth/logout" class="btn btn-primary">Register Now</a>
+    <a href="/billing" class="btn btn-outline">Back to Billing</a>
+  </div>
+</div>
+</body>
+</html>

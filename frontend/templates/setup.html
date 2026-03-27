@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop Setup</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
+:root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea}
+[data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3)}
+@keyframes _fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 20px 40px;animation:_fadeIn .18s ease}
+/* Nav */
+.nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:4px}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
+.nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.nav-right{display:flex;align-items:center;gap:8px}
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-btn:hover{background:rgba(255,255,255,.15)}
+/* Card */
+.container{max-width:640px;margin:0 auto}
+h1{color:#fff;font-size:1.6em;font-weight:700;margin-bottom:6px;text-align:center}
+.subtitle{color:rgba(255,255,255,.6);text-align:center;margin-bottom:32px;font-size:.95em}
+.card{background:var(--card);border-radius:20px;padding:32px;box-shadow:var(--shadow)}
+.form-group{margin-bottom:20px}
+label{display:block;font-size:.85em;font-weight:600;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+input,textarea{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;transition:border-color .2s}
+input:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.error{background:#ef4444}
+.nav-hamburger{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+.nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
+@media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
+@media(max-width:500px){.card{padding:20px 16px}.form-row{grid-template-columns:1fr}body{padding:80px 12px 40px}}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
+  <div class="nav-links">
+    <a href="/billing"   class="nav-link">🧾 Billing</a>
+    <a href="/items"     class="nav-link">💊 Items</a>
+    <a href="/customers" class="nav-link">👥 Customers</a>
+    <a href="/purchase" class="nav-link">🛒 Purchase</a>
+    <a href="/admin"  class="nav-link">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-btn" onclick="toggleTheme()">🌙</button>
+    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing" class="nav-link">🧾 Billing</a>
+  <a href="/items" class="nav-link">💊 Items</a>
+  <a href="/customers" class="nav-link">👥 Customers</a>
+  <a href="/purchase" class="nav-link">🛒 Purchase</a>
+  <a href="/admin" class="nav-link">🛡️ Admin</a>
+</div>
+
+<div class="container">
+  <h1>Shop Setup</h1>
+  <p class="subtitle">Your shop details will appear on every bill</p>
+  <div class="card">
+    <div class="form-group">
+      <label>Shop / Business Name *</label>
+      <input id="shop_name" type="text" placeholder="Your business name">
+    </div>
+    <div class="form-group">
+      <label>Address</label>
+      <textarea id="address" placeholder="Shop address..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Phone</label>
+        <div style="display:flex;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--inp)">
+          <span style="padding:12px 6px 12px 12px;color:var(--sub);font-weight:700;font-size:.95em;user-select:none">+</span>
+          <input id="phone_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:12px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
+          <input id="phone_num" type="tel" placeholder="3001234567" style="flex:1;padding:12px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <div style="display:flex;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--inp)">
+          <span style="padding:12px 6px 12px 12px;color:var(--sub);font-weight:700;font-size:.95em;user-select:none">+</span>
+          <input id="wa_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:12px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
+          <input id="wa_num" type="tel" placeholder="3001234567" style="flex:1;padding:12px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>NTN (optional)</label>
+        <input id="ntn" placeholder="Tax registration number">
+      </div>
+      <div class="form-group">
+        <label>Invoice Prefix</label>
+        <input id="invoice_prefix" placeholder="INV" maxlength="6">
+      </div>
+    </div>
+    <button class="btn" onclick="save()">Save Settings</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const theme = localStorage.getItem('theme') || 'light';
+if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+
+function toast(msg, err=false){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err ? ' error' : '');
+  setTimeout(()=> t.className='toast', 2800);
+}
+
+function splitPhone(val,codeId,numId){
+  if(!val) return;
+  if(val.startsWith('+')){
+    const digits=val.slice(1);
+    const CODES=['971','968','974','973','966','965','880','92','94','98','91','90','49','33','86','81','61','44','20','1'];
+    for(const c of CODES){
+      if(digits.startsWith(c)){
+        document.getElementById(codeId).value=c;
+        document.getElementById(numId).value=digits.slice(c.length);
+        return;
+      }
+    }
+    document.getElementById(numId).value=digits;
+  } else {
+    document.getElementById(numId).value=val;
+  }
+}
+function buildPhone(codeId,numId){
+  const code=document.getElementById(codeId).value.trim().replace(/\D/g,'');
+  const num=document.getElementById(numId).value.trim();
+  return (code&&num)?'+'+code+num:'';
+}
+
+async function load(){
+  const r = await fetch('/api/settings');
+  const s = await r.json();
+  if(s.shop_name) document.getElementById('shop_name').value = s.shop_name;
+  if(s.address)   document.getElementById('address').value = s.address;
+  splitPhone(s.phone||'','phone_code','phone_num');
+  splitPhone(s.whatsapp||'','wa_code','wa_num');
+  if(s.ntn)       document.getElementById('ntn').value = s.ntn;
+  document.getElementById('invoice_prefix').value = s.invoice_prefix || 'INV';
+}
+
+async function save(){
+  const name = document.getElementById('shop_name').value.trim();
+  if(!name){ toast('Shop name is required', true); return; }
+  const phone=buildPhone('phone_code','phone_num');
+  if(!phone){ toast('Phone number is required',true); document.getElementById('phone_num').focus(); return; }
+  const whatsapp=buildPhone('wa_code','wa_num');
+  if(!whatsapp){ toast('WhatsApp number is required',true); document.getElementById('wa_num').focus(); return; }
+  const r = await fetch('/api/settings',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      shop_name: name,
+      address:  document.getElementById('address').value,
+      phone, whatsapp,
+      ntn:      document.getElementById('ntn').value,
+      invoice_prefix: document.getElementById('invoice_prefix').value || 'INV',
+    })
+  });
+  const res = await r.json();
+  if(res.success) toast('Settings saved!');
+  else toast(res.error || 'Error saving', true);
+}
+
+function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+load();
+fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name)document.getElementById('shopLogo').textContent=s.shop_name;});
+</script>
+</body>
+</html>

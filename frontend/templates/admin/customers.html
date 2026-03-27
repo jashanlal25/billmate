@@ -1,0 +1,163 @@
+{% extends 'admin/base.html' %}
+{% block title %}Customers{% endblock %}
+{% block btn_customers %}active{% endblock %}
+
+{% block content_main %}
+<div class="section-header">
+  <div class="section-title">👥 Customers</div>
+  <input class="search-box" id="custSearch" placeholder="Search by name or phone..." oninput="custFilter(this.value)">
+  <button onclick="openCustAdd()" style="padding:9px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">+ Add Customer</button>
+</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th><th>Phone</th><th>Address</th><th>Credit Limit</th><th>Balance Due</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="custBody"></tbody>
+  </table>
+</div>
+
+<!-- Customer Edit Modal -->
+<div class="overlay" id="custModal" onclick="if(event.target===this)closeCustModal()">
+  <div class="modal">
+    <h2 id="custModalTitle" style="color:var(--text);margin-bottom:20px">Edit Customer</h2>
+    <input type="hidden" id="cEditId">
+    <div style="margin-bottom:14px"><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Full Name *</label><input id="c_name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none" oninput="this.value=toTitleCase(this.value)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Phone</label><input id="c_phone" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"></div>
+      <div><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">WhatsApp</label><input id="c_wa" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"></div>
+    </div>
+    <div style="margin-bottom:14px"><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Address</label><textarea id="c_addr" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none;resize:vertical;min-height:60px"></textarea></div>
+    <div style="margin-bottom:14px"><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Credit Limit (Rs.)</label><input id="c_credit" type="number" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="closeCustModal()" style="flex:1;padding:10px;border:none;border-radius:10px;background:var(--border);color:var(--text);font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="saveCustEdit()" style="flex:1;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:600;cursor:pointer">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer View Modal -->
+<div class="overlay" id="custViewModal" onclick="if(event.target===this)closeCustView()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 id="cv_name" style="color:var(--text);font-size:1.2em"></h2>
+      <button onclick="closeCustView()" style="background:none;border:none;font-size:1.3em;cursor:pointer;color:var(--sub)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Phone</span><span id="cv_phone" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">WhatsApp</span><span id="cv_wa" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Address</span><span id="cv_addr" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Credit Limit</span><span id="cv_credit" style="font-weight:600;color:var(--text)"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Balance Due</span><span id="cv_balance" style="font-weight:600"></span></div>
+      <div style="display:flex;gap:8px;font-size:.9em"><span style="color:var(--sub);min-width:110px">Notes</span><span id="cv_notes" style="font-weight:600;color:var(--text)"></span></div>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="closeCustView()" class="mbtn mbtn-close" style="width:100%">Close</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+var allCustomers=[];
+
+async function loadCustomers(){
+  const r=await fetch('/api/customers');
+  allCustomers=await r.json();
+  renderCustomers(allCustomers);
+}
+
+function custFilter(q){
+  const s=q.toLowerCase();
+  renderCustomers(allCustomers.filter(c=>c.name.toLowerCase().includes(s)||(c.phone||'').includes(s)));
+}
+
+function renderCustomers(list){
+  const body=document.getElementById('custBody');
+  if(!list.length){body.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div>No customers found.</div></td></tr>`;return;}
+  body.innerHTML=list.map(c=>`
+    <tr>
+      <td data-label="Name" style="font-weight:600">${c.name}</td>
+      <td data-label="Phone">${c.phone||'—'}</td>
+      <td data-label="Address" style="font-size:.85em;color:var(--sub)">${c.address||'—'}</td>
+      <td data-label="Credit Limit">Rs. ${(+c.credit_limit).toFixed(0)}</td>
+      <td data-label="Balance" style="font-weight:600;color:${c.balance>0?'#ef4444':'#888'}">Rs. ${(+c.balance).toFixed(2)}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="act-btn ab-view" onclick="viewCust(${c.id})">View</button>
+          <button class="act-btn ab-edit" onclick="openCustEdit(${c.id})">✏️ Edit</button>
+          <button class="act-btn ab-del" onclick="deleteCustomer(${c.id},'${c.name.replace(/'/g,"\\'")}')">🗑 Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function viewCust(id){
+  const c=allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('cv_name').textContent=c.name;
+  document.getElementById('cv_phone').textContent=c.phone||'—';
+  document.getElementById('cv_wa').textContent=c.whatsapp||'—';
+  document.getElementById('cv_addr').textContent=c.address||'—';
+  document.getElementById('cv_credit').textContent='Rs. '+(+c.credit_limit).toFixed(0);
+  const bal=document.getElementById('cv_balance');
+  bal.textContent='Rs. '+(+c.balance).toFixed(2);
+  bal.style.color=c.balance>0?'#ef4444':'#888';
+  document.getElementById('cv_notes').textContent=c.notes||'—';
+  document.getElementById('custViewModal').classList.add('open');
+}
+function closeCustView(){document.getElementById('custViewModal').classList.remove('open');}
+
+function openCustAdd(){
+  document.getElementById('custModalTitle').textContent='Add Customer';
+  document.getElementById('cEditId').value='';
+  document.getElementById('c_name').value='';
+  document.getElementById('c_phone').value='';
+  document.getElementById('c_wa').value='';
+  document.getElementById('c_addr').value='';
+  document.getElementById('c_credit').value='';
+  document.getElementById('custModal').classList.add('open');
+}
+
+function openCustEdit(id){
+  const c=allCustomers.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('custModalTitle').textContent='Edit Customer';
+  document.getElementById('cEditId').value=c.id;
+  document.getElementById('c_name').value=c.name;
+  document.getElementById('c_phone').value=c.phone||'';
+  document.getElementById('c_wa').value=c.whatsapp||'';
+  document.getElementById('c_addr').value=c.address||'';
+  document.getElementById('c_credit').value=c.credit_limit||'';
+  document.getElementById('custModal').classList.add('open');
+}
+function closeCustModal(){document.getElementById('custModal').classList.remove('open');}
+
+async function saveCustEdit(){
+  const id=document.getElementById('cEditId').value;
+  const name=document.getElementById('c_name').value.trim();
+  if(!name){toast('Name required',true);return;}
+  const payload={name,phone:document.getElementById('c_phone').value.trim(),whatsapp:document.getElementById('c_wa').value.trim(),address:document.getElementById('c_addr').value.trim(),credit_limit:parseFloat(document.getElementById('c_credit').value)||0};
+  const r=id
+    ? await fetch(`/api/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    : await fetch('/api/customers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(r.ok){toast(id?'Customer updated!':'Customer added!');closeCustModal();loadCustomers();}
+  else toast('Error saving',true);
+}
+
+async function deleteCustomer(id,name){
+  if(!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  const r=await fetch(`/api/customers/${id}`,{method:'DELETE'});
+  if(r.ok){toast('Customer deleted');loadCustomers();}
+  else toast('Error deleting',true);
+}
+
+function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
+
+loadCustomers();
+</script>
+{% endblock %}

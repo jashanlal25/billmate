@@ -1,0 +1,216 @@
+{% extends 'admin/base.html' %}
+{% block title %}Setup{% endblock %}
+{% block btn_setup %}active{% endblock %}
+
+{% block content_main %}
+<div class="section-header" style="max-width:640px;margin:0 auto"><div class="section-title">⚙️ Shop Setup</div></div>
+<div class="card" style="padding:28px;max-width:640px;margin:0 auto">
+  <div style="margin-bottom:18px">
+    <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Shop / Business Name *</label>
+    <input id="s_shop_name" placeholder="Your business name" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+  </div>
+  <div style="margin-bottom:18px">
+    <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Address *</label>
+    <textarea id="s_address" placeholder="Shop address..." style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;resize:vertical;min-height:70px"></textarea>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px">
+    <div>
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Phone *</label>
+      <div style="display:flex;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:var(--inp)">
+        <span style="padding:11px 6px 11px 12px;color:var(--sub);font-weight:700;font-size:.95em;white-space:nowrap;user-select:none">+</span>
+        <input id="s_phone_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:11px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
+        <input id="s_phone_num" type="tel" placeholder="3001234567" style="flex:1;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+      </div>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label style="font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">WhatsApp *</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:.75em;color:var(--sub);cursor:pointer;user-select:none">
+          <input type="checkbox" id="s_same_phone" onchange="toggleSamePhone()" style="accent-color:#667eea;width:14px;height:14px;cursor:pointer"> Same as phone
+        </label>
+      </div>
+      <div style="display:flex;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:var(--inp)">
+        <span style="padding:11px 6px 11px 12px;color:var(--sub);font-weight:700;font-size:.95em;white-space:nowrap;user-select:none">+</span>
+        <input id="s_wa_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:11px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
+        <input id="s_wa_num" type="tel" placeholder="3001234567" style="flex:1;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
+    <div>
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">NTN (optional)</label>
+      <input id="s_ntn" placeholder="Tax registration number" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+    </div>
+    <div>
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Invoice Prefix</label>
+      <input id="s_invoice_prefix" placeholder="INV" maxlength="6" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+    </div>
+  </div>
+  <div style="margin-bottom:24px;padding:20px;border:1.5px solid rgba(239,68,68,.3);border-radius:14px;background:rgba(239,68,68,.04)">
+    <label style="display:block;font-size:.82em;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🔐 Admin Password</label>
+    <div style="position:relative">
+      <input id="s_admin_password" type="password" placeholder="Set a new admin password" style="width:100%;padding:11px 42px 11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+      <button type="button" onclick="toggleAdminPwd(this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--sub)">👁️</button>
+    </div>
+    <div id="adminPwdNote" style="font-size:.78em;color:#dc2626;margin-top:6px;font-weight:600">⚠️ No admin password set — please set one now to protect admin access.</div>
+  </div>
+  <button onclick="saveSetup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:600;cursor:pointer">Save Settings</button>
+</div>
+
+<div style="max-width:640px;margin:24px auto 0">
+  <div class="section-header"><div class="section-title">🔑 Change Login Password</div></div>
+  <div class="card" style="padding:28px">
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Current Password</label>
+      <div style="position:relative">
+        <input id="cur_login_pwd" type="password" placeholder="Enter current password" style="width:100%;padding:11px 42px 11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+        <button type="button" onclick="togglePwdField(this,'cur_login_pwd')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--sub)">👁️</button>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">New Password</label>
+      <div style="position:relative">
+        <input id="new_login_pwd" type="password" placeholder="Enter new password (min 4 chars)" style="width:100%;padding:11px 42px 11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+        <button type="button" onclick="togglePwdField(this,'new_login_pwd')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--sub)">👁️</button>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Confirm New Password</label>
+      <input id="confirm_login_pwd" type="password" placeholder="Re-enter new password" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
+    </div>
+    <button onclick="changeLoginPwd()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:1em;font-weight:600;cursor:pointer">Change Login Password</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function splitPhone(val, codeId, numId){
+  if(!val) return;
+  if(val.startsWith('+')){
+    const digits=val.slice(1);
+    const CODES=['971','968','974','973','966','965','880','92','94','98','91','90','49','33','86','81','61','44','20','1'];
+    for(const c of CODES){
+      if(digits.startsWith(c)){
+        document.getElementById(codeId).value=c;
+        document.getElementById(numId).value=digits.slice(c.length);
+        return;
+      }
+    }
+    document.getElementById(numId).value=digits;
+  } else {
+    document.getElementById(numId).value=val;
+  }
+}
+function buildPhone(codeId, numId){
+  const code=document.getElementById(codeId).value.trim().replace(/\D/g,'');
+  const num=document.getElementById(numId).value.trim();
+  return (code&&num)?'+'+code+num:'';
+}
+
+async function loadSetup(){
+  const r=await fetch('/api/settings');
+  const s=await r.json();
+  document.getElementById('s_shop_name').value=s.shop_name||'';
+  document.getElementById('s_address').value=s.address||'';
+  splitPhone(s.phone||'','s_phone_code','s_phone_num');
+  splitPhone(s.whatsapp||'','s_wa_code','s_wa_num');
+  document.getElementById('s_ntn').value=s.ntn||'';
+  document.getElementById('s_invoice_prefix').value=s.invoice_prefix||'INV';
+}
+
+function syncWa(){
+  if(document.getElementById('s_same_phone').checked){
+    document.getElementById('s_wa_code').value=document.getElementById('s_phone_code').value;
+    document.getElementById('s_wa_num').value=document.getElementById('s_phone_num').value;
+  }
+}
+function toggleSamePhone(){
+  const cb=document.getElementById('s_same_phone');
+  const waNum=document.getElementById('s_wa_num');
+  const waCode=document.getElementById('s_wa_code');
+  if(cb.checked){
+    syncWa();
+    waNum.readOnly=true; waCode.readOnly=true;
+    waNum.style.opacity='.5'; waCode.style.opacity='.5';
+  } else {
+    waNum.readOnly=false; waCode.readOnly=false;
+    waNum.style.opacity='1'; waCode.style.opacity='1';
+  }
+}
+document.getElementById('s_phone_num').addEventListener('input',syncWa);
+document.getElementById('s_phone_code').addEventListener('input',syncWa);
+
+async function saveSetup(){
+  const name=document.getElementById('s_shop_name').value.trim();
+  if(!name){toast('Shop name is required',true);document.getElementById('s_shop_name').focus();return;}
+  const addr=document.getElementById('s_address').value.trim();
+  if(!addr){toast('Address is required',true);document.getElementById('s_address').focus();return;}
+  const phone=buildPhone('s_phone_code','s_phone_num');
+  if(!phone){toast('Phone number is required',true);document.getElementById('s_phone_num').focus();return;}
+  const whatsapp=buildPhone('s_wa_code','s_wa_num');
+  if(!whatsapp){toast('WhatsApp number is required',true);document.getElementById('s_wa_num').focus();return;}
+  const adminPwd=document.getElementById('s_admin_password').value;
+  if(!adminPwdAlreadySet && !adminPwd.trim()){toast('Admin password is required',true);document.getElementById('s_admin_password').focus();return;}
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    shop_name:name,address:document.getElementById('s_address').value,
+    phone:phone,whatsapp:whatsapp,
+    ntn:document.getElementById('s_ntn').value,invoice_prefix:document.getElementById('s_invoice_prefix').value||'INV',
+    admin_password:adminPwd
+  })});
+  const res=await r.json();
+  if(res.success){toast('Settings saved!');adminPwdAlreadySet=true;checkAdminPwdSet();document.getElementById('shopLogo').textContent=name;}
+  else toast(res.error||'Error saving',true);
+}
+
+function toggleAdminPwd(btn){
+  const inp=document.getElementById('s_admin_password');
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+}
+
+let adminPwdAlreadySet=false;
+async function checkAdminPwdSet(){
+  const r=await fetch('/api/settings');
+  const s=await r.json();
+  if(s.admin_password_set){
+    adminPwdAlreadySet=true;
+    document.getElementById('adminPwdNote').textContent='Admin password is set. Leave blank to keep current.';
+    document.getElementById('adminPwdNote').style.color='var(--sub)';
+    document.getElementById('adminPwdNote').style.fontWeight='400';
+    document.getElementById('s_admin_password').placeholder='Leave blank to keep current password';
+  }
+}
+
+function togglePwdField(btn, id){
+  const inp=document.getElementById(id);
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+}
+
+async function changeLoginPwd(){
+  const cur=document.getElementById('cur_login_pwd').value;
+  const newP=document.getElementById('new_login_pwd').value;
+  const conf=document.getElementById('confirm_login_pwd').value;
+  if(!cur||!newP){toast('Please fill in all fields',true);return;}
+  if(newP.length<4){toast('New password must be at least 4 characters',true);return;}
+  if(newP!==conf){toast('New passwords do not match',true);return;}
+  const r=await fetch('/api/change-login-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:cur,new_password:newP})});
+  const d=await r.json();
+  if(d.success){
+    toast('Login password changed successfully!');
+    document.getElementById('cur_login_pwd').value='';
+    document.getElementById('new_login_pwd').value='';
+    document.getElementById('confirm_login_pwd').value='';
+  } else {
+    toast(d.error||'Error changing password',true);
+  }
+}
+
+loadSetup();
+checkAdminPwdSet();
+</script>
+{% endblock %}

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
+:root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row-hover:#f0f0ff;--red:#ef4444;--green:#10b981}
+[data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row-hover:#2e2e44}
+[data-theme=dim]{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#d8d8d8;--text:#000;--sub:#444;--border:#c0c0c0;--inp:#cecece;--shadow:0 4px 15px rgba(0,0,0,.12);--accent:#7c8ef0;--row-hover:#d0d0d0;--red:#ef4444;--green:#10b981}
+@view-transition{navigation:auto}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 16px 40px}
+.nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:4px}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
+.nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.nav-right{display:flex;align-items:center;gap:8px}
+.user-menu{position:relative;cursor:pointer;padding:7px 14px;border-radius:10px;background:rgba(102,126,234,.15);color:#a5b4fc;font-size:.82em;font-weight:600;user-select:none}
+.user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:120px;z-index:1000}
+.user-menu.open .user-dropdown{display:block}
+.user-dropdown-item{display:block;padding:10px 16px;color:#ef4444;font-size:.9em;font-weight:600;text-decoration:none;transition:background .15s}
+.user-dropdown-item:hover{background:#fef2f2}
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.nav-hamburger{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+.nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.layout{display:grid;grid-template-columns:1fr 320px;gap:16px;max-width:1200px;margin:0 auto}
+.panel{background:var(--card);border-radius:20px;padding:24px;box-shadow:var(--shadow)}
+.panel-title{font-size:1em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
+/* Item search */
+.item-search-wrap{position:relative;margin-bottom:14px}
+.item-search{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.9em;outline:none}
+.item-search:focus{border-color:var(--accent)}
+.dropdown{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1.5px solid var(--border);border-radius:12px;max-height:260px;overflow-y:auto;z-index:100;display:none;box-shadow:0 8px 30px rgba(0,0,0,.15);margin-top:4px}
+.dropdown.open{display:block}
+.dd-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+.dd-item:last-child{border-bottom:none}
+.dd-item:hover{background:var(--row-hover)}
+.dd-name{font-weight:600;font-size:.9em;color:var(--text)}
+.dd-meta{font-size:.78em;color:var(--sub);margin-top:2px}
+/* Table */
+table{width:100%;border-collapse:collapse;margin-top:4px}
+th{padding:8px 10px;text-align:left;font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;border-bottom:2px solid var(--border)}
+td{padding:8px 10px;color:var(--text);font-size:.88em;border-bottom:1px solid var(--border);vertical-align:middle}
+.num{text-align:right}
+.qty-inp{width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font-size:.88em;text-align:center;outline:none}
+.qty-inp:focus{border-color:var(--accent)}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+.empty-lines{text-align:center;padding:40px;color:var(--sub);font-size:.9em}
+.remove-btn{background:none;border:none;cursor:pointer;color:#ef4444;font-size:1.1em;padding:2px 6px;border-radius:6px}
+.remove-btn:hover{background:#fef2f2}
+/* Summary card */
+.summary-card{background:var(--card);border-radius:20px;padding:24px;box-shadow:var(--shadow);position:sticky;top:80px}
+.sum-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.9em;color:var(--text)}
+.sum-row:last-of-type{border:none}
+.sum-label{color:var(--sub)}
+.sum-total{font-size:1.3em;font-weight:700;color:var(--accent);padding:12px 0;display:flex;justify-content:space-between}
+.btn{width:100%;padding:12px;border:none;border-radius:12px;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s;margin-top:10px;color:#fff}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(0,0,0,.2)}
+.btn-green{background:linear-gradient(135deg,#10b981,#059669)}
+.btn-outline{background:none;border:1.5px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--row-hover);transform:none;box-shadow:none}
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
+.toast.show{opacity:1}
+.toast.error{background:#ef4444}
+/* History */
+#histSection{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow);margin-top:16px}
+.hist-title{color:var(--text);font-size:1em;font-weight:700;margin:0 0 12px}
+.hist-card{background:var(--inp);border:1.5px solid var(--border);border-radius:16px;overflow:hidden}
+.hist-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;color:var(--text);font-size:.88em}
+.hist-row:last-child{border-bottom:none}
+.hist-row:hover{background:var(--row-hover)}
+.hist-no{font-family:monospace;font-weight:700;color:var(--accent)}
+.hist-row button{transition:transform .12s,filter .12s,box-shadow .12s}
+.hist-row button:hover{transform:translateY(-1px);filter:brightness(1.15);box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.hist-row button:active{transform:scale(.95);filter:brightness(.95);box-shadow:none}
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:20px;padding:24px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+/* Mobile */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .summary-card{position:static}
+}
+@media(max-width:640px){
+  .nav-links{display:none}.nav-hamburger{display:flex}
+  table thead{display:none}
+  table tbody tr{display:block;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative}
+  table td{display:block;padding:3px 0;border:none}
+  table td:first-child{font-weight:700;font-size:.9em;padding-bottom:6px}
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
+  <div class="nav-links">
+    <a href="/billing"   class="nav-link">🧾 Billing</a>
+    <a href="/items"     class="nav-link">💊 Items</a>
+    <a href="/customers" class="nav-link">👥 Customers</a>
+    <a href="/purchase"  class="nav-link active">🛒 Purchase</a>
+    <a href="/admin"     class="nav-link">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu" onclick="this.classList.toggle('open')">
+      <span class="user-name">{{ session.username or 'Guest' }}</span>
+      <div class="user-dropdown">
+        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
+      </div>
+    </div>
+    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing" class="nav-link">🧾 Billing</a>
+  <a href="/items" class="nav-link">💊 Items</a>
+  <a href="/customers" class="nav-link">👥 Customers</a>
+  <a href="/purchase" class="nav-link active">🛒 Purchase</a>
+  <a href="/admin" class="nav-link">🛡️ Admin</a>
+</div>
+
+<div class="layout">
+  <!-- Left column: builder + history -->
+  <div>
+  <div class="panel">
+    <div class="panel-title">🛒 Purchase Entry</div>
+
+    <!-- Supplier row -->
+    <div style="position:relative;margin-bottom:14px" id="supplierSection">
+      <input id="supplierSearch" placeholder="Supplier name (or leave empty for Counter)..."
+        autocomplete="off" oninput="searchSuppliers(this.value);this.value=toTitleCase(this.value)" onfocus="searchSuppliers(this.value)"
+        style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.9em;outline:none">
+      <div id="supplierDropdown" style="position:absolute;top:100%;left:0;right:0;background:var(--card);border:1.5px solid var(--border);border-radius:12px;max-height:200px;overflow-y:auto;z-index:100;display:none;box-shadow:0 8px 30px rgba(0,0,0,.15);margin-top:4px"></div>
+      <div id="selectedSupplier" style="display:none;margin-top:8px;display:none;align-items:center;gap:8px;background:#e0e7ff;border-radius:10px;padding:8px 14px;font-weight:600;color:#4f46e5;font-size:.9em">
+        <span id="selSupName"></span>
+        <button onclick="clearSupplier()" style="background:none;border:none;cursor:pointer;font-size:1.1em;color:#888;margin-left:auto">✕</button>
+      </div>
+    </div>
+
+    <!-- Item search -->
+    <div class="item-search-wrap">
+      <input class="item-search" id="itemSearch" placeholder="Search item to add..." autocomplete="off"
+        oninput="searchItems(this.value);this.value=toTitleCase(this.value)" onfocus="searchItems(this.value)"
+        onkeydown="itemSearchKey(event)">
+      <div class="dropdown" id="itemDropdown"></div>
+    </div>
+
+    <!-- Custom item bar (item not in catalog) -->
+    <div id="customItemBar" style="display:none;background:var(--inp);border:1.5px solid var(--accent);border-radius:12px;padding:12px 16px;margin-bottom:12px" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomItem();}">
+      <div style="font-size:.82em;font-weight:700;color:var(--sub);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Add Custom Item (not in catalog)</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end">
+        <div>
+          <div style="font-size:.75em;color:var(--sub);margin-bottom:4px">Name</div>
+          <input id="ci_name" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.88em;outline:none" placeholder="Item name" oninput="this.value=toTitleCase(this.value)">
+        </div>
+        <div>
+          <div style="font-size:.75em;color:var(--sub);margin-bottom:4px">Retail (Rs.)</div>
+          <input id="ci_retail" type="number" min="0" step="0.01" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.88em;outline:none" placeholder="0.00" oninput="ciRetailChange()">
+        </div>
+        <div>
+          <div style="font-size:.75em;color:var(--sub);margin-bottom:4px">TP (Rs.)</div>
+          <input id="ci_tp" type="number" min="0" step="0.01" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.88em;outline:none" placeholder="0.00" oninput="ciTpChange()">
+        </div>
+        <div>
+          <div style="font-size:.75em;color:var(--sub);margin-bottom:4px">Disc %</div>
+          <input id="ci_disc" type="number" min="0" max="100" step="0.1" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.88em;outline:none" placeholder="0">
+        </div>
+        <div>
+          <div style="font-size:.75em;color:var(--sub);margin-bottom:4px">Tax (Rs.)</div>
+          <input id="ci_tax" type="number" min="0" step="0.01" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:.88em;outline:none" placeholder="0.00">
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="addCustomItem()" style="padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:700;cursor:pointer;font-size:.88em">Add</button>
+          <button onclick="hideCustomBar()" style="padding:7px 10px;border:none;border-radius:8px;background:var(--border);color:var(--text);cursor:pointer;font-size:.88em">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lines table -->
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Item</th>
+          <th>Retail</th>
+          <th>TP</th>
+          <th>Disc%</th>
+          <th>Tax</th>
+          <th>Qty</th>
+          <th class="num">Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="linesBody">
+        <tr><td colspan="9"><div class="empty-lines">No items added yet.<br>Search above to add items.</div></td></tr>
+      </tbody>
+    </table>
+
+  </div><!-- /.panel -->
+
+  <!-- Recent purchases (session only) -->
+  <div id="histSection" style="display:none">
+    <div class="hist-title">Recent Purchases</div>
+    <div class="hist-card" id="sessionList"></div>
+  </div>
+  </div><!-- /left column -->
+
+  <!-- Right: Summary -->
+  <div>
+    <div class="summary-card">
+      <div class="panel-title">Purchase Summary</div>
+      <div class="sum-row"><span class="sum-label">Items</span><span id="sumItems">0</span></div>
+      <div class="sum-row"><span class="sum-label">Total Qty</span><span id="sumQty">0</span></div>
+      <div class="sum-total"><span>Total Cost</span><span id="sumTotal">Rs. 0.00</span></div>
+      <button class="btn btn-green" onclick="savePurchase()">💾 Save Purchase</button>
+      <button class="btn btn-outline" onclick="clearAll()">✕ Clear All</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Modal -->
+<div id="sesModal" class="overlay" onclick="if(event.target===this)closeSesModal()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+      <div>
+        <div style="font-size:1.1em;font-weight:700;color:var(--text)" id="sm_no"></div>
+        <div style="font-size:.82em;color:var(--sub);margin-top:3px" id="sm_date"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-weight:600;color:var(--sub)" id="sm_sup"></span>
+        <button onclick="closeSesModal()" style="background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--sub);line-height:1;padding:4px 6px;border-radius:8px;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.06)'" onmouseout="this.style.background='none'">✕</button>
+      </div>
+    </div>
+    <div style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Items Purchased</div>
+    <table style="width:100%;border-collapse:collapse;font-size:.86em">
+      <thead><tr>
+        <th style="padding:8px 10px;text-align:left;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">#</th>
+        <th style="padding:8px 10px;text-align:left;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">Item</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">TP</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">Retail</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">Disc%</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">Qty</th>
+        <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700;border-bottom:2px solid var(--border)">Total</th>
+      </tr></thead>
+      <tbody id="sm_lines"></tbody>
+    </table>
+    <div style="margin-top:14px;display:flex;flex-direction:column;align-items:flex-end">
+      <div style="display:flex;gap:24px;font-size:1.05em;font-weight:700;color:var(--accent);padding-top:8px;border-top:2px solid var(--border)">
+        <span>Total Cost</span><span id="sm_total"></span>
+      </div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button onclick="viewPurchaseBill()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">👁️ View Bill</button>
+      <button onclick="printPurchaseModal()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">🖨️ Print</button>
+      <button onclick="pdfPurchaseModal()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">📄 PDF</button>
+      <button onclick="closeSesModal()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--border);color:var(--text);font-size:.88em;font-weight:600;cursor:pointer">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Theme
+const themes=['light','dim','dark'];
+const themeIcons={light:'☀️',dim:'🌤️',dark:'🌙'};
+let _theme=localStorage.getItem('theme')||'light';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t==='light'?'':t);
+  document.getElementById('themeBtn').textContent=themeIcons[t];
+  localStorage.setItem('theme',t); _theme=t;
+}
+applyTheme(_theme);
+function toggleTheme(){applyTheme(themes[(themes.indexOf(_theme)+1)%themes.length]);}
+
+function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
+
+function toast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(err?' error':'');
+  setTimeout(()=>t.className='toast',2800);
+}
+
+let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={};
+
+// Supplier search
+let supTimer;
+async function searchSuppliers(q){
+  clearTimeout(supTimer);
+  const dd=document.getElementById('supplierDropdown');
+  if(!q.trim()){dd.style.display='none';return;}
+  supTimer=setTimeout(async()=>{
+    const r=await fetch('/api/suppliers?q='+encodeURIComponent(q));
+    const items=await r.json();
+    if(!items.length){
+      dd.innerHTML='<div style="padding:10px 14px;color:var(--sub);font-size:.88em">No supplier found</div>';
+    } else {
+      dd.innerHTML=items.map(s=>`
+        <div onclick="selectSupplier(${s.id},'${s.name.replace(/'/g,"\\'")}','${(s.phone||'').replace(/'/g,"\\'")}');"
+          style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)">
+          <div style="font-weight:600;font-size:.9em;color:var(--text)">${s.name}</div>
+          ${s.phone?`<div style="font-size:.78em;color:var(--sub)">${s.phone}</div>`:''}
+        </div>`).join('');
+    }
+    dd.style.display='block';
+  },200);
+}
+
+function selectSupplier(id,name,phone){
+  supplier={id,name,phone};
+  document.getElementById('supplierSearch').value='';
+  document.getElementById('supplierDropdown').style.display='none';
+  document.getElementById('selSupName').textContent=name+(phone?' · '+phone:'');
+  document.getElementById('selectedSupplier').style.display='flex';
+}
+
+function clearSupplier(){
+  supplier=null;
+  document.getElementById('selectedSupplier').style.display='none';
+  document.getElementById('supplierSearch').value='';
+}
+
+// Item search
+let searchTimer, lastQuery='';
+async function searchItems(q){
+  clearTimeout(searchTimer);
+  lastQuery=q;
+  const dd=document.getElementById('itemDropdown');
+  if(!q.trim()){dd.classList.remove('open');return;}
+  searchTimer=setTimeout(async()=>{
+    const r=await fetch('/api/items?q='+encodeURIComponent(q));
+    const items=await r.json();
+    const addRow=`<div class="dd-item" style="border-top:1px solid var(--border);color:var(--accent);font-weight:600" onclick="showCustomBar('${toTitleCase(q).replace(/'/g,"\\'")}')">+ Add "${toTitleCase(q)}" manually (not in catalog)</div>`;
+    if(!items.length){
+      dd.innerHTML='<div class="dd-item"><div class="dd-name" style="color:var(--sub)">No items found</div></div>'+addRow;
+    } else {
+      dd.innerHTML=items.map(i=>`
+        <div class="dd-item" onclick="addItem(${i.id},'${i.name.replace(/'/g,"\\'")}',${i.tp},${i.retail_price},${i.tax_pct||0},${i.qty})">
+          <div class="dd-name">${i.name}${i.code?` <span style="color:var(--sub);font-size:.8em">(${i.code})</span>`:''}</div>
+          <div class="dd-meta">Retail: Rs.${(+i.retail_price).toFixed(2)} &nbsp;·&nbsp; TP: Rs.${(+i.tp).toFixed(2)} &nbsp;·&nbsp; Stock: ${(+i.qty).toFixed(0)}</div>
+        </div>`).join('')+addRow;
+    }
+    dd.classList.add('open');
+  },200);
+}
+
+async function itemSearchKey(e){
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  clearTimeout(searchTimer);
+  const q=document.getElementById('itemSearch').value.trim();
+  if(!q) return;
+  const r=await fetch('/api/items?q='+encodeURIComponent(q));
+  const items=await r.json();
+  if(items.length) addItem(items[0].id,items[0].name,items[0].tp,items[0].retail_price,items[0].tax_pct||0,items[0].qty);
+  else showCustomBar(toTitleCase(q));
+}
+
+function showCustomBar(name=''){
+  document.getElementById('itemDropdown').classList.remove('open');
+  document.getElementById('itemSearch').value='';
+  document.getElementById('ci_name').value=name;
+  document.getElementById('ci_retail').value='';
+  document.getElementById('ci_tp').value='';
+  document.getElementById('ci_disc').value='';
+  document.getElementById('ci_tax').value='';
+  document.getElementById('customItemBar').style.display='block';
+  document.getElementById('ci_name').focus();
+}
+
+function hideCustomBar(){ document.getElementById('customItemBar').style.display='none'; }
+
+function ciRetailChange(){
+  const v=parseFloat(document.getElementById('ci_retail').value);
+  document.getElementById('ci_tp').value=v>0?(v*0.85).toFixed(2):'';
+}
+function ciTpChange(){
+  const v=parseFloat(document.getElementById('ci_tp').value);
+  document.getElementById('ci_retail').value=v>0?(v/0.85).toFixed(2):'';
+}
+
+function addCustomItem(){
+  const name=document.getElementById('ci_name').value.trim();
+  if(!name){toast('Item name required',true);return;}
+  const retail=parseFloat(document.getElementById('ci_retail').value)||0;
+  const tp=parseFloat(document.getElementById('ci_tp').value)||0;
+  const disc=parseFloat(document.getElementById('ci_disc').value)||0;
+  const tax=parseFloat(document.getElementById('ci_tax').value)||0;
+  lines.push({item_id:null, name, tp, retail, disc, tax, qty:1, currentQty:0});
+  hideCustomBar();
+  renderLines();
+}
+
+function addItem(id, name, tp, retail, tax, currentQty){
+  document.getElementById('itemSearch').value='';
+  document.getElementById('itemDropdown').classList.remove('open');
+  const existing = lines.findIndex(l=>l.item_id===id);
+  if(existing>=0){ lines[existing].qty+=1; }
+  else { lines.push({item_id:id, name, tp:+tp, retail:+retail, disc:0, tax:+tax, qty:1, currentQty:+currentQty}); }
+  renderLines();
+}
+
+function lineNet(l){
+  const gross = l.tp * l.qty;
+  const afterDisc = gross * (1 - (l.disc||0)/100);
+  const taxAmt = l.qty * (l.tax||0);
+  return afterDisc + taxAmt;
+}
+
+function renderLines(){
+  const body=document.getElementById('linesBody');
+  if(!lines.length){
+    body.innerHTML='<tr><td colspan="9"><div class="empty-lines">No items added yet.<br>Search above to add items.</div></td></tr>';
+    recalc(); return;
+  }
+  body.innerHTML=lines.map((l,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td style="font-weight:600">${l.name}<br><span style="font-size:.75em;color:var(--sub)">Stock: ${l.currentQty.toFixed(0)}</span></td>
+      <td><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.retail.toFixed(2)}"
+        onchange="updateField(${i},'retail',this.value)"></td>
+      <td><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}"
+        onchange="updateField(${i},'tp',this.value)"></td>
+      <td><input class="qty-inp" style="width:60px" type="number" min="0" step="0.1" value="${(l.disc||0).toFixed(1)}"
+        onchange="updateField(${i},'disc',this.value)"></td>
+      <td><input class="qty-inp" style="width:60px" type="number" min="0" step="0.01" value="${(l.tax||0).toFixed(2)}"
+        onchange="updateField(${i},'tax',this.value)"></td>
+      <td><input class="qty-inp" type="number" min="0" step="1" value="${l.qty}"
+        onchange="updateField(${i},'qty',this.value)"></td>
+      <td class="num" style="font-weight:700">Rs.${lineNet(l).toFixed(2)}</td>
+      <td><button class="remove-btn" onclick="removeLine(${i})">✕</button></td>
+    </tr>`).join('');
+  recalc();
+}
+
+function updateField(i,field,v){lines[i][field]=parseFloat(v)||0;renderLines();}
+function removeLine(i){lines.splice(i,1);renderLines();}
+
+function recalc(){
+  const totalCost=lines.reduce((s,l)=>s+lineNet(l),0);
+  const totalQty=lines.reduce((s,l)=>s+l.qty,0);
+  document.getElementById('sumItems').textContent=lines.length;
+  document.getElementById('sumQty').textContent=totalQty.toFixed(0);
+  document.getElementById('sumTotal').textContent='Rs. '+totalCost.toFixed(2);
+}
+
+let sessionPurchases=[];
+
+async function savePurchase(){
+  if(!lines.length){toast('Add at least one item',true);return;}
+  const supplierName = supplier ? supplier.name : 'Counter';
+  const payload={
+    supplier_name: supplierName,
+    supplier_id: supplier ? supplier.id : null,
+    lines: lines.map(l=>({item_id:l.item_id,item_name:l.name,qty:l.qty,tp:l.tp,retail:l.retail,disc:l.disc||0,tax:l.tax||0}))
+  };
+  const r=await fetch('/api/purchase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const res=await r.json();
+  if(r.ok){
+    toast('Purchase saved from '+supplierName+' — stock updated!');
+    sessionPurchases.unshift(res);
+    renderSessionHistory();
+    clearAll();
+    clearSupplier();
+  } else toast(res.error||'Error saving',true);
+}
+
+function renderSessionHistory(){
+  if(!sessionPurchases.length) return;
+  document.getElementById('histSection').style.display='block';
+  document.getElementById('sessionList').innerHTML=sessionPurchases.map((p,idx)=>`
+    <div class="hist-row" style="grid-template-columns:auto 1fr auto auto">
+      <span class="hist-no">${p.purchase_number}</span>
+      <span style="font-size:.9em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        ${p.supplier_name} &nbsp;·&nbsp; ${p.lines.map(l=>`${l.item_name}&nbsp;&nbsp;<span style="color:var(--accent)">TP:&nbsp;${(+l.tp).toFixed(0)}</span>&nbsp;&nbsp;<span style="color:var(--sub)">×&nbsp;${(+l.qty).toFixed(0)}</span>`).join('&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;')}
+      </span>
+      <span style="font-size:.85em;font-weight:700">Rs.${(+p.total_cost).toFixed(0)}</span>
+      <span>
+        <button onclick="viewSessionPurchase(${idx})" style="padding:5px 11px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:.78em;font-weight:700;cursor:pointer">View</button>
+      </span>
+    </div>`).join('');
+}
+
+function viewSessionPurchase(idx){
+  const p=sessionPurchases[idx];
+  currentViewPurchase=p;
+  document.getElementById('sm_no').textContent=p.purchase_number;
+  document.getElementById('sm_date').textContent=p.purchase_date;
+  document.getElementById('sm_sup').textContent=p.supplier_name;
+  document.getElementById('sm_lines').innerHTML=p.lines.map((l,i)=>`
+    <tr>
+      <td style="padding:8px 10px;color:var(--sub);border-bottom:1px solid var(--border)">${i+1}</td>
+      <td style="padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border)">${l.item_name}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.retail).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.disc_pct)>0?(+l.disc_pct).toFixed(1)+'%':'—'}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.qty).toFixed(0)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;border-bottom:1px solid var(--border)">Rs.${(+l.line_total).toFixed(2)}</td>
+    </tr>`).join('');
+  document.getElementById('sm_total').textContent='Rs.'+(+p.total_cost).toFixed(2);
+  document.getElementById('sesModal').classList.add('open');
+}
+
+function closeSesModal(){
+  document.getElementById('sesModal').classList.remove('open');
+}
+
+function clearAll(){
+  lines=[];
+  renderLines();
+  document.getElementById('itemSearch').value='';
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.item-search-wrap')) document.getElementById('itemDropdown').classList.remove('open');
+  if(!e.target.closest('#supplierSection')) document.getElementById('supplierDropdown').style.display='none';
+});
+(function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
+fetch('/api/settings').then(r=>r.json()).then(s=>{purShopSettings=s;if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
+document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
+
+function buildPurchasePrintHtml(p, forPdf){
+  const s=purShopSettings, accent='#4f46e5';
+  const rows=p.lines.map((l,i)=>`<tr style="${i%2===1?'background:#f8f8ff':''}">
+    <td style="text-align:center;color:#888;width:28px">${i+1}</td>
+    <td style="font-weight:600">${l.item_name}</td>
+    <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
+    <td style="text-align:right;color:#555">Rs.${(+l.retail).toFixed(2)}</td>
+    <td style="text-align:center;color:#555">${(+(l.disc_pct||l.disc||0))>0?(+(l.disc_pct||l.disc||0)).toFixed(1)+'%':'—'}</td>
+    <td style="text-align:center;font-weight:600">${(+l.qty).toFixed(0)}</td>
+    <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${(+l.line_total).toFixed(2)}</td>
+  </tr>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${p.purchase_number}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;padding:24px 30px;color:#1a1a2e;font-size:13px;background:#fff}
+    .shop-header{text-align:center;margin-bottom:14px}
+    .shop-name{font-size:1.9em;font-weight:800;color:${accent};letter-spacing:-.3px;margin-bottom:4px}
+    .shop-info{font-size:.85em;color:#555;line-height:1.7}
+    .divider{border:none;border-top:3px solid ${accent};margin:12px 0}
+    .pur-title{text-align:center;font-size:1.2em;font-weight:700;color:${accent};margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}
+    .info-row{display:flex;justify-content:space-between;margin-bottom:14px;font-size:.95em}
+    .info-item .lbl{font-size:.7em;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px}
+    .info-item .val{font-weight:700;color:#1a1a2e}
+    table{width:100%;border-collapse:collapse;font-size:.86em;margin-top:4px}
+    th{padding:9px 10px;text-align:left;font-weight:700;font-size:.78em;text-transform:uppercase;letter-spacing:.4px;color:${accent};border-bottom:2px solid ${accent}}
+    td{padding:8px 10px;border-bottom:1px solid #ececec;vertical-align:middle}
+    .totals-wrap{display:flex;justify-content:flex-end;margin-top:16px}
+    .totals-table{width:260px;font-size:.88em}
+    .totals-table td{padding:5px 8px;border:none}
+    .grand-row td{font-size:1.05em;font-weight:800;color:${accent};border-top:2px solid ${accent};padding-top:8px}
+    .footer{margin-top:28px;padding-top:12px;border-top:1px dashed #ccc;text-align:center;font-size:.78em;color:#888}
+    @media print{body{padding:12px 16px}@page{margin:10mm}}
+  </style></head><body>
+  <div class="shop-header">
+    <div class="shop-name">${s.shop_name||'Your Shop'}</div>
+    <div class="shop-info">
+      ${s.address?`${s.address}`:''}${s.address&&(s.phone||s.ntn)?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.phone?`Tel: ${s.phone}`:''}${s.phone&&s.ntn?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.ntn?`NTN: ${s.ntn}`:''}
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="pur-title">Purchase Invoice</div>
+  <div class="info-row">
+    <div class="info-item"><div class="lbl">Purchase #</div><div class="val">${p.purchase_number}</div></div>
+    <div class="info-item"><div class="lbl">Supplier</div><div class="val">${p.supplier_name}</div></div>
+    <div class="info-item"><div class="lbl">Date</div><div class="val">${p.purchase_date}</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:28px">#</th><th>Item</th><th style="text-align:right">TP</th>
+      <th style="text-align:right">Retail</th><th style="text-align:center">Disc%</th>
+      <th style="text-align:center">Qty</th><th style="text-align:right">Total</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="totals-wrap">
+    <table class="totals-table">
+      <tr class="grand-row"><td>Total Cost</td><td style="text-align:right">Rs.${(+p.total_cost).toFixed(2)}</td></tr>
+    </table>
+  </div>
+  <div class="footer">${s.shop_name||''} ${s.phone?'· '+s.phone:''} · Purchase Record</div>
+  ${forPdf?'<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>':''}
+  </body></html>`;
+}
+
+function viewPurchaseBill(){
+  if(!currentViewPurchase) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildPurchasePrintHtml(currentViewPurchase,false));
+  w.document.close();
+  w.focus();
+}
+
+function printPurchaseModal(){
+  if(!currentViewPurchase) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildPurchasePrintHtml(currentViewPurchase,false));
+  w.document.close();
+  w.focus();
+  setTimeout(()=>{w.print();w.onafterprint=()=>w.close();},400);
+}
+
+function pdfPurchaseModal(){
+  if(!currentViewPurchase) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildPurchasePrintHtml(currentViewPurchase,true));
+  w.document.close();
+  w.focus();
+}
+document.addEventListener('focusin',e=>{
+  if(e.target.type==='number'){e.target.dataset._prev=e.target.value;e.target.value='';}
+});
+document.addEventListener('focusout',e=>{
+  if(e.target.type==='number'){
+    if(e.target.value===''||e.target.value===null){e.target.value=e.target.dataset._prev||'';}
+    else{e.target.value=parseFloat(e.target.value).toFixed(2);}
+  }
+});
+</script>
+</body>
+</html>

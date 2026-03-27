@@ -28,8 +28,8 @@ list_to_htm/
 new_pattern.HTM
 search_medicines.py
 run_web.bat
-static/
-templates/
+/static/
+/templates/
 CLAUDE.md
 
 # OS

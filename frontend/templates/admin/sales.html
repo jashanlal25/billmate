@@ -1,0 +1,354 @@
+{% extends 'admin/base.html' %}
+{% block title %}Sales{% endblock %}
+{% block btn_sales %}active{% endblock %}
+
+{% block content_main %}
+<div class="section-header">
+  <div class="section-title">🧾 Sales Invoices</div>
+  <input class="search-box" id="searchBox" placeholder="Search by # or customer..." oninput="filterList()">
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-btn" onclick="setFilter('draft',this)">Pending</button>
+    <button class="filter-btn" onclick="setFilter('posted',this)">Invoiced</button>
+    <button class="filter-btn" onclick="setFilter('finalised',this)">Finalised</button>
+    <button class="filter-btn" onclick="setFilter('cancelled',this)">Cancelled</button>
+  </div>
+</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Customer</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th class="num">Total</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="invBody">
+      <tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>Loading...</div></td></tr>
+    </tbody>
+  </table>
+</div>
+<div id="pager" style="display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap"></div>
+
+<!-- Detail Modal -->
+<div class="overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="dInvNo"></div>
+        <div class="modal-sub" id="dDate"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="badge" id="dBadge"></span>
+        <button onclick="closeModal()" style="background:none;border:none;font-size:1.4em;cursor:pointer;color:var(--sub);line-height:1;padding:4px 6px;border-radius:8px;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.06)'" onmouseout="this.style.background='none'">✕</button>
+      </div>
+    </div>
+    <div class="section-label">Customer</div>
+    <div class="info-row"><span class="info-label">Name</span><span class="info-val" id="dCust"></span></div>
+    <div class="section-label">Items</div>
+    <table class="modal-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Item</th><th style="text-align:right">TP</th>
+          <th style="text-align:right">Disc%</th><th style="text-align:right">Tax</th>
+          <th style="text-align:right">Qty</th><th style="text-align:right">Net</th>
+        </tr>
+      </thead>
+      <tbody id="dLines"></tbody>
+    </table>
+    <div class="totals">
+      <div class="total-row"><span style="color:var(--sub)">Subtotal</span><span id="dSub"></span></div>
+      <div class="total-row"><span style="color:var(--sub)">Discount</span><span id="dDisc"></span></div>
+      <div class="total-row"><span style="color:var(--sub)">Tax</span><span id="dTax"></span></div>
+      <div class="total-row grand"><span>Total</span><span id="dTotal"></span></div>
+    </div>
+    <div class="modal-actions" id="dActions"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+var allInvoices=[], currentFilter='all', currentInv=null, shopSettings={};
+var pageOffset=0, pageLimit=100, pageTotal=0;
+
+(async function(){const r=await fetch('/api/settings');shopSettings=await r.json();})();
+
+function statusLabel(s){ return s==='draft'?'Pending':s==='posted'?'Invoiced':s==='finalised'?'Finalised':s==='cancelled'?'Cancelled':s; }
+
+async function load(offset=0){
+  pageOffset=offset;
+  const r=await fetch(`/api/invoices?offset=${offset}&limit=${pageLimit}`);
+  const data=await r.json();
+  allInvoices=data.items||data;
+  pageTotal=data.total||allInvoices.length;
+  render();
+  renderPager();
+}
+
+function renderPager(){
+  const el=document.getElementById('pager');
+  if(!el) return;
+  const pages=Math.ceil(pageTotal/pageLimit);
+  const cur=Math.floor(pageOffset/pageLimit)+1;
+  el.innerHTML=pages<=1?'':`
+    <button class="filter-btn" onclick="load(${Math.max(0,pageOffset-pageLimit)})" ${pageOffset===0?'disabled':''}>‹ Prev</button>
+    <span style="color:rgba(255,255,255,.6);font-size:.85em;padding:0 8px">Page ${cur} of ${pages} (${pageTotal})</span>
+    <button class="filter-btn" onclick="load(${pageOffset+pageLimit})" ${pageOffset+pageLimit>=pageTotal?'disabled':''}>Next ›</button>`;
+}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function filterList(){ render(); }
+
+function render(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  let list=allInvoices;
+  if(currentFilter!=='all') list=list.filter(i=>i.status===currentFilter);
+  if(q) list=list.filter(i=>i.invoice_number.toLowerCase().includes(q)||i.customer_name.toLowerCase().includes(q));
+  const body=document.getElementById('invBody');
+  if(!list.length){
+    body.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">📋</div>No invoices found.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML=list.map(inv=>`
+    <tr>
+      <td data-label="Invoice#" style="font-family:monospace;font-weight:700">${inv.invoice_number}</td>
+      <td data-label="Customer" style="font-weight:600">${inv.customer_name}</td>
+      <td data-label="Date" style="color:var(--sub)">${inv.invoice_date}</td>
+      <td data-label="Status"><span class="badge badge-${inv.status}">${statusLabel(inv.status)}</span></td>
+      <td data-label="Total" class="num" style="font-weight:700">Rs. ${(+inv.total).toFixed(2)}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="act-btn ab-view" onclick="openDetail(${inv.id})">View</button>
+          ${inv.status==='draft'?`<button class="act-btn ab-edit" onclick="editBill(${inv.id})">Edit</button>`:''}
+          ${inv.status==='draft'?`<button class="act-btn ab-post" onclick="doPost(${inv.id})">Save</button>`:''}
+          ${inv.status==='posted'?`<button class="act-btn ab-post" onclick="doFinalise(${inv.id})">Finalise</button>`:''}
+          ${inv.status==='posted'||inv.status==='finalised'?`<button class="act-btn ab-unlock" onclick="doUnlock(${inv.id})">Unlock</button>`:''}
+          ${inv.status!=='cancelled'?`<button class="act-btn ab-cancel" onclick="doCancel(${inv.id})">Cancel</button>`:''}
+          ${inv.status==='draft'?`<button class="act-btn ab-del" onclick="doDelete(${inv.id})">Delete</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function openDetail(id){
+  const r=await fetch(`/api/invoices/${id}`);
+  currentInv=await r.json();
+  const inv=currentInv;
+  document.getElementById('dInvNo').textContent=inv.invoice_number;
+  document.getElementById('dDate').textContent=inv.invoice_date;
+  document.getElementById('dCust').textContent=inv.customer_name;
+  const badge=document.getElementById('dBadge');
+  badge.textContent=statusLabel(inv.status);
+  badge.className=`badge badge-${inv.status}`;
+  document.getElementById('dLines').innerHTML=inv.lines.map((l,i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${l.item_name}</strong>${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${l.bonus_text}</span>`:''}</td>
+      <td style="text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:right">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
+      <td style="text-align:right">${(+l.qty)%1===0?(+l.qty).toFixed(0):(+l.qty).toFixed(2)}</td>
+      <td style="text-align:right;font-weight:700">Rs.${(+l.line_net).toFixed(2)}</td>
+    </tr>`).join('');
+  document.getElementById('dSub').textContent='Rs.'+((+inv.subtotal).toFixed(2));
+  document.getElementById('dDisc').textContent='Rs.'+((+inv.discount_amount).toFixed(2));
+  document.getElementById('dTax').textContent='Rs.'+((+inv.tax_amount).toFixed(2));
+  document.getElementById('dTotal').textContent='Rs.'+((+inv.total).toFixed(2));
+  const acts=document.getElementById('dActions');
+  const btns=[];
+  btns.push(`<button class="mbtn mbtn-post" onclick="viewBill()">👁️ View Bill</button>`);
+  btns.push(`<button class="mbtn mbtn-post" onclick="printInvoice()">🖨️ Print</button>`);
+  btns.push(`<button class="mbtn mbtn-edit" onclick="pdfInvoice()">📄 PDF</button>`);
+  if(inv.status==='draft'){
+    btns.push(`<button class="mbtn mbtn-edit" onclick="editBill(${inv.id});closeModal()">✏️ Edit</button>`);
+    btns.push(`<button class="mbtn mbtn-post" onclick="doPost(${inv.id})">💾 Save as Invoiced</button>`);
+    btns.push(`<button class="mbtn mbtn-del" onclick="doDelete(${inv.id})">🗑️ Delete</button>`);
+  }
+  if(inv.status==='posted'){
+    btns.push(`<button class="mbtn mbtn-edit" onclick="editBill(${inv.id});closeModal()">✏️ Edit</button>`);
+    btns.push(`<button class="mbtn mbtn-post" onclick="doFinalise(${inv.id})">✅ Finalise</button>`);
+    btns.push(`<button class="mbtn mbtn-unlock" onclick="doUnlock(${inv.id})">🔓 Unlock</button>`);
+    btns.push(`<button class="mbtn mbtn-cancel" onclick="doCancel(${inv.id})">✖️ Cancel</button>`);
+  }
+  if(inv.status==='finalised'){
+    btns.push(`<button class="mbtn mbtn-unlock" onclick="doUnlock(${inv.id})">🔓 Unlock</button>`);
+    btns.push(`<button class="mbtn mbtn-cancel" onclick="doCancel(${inv.id})">✖️ Cancel</button>`);
+  }
+  btns.push(`<button class="mbtn mbtn-close" onclick="closeModal()">Close</button>`);
+  acts.innerHTML=btns.join('');
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function editBill(id){ window.location.href='/billing?edit='+id; }
+
+function viewBill(){
+  if(!currentInv) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildInvoicePrintHtml(currentInv,false));
+  w.document.close();
+  w.focus();
+}
+
+async function doPost(id){
+  if(!confirm('Mark as Invoiced?')) return;
+  const r=await fetch(`/api/invoices/${id}/post`,{method:'POST'});
+  const res=await r.json();
+  if(r.ok){ toast('Marked as Invoiced'); closeModal(); await load(); }
+  else toast(res.error||'Error',true);
+}
+
+async function doFinalise(id){
+  if(!confirm('Finalise this invoice? Editing will require admin unlock.')) return;
+  const r=await fetch(`/api/invoices/${id}/finalise`,{method:'POST'});
+  const res=await r.json();
+  if(r.ok){ toast('Invoice Finalised'); closeModal(); await load(); }
+  else toast(res.error||'Error',true);
+}
+
+async function doUnlock(id){
+  if(!confirm('Unlock this invoice for editing?')) return;
+  const r=await fetch(`/api/invoices/${id}/unpost`,{method:'POST'});
+  const res=await r.json();
+  if(r.ok){ toast('Invoice unlocked'); closeModal(); await load(); }
+  else toast(res.error||'Error',true);
+}
+
+async function doCancel(id){
+  if(!confirm('Cancel this invoice? This cannot be undone.')) return;
+  const r=await fetch(`/api/invoices/${id}/cancel`,{method:'POST'});
+  const res=await r.json();
+  if(r.ok){ toast('Invoice cancelled'); closeModal(); await load(); }
+  else toast(res.error||'Error',true);
+}
+
+async function doDelete(id){
+  if(!confirm('Delete this invoice?\nThe invoice number will be permanently retired and never reused.')) return;
+  const r=await fetch(`/api/invoices/${id}`,{method:'DELETE'});
+  const res=await r.json();
+  if(r.ok){ toast('Invoice deleted'); closeModal(); await load(); }
+  else toast(res.error||'Error',true);
+}
+
+function buildInvoicePrintHtml(inv, forPdf){
+  const s=shopSettings, accent='#4f46e5';
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
+  const rows=inv.lines.map((l,i)=>{
+    const lineTotal=((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
+    return `<tr style="${i%2===1?'background:#f8f8ff':''}">
+      <td style="text-align:center;color:#888;width:28px">${i+1}</td>
+      <td><span style="font-weight:600">${l.item_name}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${l.bonus_text}</span>`:''}</td>
+      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:center;color:#555">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
+      <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${lineTotal}</td>
+    </tr>`;}).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${inv.invoice_number}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;padding:24px 30px;color:#1a1a2e;font-size:13px;background:#fff}
+    .shop-header{text-align:center;margin-bottom:14px}
+    .shop-name{font-size:1.9em;font-weight:800;color:${accent};letter-spacing:-.3px;margin-bottom:4px}
+    .shop-info{font-size:.85em;color:#555;line-height:1.7}
+    .divider{border:none;border-top:3px solid ${accent};margin:12px 0}
+    .bill-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+    .cust-block{flex:1;padding-right:20px}
+    .cust-block .lbl{font-size:.7em;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .cust-row-item{display:flex;gap:6px;margin-bottom:5px;font-size:.95em}
+    .cust-row-item .k{font-weight:700;color:#1a1a2e;min-width:110px;flex-shrink:0}
+    .cust-row-item .v{color:#333}
+    .cust-name-val{font-size:1.05em;font-weight:800;color:#1a1a2e}
+    .meta-boxes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:flex-start}
+    .meta-box{border:1.5px solid #ddd;border-radius:8px;padding:7px 13px;text-align:center;min-width:85px}
+    .meta-box .lbl{font-size:.65em;color:#888;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:3px}
+    .meta-box .val{font-size:.9em;font-weight:700;color:#1a1a2e}
+    .status-box{border-color:${inv.status==='posted'?'#16a34a':inv.status==='cancelled'?'#dc2626':'#d97706'};background:${inv.status==='posted'?'#f0fdf4':inv.status==='cancelled'?'#fef2f2':'#fefce8'}}
+    .status-box .val{color:${inv.status==='posted'?'#166534':inv.status==='cancelled'?'#991b1b':'#854d0e'}}
+    table{width:100%;border-collapse:collapse;font-size:.86em;margin-top:4px}
+    th{padding:9px 10px;text-align:left;font-weight:700;font-size:.78em;text-transform:uppercase;letter-spacing:.4px;color:${accent};border-bottom:2px solid ${accent}}
+    td{padding:8px 10px;border-bottom:1px solid #ececec;vertical-align:middle}
+    .totals-wrap{display:flex;justify-content:flex-end;margin-top:16px}
+    .totals-table{width:260px;font-size:.88em}
+    .totals-table td{padding:5px 8px;border:none}
+    .totals-table .t-label{color:#555}
+    .totals-table .t-val{text-align:right;font-weight:600}
+    .grand-row td{font-size:1.05em;font-weight:800;color:${accent};border-top:2px solid ${accent};padding-top:8px}
+    .prev-row td{color:#92400e;font-size:.9em}
+    .footer{margin-top:28px;padding-top:12px;border-top:1px dashed #ccc;text-align:center;font-size:.78em;color:#888}
+    @media print{body{padding:12px 16px}@page{margin:10mm}}
+  </style></head><body>
+  <div class="shop-header">
+    <div class="shop-name">${s.shop_name||'Your Shop'}</div>
+    <div class="shop-info">
+      ${s.address?`${s.address}`:''}${s.address&&(s.phone||s.ntn)?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.phone?`Tel: ${s.phone}`:''}${s.phone&&s.ntn?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.ntn?`NTN: ${s.ntn}`:''}
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="bill-row">
+    <div class="cust-block">
+      <div class="lbl">Bill To</div>
+      <div class="cust-row-item"><span class="k">Customer Name</span><span class="v cust-name-val">${inv.customer_name||'Walk-in Customer'}</span></div>
+    </div>
+    <div class="meta-boxes">
+      <div class="meta-box"><div class="lbl">Invoice #</div><div class="val">${inv.invoice_number}</div></div>
+      <div class="meta-box"><div class="lbl">Date</div><div class="val">${inv.invoice_date}</div></div>
+      <div class="meta-box"><div class="lbl">Time</div><div class="val">${timeStr}</div></div>
+      <div class="meta-box status-box"><div class="lbl">Status</div><div class="val">${statusLabel(inv.status).toUpperCase()}</div></div>
+    </div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:28px">#</th><th>Item Description</th><th style="text-align:right">Rate (TP)</th>
+      <th style="text-align:center">Disc%</th><th style="text-align:center">Qty</th><th style="text-align:right">Net Amount</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="totals-wrap">
+    <table class="totals-table">
+      <tr><td class="t-label">Subtotal</td><td class="t-val">Rs.${(+inv.subtotal).toFixed(2)}</td></tr>
+      ${(+inv.discount_amount)>0?`<tr><td class="t-label">Discount</td><td class="t-val">- Rs.${(+inv.discount_amount).toFixed(2)}</td></tr>`:''}
+      ${(+inv.tax_amount)>0?`<tr><td class="t-label">Tax</td><td class="t-val">Rs.${(+inv.tax_amount).toFixed(2)}</td></tr>`:''}
+      <tr class="grand-row"><td>Total</td><td style="text-align:right">Rs.${(+inv.total).toFixed(2)}</td></tr>
+      ${(+inv.previous_balance)&&inv.customer_id?`
+      <tr class="prev-row"><td>Previous Balance</td><td style="text-align:right">Rs.${(+inv.previous_balance).toFixed(2)}</td></tr>
+      <tr class="grand-row"><td>Grand Total</td><td style="text-align:right">Rs.${((+inv.previous_balance)+(+inv.total)).toFixed(2)}</td></tr>`:''}
+    </table>
+  </div>
+  <div class="footer">${s.shop_name||''} ${s.phone?'· '+s.phone:''} · Thank you for your business!</div>
+  ${forPdf?'<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>':''}
+  </body></html>`;
+}
+
+function printInvoice(){
+  if(!currentInv) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildInvoicePrintHtml(currentInv,false));
+  w.document.close();
+  w.focus();
+  setTimeout(()=>{w.print();w.onafterprint=()=>w.close();},400);
+}
+
+function pdfInvoice(){
+  if(!currentInv) return;
+  const w=window.open('','_blank','width=750,height=900');
+  w.document.write(buildInvoicePrintHtml(currentInv,true));
+  w.document.close();
+  w.focus();
+}
+
+load();
+</script>
+{% endblock %}

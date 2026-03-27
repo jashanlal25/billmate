@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Login</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    .card{background:rgba(255,255,255,.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:44px 40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .logo{text-align:center;font-size:2.6em;margin-bottom:6px}
+    .title{text-align:center;color:#fff;font-size:1.35em;font-weight:700;margin-bottom:4px}
+    .subtitle{text-align:center;color:rgba(255,255,255,.45);font-size:.85em;margin-bottom:32px;letter-spacing:.3px}
+    .label{display:block;color:rgba(255,255,255,.6);font-size:.8em;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+    .inp{width:100%;padding:13px 16px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:12px;color:#fff;font-size:.95em;outline:none;transition:border .2s;margin-bottom:18px}
+    .inp:focus{border-color:#a78bfa}
+    .inp::placeholder{color:rgba(255,255,255,.3)}
+    .btn{width:100%;padding:14px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:12px;color:#fff;font-size:1em;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px;margin-top:4px}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,.4)}
+    .btn:active{transform:none}
+    .err{color:#f87171;font-size:.85em;margin-bottom:14px;min-height:1.2em;text-align:center}
+    .shield{display:inline-block;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:50%;width:52px;height:52px;line-height:52px;text-align:center;font-size:1.5em;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+    .center{display:flex;justify-content:center}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="center"><div class="shield">🔐</div></div>
+  <div class="title">Super Admin</div>
+  <div class="subtitle">BillMate System Owner Portal</div>
+  <label class="label">Username</label>
+  <input class="inp" id="uname" type="text" placeholder="Admin" autocomplete="username">
+  <label class="label">Password</label>
+  <input class="inp" id="pwd" type="password" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <div class="err" id="err"></div>
+  <button class="btn" onclick="doLogin()">Access Super Admin Panel</button>
+</div>
+<script>
+async function doLogin(){
+  const u=document.getElementById('uname').value.trim();
+  const p=document.getElementById('pwd').value.trim();
+  const err=document.getElementById('err');
+  err.textContent='';
+  if(!u||!p){err.textContent='Enter username and password';return;}
+  const btn=document.querySelector('.btn');
+  btn.disabled=true;btn.textContent='Verifying…';
+  const r=await fetch('/auth/superadmin-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    window.location.href='/superadmin/users';
+  } else {
+    err.textContent=d.error||'Invalid credentials';
+    btn.disabled=false;btn.textContent='Access Super Admin Panel';
+  }
+}
+document.getElementById('uname').focus();
+</script>
+</body>
+</html>

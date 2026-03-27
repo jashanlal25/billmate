@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Access — BillMate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:24px;padding:36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center}
+.icon{font-size:2.8em;margin-bottom:12px}
+.title{font-size:1.3em;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+.sub{font-size:.88em;color:#888;margin-bottom:28px}
+.pw-wrap{position:relative}
+.pw-wrap input{width:100%;padding:12px 42px 12px 16px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:.95em;outline:none;color:#1a1a2e;background:#f8f9fa;text-align:center;letter-spacing:.1em}
+.pw-wrap input:focus{border-color:#667eea;background:#fff}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:#aaa;padding:2px}
+.btn{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:700;cursor:pointer;margin-top:16px;transition:all .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
+.err{color:#ef4444;font-size:.84em;margin-top:12px}
+.forgot{display:block;margin-top:16px;font-size:.83em;color:#667eea;text-decoration:none;font-weight:600}
+.forgot:hover{text-decoration:underline}
+.forgot-msg{font-size:.82em;margin-top:8px;min-height:1em}
+.reset-info{margin-top:14px;font-size:.82em;color:#f59e0b;font-weight:600;padding:10px;background:rgba(245,158,11,.1);border-radius:10px}
+.locked-info{margin:16px 0;font-size:.88em;color:#ef4444;font-weight:600;padding:14px;background:rgba(239,68,68,.08);border-radius:12px;border:1.5px solid rgba(239,68,68,.2);line-height:1.5}
+.back{display:block;margin-top:20px;font-size:.85em;color:#aaa;text-decoration:none}
+.back:hover{color:#667eea}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🛡️</div>
+  <div class="title">Admin Access</div>
+  <div class="sub">Enter the admin password to continue</div>
+  {% if locked %}
+  <div class="locked-info">🔒 Account locked due to too many failed attempts.<br>Try again in ~{{ lock_minutes_left }} minute(s).</div>
+  {% else %}
+  <form method="POST" action="/admin/unlock">
+    <div class="field">
+      <div class="pw-wrap">
+        <input type="password" id="adm_pass" name="password" placeholder="Admin password" autofocus>
+        <button type="button" class="eye-btn" onclick="toggleEye()">👁️</button>
+      </div>
+    </div>
+    {% if error %}
+    <div class="err">{{ error }}</div>
+    {% endif %}
+    <button type="submit" class="btn">Unlock Admin</button>
+  </form>
+  {% endif %}
+  {% if reset_pending %}
+  <div class="reset-info">Reset requested — admin password will reset to your login password in ~{{ reset_hours_left }}h</div>
+  {% elif not locked %}
+  <a href="#" class="forgot" onclick="forgotAdmin(event)">Forgot admin password?</a>
+  {% endif %}
+  <div id="forgotMsg" class="forgot-msg"></div>
+  <a href="/billing" class="back">← Back to Billing</a>
+</div>
+<script>
+function toggleEye(){
+  const inp=document.getElementById('adm_pass');
+  const btn=event.currentTarget;
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+}
+async function forgotAdmin(e){
+  e.preventDefault();
+  if(!confirm('This will reset admin password to your login password after 24 hours. Continue?')) return;
+  const r=await fetch('/admin/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'}});
+  const d=await r.json();
+  const msg=document.getElementById('forgotMsg');
+  if(d.success){
+    msg.textContent=d.message;
+    msg.style.color='#10b981';
+    e.target.style.display='none';
+  } else {
+    msg.textContent=d.error;
+    msg.style.color='#ef4444';
+  }
+}
+</script>
+</body>
+</html>
