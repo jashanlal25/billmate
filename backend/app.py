@@ -16,12 +16,12 @@ app = Flask(__name__,
     static_url_path='/static'
 )
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-app.secret_key = os.environ.get('SECRET_KEY', '4c468a90057817605c234b7ff24fbd58d191d4fdbc2397cc4bc715e26cf37892')
+app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
 
 # Database — env var takes priority; fallback to Aiven PostgreSQL
-_db_url = os.environ.get('DATABASE_URL', 'postgresql://avnadmin:REMOVED_SECRET@pg-1d1d1974-med-billing-db.e.aivencloud.com:15765/defaultdb?sslmode=require')
+_db_url = os.environ.get('DATABASE_URL')
 # SQLAlchemy requires postgresql:// not postgres://
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
