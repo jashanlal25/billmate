@@ -1,12 +1,18 @@
+import os
+import sys
+
+# Ensure backend/ is on the path so `models` can be imported on Vercel
+base_dir = os.path.dirname(os.path.abspath(__file__))
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
+
 from flask import Flask, render_template, request, jsonify, redirect, session, url_for
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-import os
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(base_dir)  # billing_system/
 load_dotenv(os.path.join(project_dir, '.env'))
 
