@@ -106,8 +106,14 @@
     .toast.show{transform:translateX(-50%) translateY(0)}
 
     @media(max-width:640px){
+      .topnav{padding:6px 12px;gap:5px;height:auto;flex-wrap:wrap}
+      .nav-spacer{flex-basis:100%;order:99;display:none}
+      .nav-user{display:none}
+      .nav-badge{font-size:.65em}
+      .logout-btn{padding:5px 9px;font-size:.74em}
       .stats-row{flex-direction:column}
       .search-box{width:100%}
+      .sec-head{flex-direction:column;align-items:stretch}
       table,thead,tbody,th,td,tr{display:block}
       thead tr{display:none}
       tr{border-bottom:1.5px solid rgba(255,255,255,.07);padding:10px 0}
