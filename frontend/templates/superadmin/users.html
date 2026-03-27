@@ -106,13 +106,15 @@
     .toast.show{transform:translateX(-50%) translateY(0)}
 
     .btn-txt{display:inline}
+    .btn-icon{display:none}
     @media(max-width:640px){
-      .topnav{padding:0 10px;gap:5px;height:58px;flex-wrap:nowrap;overflow:hidden}
+      .topnav{padding:0 6px;gap:3px;height:64px;flex-wrap:nowrap}
       .nav-spacer{flex:1}
       .nav-user{display:none}
       .nav-badge{display:none}
-      .logout-btn{padding:6px 10px;font-size:.8em;margin-right:0!important;flex-shrink:0}
-      .btn-txt{display:none}
+      .logout-btn{padding:4px 6px;font-size:.8em;margin-right:0!important;flex-shrink:0;display:inline-flex;flex-direction:column;align-items:center;gap:1px;min-width:44px}
+      .btn-txt{display:block;font-size:.6em;letter-spacing:0;white-space:nowrap}
+      .btn-icon{display:block;font-size:1.2em;line-height:1}
       .stats-row{flex-direction:column}
       .search-box{width:100%}
       .sec-head{flex-direction:column;align-items:stretch}
@@ -134,10 +136,10 @@
   <span class="nav-badge">SUPER ADMIN</span>
   <div class="nav-spacer"></div>
   <span class="nav-user">{{ session.username }}</span>
-  <a href="/superadmin/messages" class="logout-btn" style="background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;margin-right:6px">📬<span class="btn-txt"> Messages</span> <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.78em;margin-left:3px"></span></a>
-  <a href="/superadmin/items" class="logout-btn" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;margin-right:6px">🌐<span class="btn-txt"> Items</span></a>
-  <button class="logout-btn" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.4);color:#a78bfa;margin-right:6px" onclick="openOwnPwdModal()">🔑<span class="btn-txt"> Change Pwd</span></button>
-  <a href="/auth/logout" class="logout-btn">🚪<span class="btn-txt"> Logout</span></a>
+  <a href="/superadmin/messages" class="logout-btn" style="background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;margin-right:6px"><span class="btn-icon">📬</span><span class="btn-txt">Messages</span><span id="msgBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.78em;margin-left:3px"></span></a>
+  <a href="/superadmin/items" class="logout-btn" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;margin-right:6px"><span class="btn-icon">🌐</span><span class="btn-txt">Items</span></a>
+  <button class="logout-btn" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.4);color:#a78bfa;margin-right:6px" onclick="openOwnPwdModal()"><span class="btn-icon">🔑</span><span class="btn-txt">Change Pwd</span></button>
+  <a href="/auth/logout" class="logout-btn"><span class="btn-icon">🚪</span><span class="btn-txt">Logout</span></a>
 </nav>
 
 <div class="page">
