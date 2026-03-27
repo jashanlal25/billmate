@@ -1,5 +1,40 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
-uploads/
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+.venv/
+env/
+
+# Environment / Secrets — NEVER push these
 .env
+*.env
+.env.*
+
+# Database files
+*.db
+billing.db
+
+# Uploads (user files)
+uploads/
+
+# Old / unused project files
+list_to_htm/
+new_pattern.HTM
+search_medicines.py
+run_web.bat
+static/
+templates/
+CLAUDE.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel/

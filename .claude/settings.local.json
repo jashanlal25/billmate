@@ -6,7 +6,19 @@
       "Bash(python update_htm.py:*)",
       "Bash(python:*)",
       "Bash(ls -la *.py)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(curl -s http://localhost:5001/api/invoices)",
+      "Bash(curl -s http://localhost:5000/api/invoices)",
+      "Bash(mkdir -p admin)",
+      "Bash(mv admin.html admin/dashboard.html)",
+      "Bash(mv admin_base.html admin/base.html)",
+      "Bash(mv admin_login.html admin/login.html)",
+      "Bash(mv admin_unlock.html admin/unlock.html)",
+      "Bash(cp -r /mnt/e/billing_system/backend /mnt/c/Users/lapto/Documents/billmate/)",
+      "Bash(cp -r /mnt/e/billing_system/frontend /mnt/c/Users/lapto/Documents/billmate/)",
+      "Bash(cp /mnt/e/billing_system/Dockerfile /mnt/c/Users/lapto/Documents/billmate/)",
+      "Bash(cp /mnt/e/billing_system/vercel.json /mnt/c/Users/lapto/Documents/billmate/)",
+      "Bash(cp /mnt/e/billing_system/.gitignore /mnt/c/Users/lapto/Documents/billmate/)"
     ]
   }
 }
