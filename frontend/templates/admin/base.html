@@ -88,7 +88,8 @@ input[type=number]{-moz-appearance:textfield}
   .nav-links{display:none}.nav-hamburger{display:flex}
 }
 @media(max-width:480px){
-  .dash-grid{grid-template-columns:repeat(3,1fr)}
+  .dash-grid{display:flex;flex-wrap:wrap;justify-content:center}
+  .dash-btn{flex:1 1 calc(33% - 8px);min-width:88px;max-width:130px}
   .search-box{width:100%}
   table,thead,tbody,th,td,tr{display:block}
   thead tr{display:none}
