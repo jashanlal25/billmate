@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "functions": {
-    "backend/app.py": {
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/backend/app.py"
+      "destination": "/api/index"
     }
   ]
 }
