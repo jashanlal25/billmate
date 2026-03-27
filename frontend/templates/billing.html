@@ -139,16 +139,18 @@ input[type=number]{-moz-appearance:textfield}
   #linesTable{overflow:visible}
   #linesTable thead{display:none}
   #linesTable tbody tr{display:block;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative;border-bottom:none!important;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  #linesTable td{display:inline-block;border:none!important;padding:2px 4px;vertical-align:middle;font-size:.85em}
+  #linesTable td{display:none;border:none!important}
   #linesTable td:nth-child(1){display:none}
-  #linesTable td:nth-child(2){display:block;font-weight:700;font-size:.9em;padding:0 36px 8px 0;width:100%}
+  #linesTable td:nth-child(2){display:block;font-weight:700;font-size:.92em;padding:0 36px 10px 0;width:100%}
   #linesTable td:nth-child(3){display:none!important}
-  #linesTable td:nth-child(4){display:inline-flex!important;align-items:center;gap:3px}
-  #linesTable td:nth-child(5),#linesTable td:nth-child(6),#linesTable td:nth-child(7){display:inline-flex;align-items:center;gap:3px}
-  #linesTable td:nth-child(8){display:block;text-align:right;font-weight:700;font-size:.95em;margin-top:6px;padding:4px 0 0}
+  #linesTable td:nth-child(4),
+  #linesTable td:nth-child(5),
+  #linesTable td:nth-child(6),
+  #linesTable td:nth-child(7){display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;width:calc(50% - 6px);padding:4px 4px 2px;vertical-align:top}
+  #linesTable td:nth-child(8){display:block;text-align:right;font-weight:700;font-size:.95em;margin-top:8px;padding:6px 0 0;border-top:1px solid var(--border)!important;width:100%}
   #linesTable td:nth-child(9){position:absolute!important;top:8px;right:8px;display:block}
-  .mob-lbl{display:inline}
-  .qty-inp{width:72px!important;font-size:.88em!important;padding:6px 7px!important;background:var(--inp)!important}
+  .mob-lbl{display:block;font-size:.68em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-right:0}
+  .qty-inp{width:100%!important;font-size:.9em!important;padding:7px 8px!important;background:var(--inp)!important;text-align:left!important}
   /* Hist rows */
   .hist-row{display:flex!important;flex-wrap:wrap;gap:6px 10px}
   .hist-row .hist-no{flex:0 0 auto}
