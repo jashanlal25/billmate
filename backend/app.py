@@ -10,9 +10,14 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(base_dir)  # billing_system/
 load_dotenv(os.path.join(project_dir, '.env'))
 
+# Support both local (project_dir/frontend) and Vercel (base_dir/frontend) layouts
+_frontend = os.path.join(project_dir, 'frontend')
+if not os.path.isdir(_frontend):
+    _frontend = os.path.join(base_dir, 'frontend')
+
 app = Flask(__name__,
-    template_folder=os.path.join(project_dir, 'frontend', 'templates'),
-    static_folder=os.path.join(project_dir, 'frontend', 'static'),
+    template_folder=os.path.join(_frontend, 'templates'),
+    static_folder=os.path.join(_frontend, 'static'),
     static_url_path='/static'
 )
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
@@ -20,8 +25,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
 
-# Database — env var takes priority; fallback to Aiven PostgreSQL
-_db_url = os.environ.get('DATABASE_URL')
+# Database — must be set via DATABASE_URL environment variable
+_db_url = os.environ.get('DATABASE_URL', '')
+if not _db_url:
+    raise RuntimeError('DATABASE_URL environment variable is not set')
 # SQLAlchemy requires postgresql:// not postgres://
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
