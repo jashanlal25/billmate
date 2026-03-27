@@ -67,11 +67,13 @@
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e1b4b;border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 24px;border-radius:12px;font-size:.88em;font-weight:600;z-index:9999;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
     .toast.show{transform:translateX(-50%) translateY(0)}
 
+    .btn-txt{display:inline}
     @media(max-width:600px){
-      .topnav{padding:6px 12px;gap:5px;height:auto;flex-wrap:wrap}
-      .nav-spacer{display:none}
-      .nav-badge{font-size:.65em}
-      .users-btn,.logout-btn{padding:5px 9px;font-size:.74em}
+      .topnav{padding:0 10px;gap:5px;height:58px;flex-wrap:nowrap}
+      .nav-spacer{flex:1}
+      .nav-badge{display:none}
+      .users-btn,.logout-btn{padding:6px 10px;font-size:.82em;flex-shrink:0}
+      .btn-txt{display:none}
       .page-head{flex-direction:column;align-items:stretch}
       .search-box{width:100%}
       .add-btn{width:100%}
@@ -90,8 +92,8 @@
   <a href="/superadmin/users" class="nav-logo">⚡ BillMate</a>
   <span class="nav-badge">SUPER ADMIN</span>
   <div class="nav-spacer"></div>
-  <a href="/superadmin/users" class="users-btn">👥 Users</a>
-  <a href="/auth/logout" class="logout-btn">Logout</a>
+  <a href="/superadmin/users" class="users-btn">👥<span class="btn-txt"> Users</span></a>
+  <a href="/auth/logout" class="logout-btn">🚪<span class="btn-txt"> Logout</span></a>
 </nav>
 
 <div class="page">

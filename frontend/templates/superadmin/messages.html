@@ -13,6 +13,7 @@
     .nav-logo{font-size:1.2em;font-weight:800;color:#fff;text-decoration:none}
     .nav-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:.72em;font-weight:700;padding:3px 10px;border-radius:20px}
     .nav-spacer{flex:1}
+    .btn-txt{display:inline}
     .nav-link{padding:7px 16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.7);font-size:.82em;font-weight:600;text-decoration:none;transition:all .2s;margin-right:4px}
     .nav-link:hover{background:rgba(255,255,255,.12)}
     .logout-btn{padding:7px 16px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#f87171;font-size:.82em;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s}
@@ -65,10 +66,11 @@
     .toast.show{transform:translateX(-50%) translateY(0)}
 
     @media(max-width:600px){
-      .topnav{padding:6px 12px;gap:5px;height:auto;flex-wrap:wrap}
-      .nav-spacer{display:none}
-      .nav-badge{font-size:.65em}
-      .nav-link,.logout-btn{padding:5px 9px;font-size:.74em}
+      .topnav{padding:0 10px;gap:5px;height:58px;flex-wrap:nowrap}
+      .nav-spacer{flex:1}
+      .nav-badge{display:none}
+      .nav-link,.logout-btn{padding:6px 10px;font-size:.82em;flex-shrink:0}
+      .btn-txt{display:none}
       .req-card{flex-direction:column;align-items:flex-start;gap:10px}
       .req-actions{width:100%;flex-wrap:wrap}
       .act-btn{flex:1;text-align:center}
@@ -81,9 +83,9 @@
   <a href="/superadmin/users" class="nav-logo">⚡ BillMate</a>
   <span class="nav-badge">SUPER ADMIN</span>
   <div class="nav-spacer"></div>
-  <a href="/superadmin/users" class="nav-link">👥 Users</a>
-  <a href="/superadmin/items" class="nav-link">🌐 Items</a>
-  <a href="/auth/logout" class="logout-btn">Logout</a>
+  <a href="/superadmin/users" class="nav-link">👥<span class="btn-txt"> Users</span></a>
+  <a href="/superadmin/items" class="nav-link">🌐<span class="btn-txt"> Items</span></a>
+  <a href="/auth/logout" class="logout-btn">🚪<span class="btn-txt"> Logout</span></a>
 </nav>
 
 <div class="page">
