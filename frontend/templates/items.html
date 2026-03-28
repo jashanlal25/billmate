@@ -122,8 +122,10 @@ input[type=number]{-moz-appearance:textfield}
 
 <div class="container">
   <div class="top-bar">
-    <h1>💊 Item Catalog</h1>
+    <h1>💊 Item Catalog <span id="itemCount" style="font-size:.55em;font-weight:500;color:rgba(255,255,255,.5);margin-left:6px"></span></h1>
     <input class="search-box" id="searchBox" placeholder="Search items..." oninput="search(this.value)">
+    <button class="btn" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="{% if is_guest %}_guestClearItems(){% else %}openBulkDeleteModal(){% endif %}">🗑 Clear Items</button>
+    <button class="btn" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="openImportModal()">⬆ Import File</button>
     <button class="btn" onclick="openModal()">+ Add Item</button>
   </div>
   <div class="card">
@@ -212,9 +214,120 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </div>
 
+<!-- Bulk Delete Modal -->
+<div class="overlay" id="bulkDeleteModal" onclick="if(event.target===this)closeBulkDeleteModal()">
+  <div class="modal" style="max-width:400px">
+    <h2 style="color:#ef4444">🗑 Clear Items</h2>
+    <p style="font-size:.88em;color:var(--sub);margin-bottom:20px">Only <strong>your private items</strong> will be deleted. Global items shared by admin are never affected.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <button class="btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);text-align:left;padding:14px 18px" onclick="doBulkDelete('recent')">
+        <div style="font-weight:700;font-size:.95em">🕐 Last 24 Hours Only</div>
+        <div style="font-size:.78em;opacity:.85;margin-top:2px">Remove items added in the most recent import / last day</div>
+      </button>
+      <button class="btn" style="background:linear-gradient(135deg,#ef4444,#dc2626);text-align:left;padding:14px 18px" onclick="doBulkDelete('all')">
+        <div style="font-weight:700;font-size:.95em">⚠️ Delete All My Items</div>
+        <div style="font-size:.78em;opacity:.85;margin-top:2px">Remove every private item in your catalogue</div>
+      </button>
+    </div>
+    <button class="btn btn-cancel" style="width:100%" onclick="closeBulkDeleteModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="overlay" id="importModal" onclick="closeImportOnBg(event)">
+  <div class="modal" style="max-width:460px">
+    <h2>⬆ Import Items from File</h2>
+    <p style="font-size:.85em;color:var(--sub);margin-bottom:{% if is_guest %}10{% else %}18{% endif %}px">Supports offer list / stock list HTM files. Items with matching names will have their TP, retail, tax &amp; discount updated. New items will be added to your catalogue.</p>
+    {% if is_guest %}<div id="guestQuotaNote" style="font-size:.8em;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#92400e;font-weight:600"></div>{% endif %}
+    <div id="importDropZone" style="border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--inp)" onclick="document.getElementById('importFileInput').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
+      <div style="font-size:2.5em;margin-bottom:8px">📂</div>
+      <div style="font-weight:700;color:var(--text);font-size:.95em">Click to choose file or drag &amp; drop</div>
+      <div style="font-size:.8em;color:var(--sub);margin-top:4px">HTM / HTML offer-list or stock-list files</div>
+      <div id="importFileName" style="margin-top:10px;font-size:.85em;color:var(--accent);font-weight:600"></div>
+    </div>
+    <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
+    <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn btn-cancel" onclick="closeImportModal()">Cancel</button>
+      <button class="btn" id="importBtn" onclick="doImport()" disabled style="opacity:.5">Import</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
+<div id="_lockedOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#1e1b4b;border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:32px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:3em;margin-bottom:12px">🔒</div>
+    <div style="font-size:1.1em;font-weight:800;color:#f87171;margin-bottom:10px">Access Restricted</div>
+    <div style="font-size:.9em;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px">You have been locked for this action due to a violation.<br>Please contact your <strong style="color:#fff">Admin</strong> to restore access.</div>
+    <button onclick="document.getElementById('_lockedOverlay').style.display='none'" style="padding:11px 32px;background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:.95em;cursor:pointer">OK</button>
+  </div>
+</div>
+
 <script>
+const CAN_DELETE_GLOBAL = {{ 'true' if can_delete_global else 'false' }};
+const IS_GUEST = {{ 'true' if is_guest else 'false' }};
+
+// ── Guest localStorage item store ─────────────────────────────────────────────
+const G_ITEMS_KEY = 'g_items'; // shared with billing.html GuestStore
+const _today = new Date().toISOString().split('T')[0];
+const _IQ_KEY = `g_import_count_${_today}`;
+function _guestItems(){ try{ return JSON.parse(localStorage.getItem(G_ITEMS_KEY)||'[]'); }catch{ return []; } }
+function _guestSaveItems(list){ localStorage.setItem(G_ITEMS_KEY, JSON.stringify(list)); }
+function _importQuotaUsed(){ return parseInt(localStorage.getItem(_IQ_KEY)||'0'); }
+function _importQuotaIncrement(){ localStorage.setItem(_IQ_KEY, _importQuotaUsed()+1); }
+
+// ── Client-side HTM parser (mirrors server-side import logic) ─────────────────
+function _parseHtm(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText,'text/html');
+  const items=[];
+  function _clean(s){ return s ? s.replace(/\s+/g,' ').trim() : ''; }
+  function _num(s){ const m=_clean(s).match(/[-+]?\d+\.?\d*/); return m?parseFloat(m[0]):0; }
+  const itemRows=doc.querySelectorAll('tr.item-row');
+  if(itemRows.length){
+    itemRows.forEach(row=>{
+      const tds=row.querySelectorAll('td');
+      if(tds.length<2) return;
+      const name=_clean(tds[1].textContent);
+      const tp=parseFloat(row.dataset.tp||0)||0;
+      const disc_pct=parseFloat(row.dataset.disc||0)||0;
+      const bonus=_clean(row.dataset.bonus||'');
+      const tax_pct=parseFloat(row.dataset.tax||0)||0;
+      const retail=tp>0?Math.round(tp/0.85*100)/100:0;
+      if(name&&tp>0) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct});
+    });
+  } else {
+    doc.querySelectorAll('tr.item').forEach(row=>{
+      const tds=row.querySelectorAll('td');
+      if(tds.length<5) return;
+      let name,disc_pct,tp,bonus;
+      if(tds.length>=8){
+        name=_clean(tds[2].textContent); disc_pct=_num(tds[3].textContent);
+        tp=_num(tds[4].textContent); bonus='';
+      } else {
+        name=_clean(tds[1].textContent); disc_pct=_num(tds[3].textContent);
+        bonus=tds.length>4?_clean(tds[4].textContent):'';
+        tp=_num(tds[tds.length-1].textContent);
+      }
+      const retail=tp>0?Math.round(tp/0.85*100)/100:0;
+      if(name&&tp>0) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0});
+    });
+  }
+  return items;
+}
+
+// ── Item cache (cache-aside, expires at midnight) ─────────────────────────────
+const _CK = `items_cache_{{ session.username or 'guest' }}_${_today}`;
+function _cacheGet(){ try{ const v=localStorage.getItem(_CK); return v?JSON.parse(v):null; }catch{ return null; } }
+function _cacheSet(d){ try{ localStorage.setItem(_CK,JSON.stringify(d)); }catch{} }
+function _cacheClear(){
+  try{
+    const prefix=_CK.slice(0,_CK.lastIndexOf('_')+1);
+    Object.keys(localStorage).filter(k=>k.startsWith(prefix)&&k!==_CK).forEach(k=>localStorage.removeItem(k));
+    localStorage.removeItem(_CK);
+  }catch{}
+}
 const theme = localStorage.getItem('theme') || 'light';
 if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
 function toggleTheme(){
@@ -237,6 +350,7 @@ function toast(msg, err=false){
   t.className = 'toast show' + (err?' error':'');
   setTimeout(()=>t.className='toast', 2800);
 }
+function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay').style.display='flex';return true;}return false;}
 
 function onRetailInput(){
   const retail = parseFloat(document.getElementById('f_retail').value);
@@ -269,21 +383,51 @@ async function loadCategories(){
 }
 
 async function loadItems(q=''){
-  const r = await fetch('/api/items?q='+encodeURIComponent(q));
-  allItems = await r.json();
-  render(allItems);
+  let serverItems = _cacheGet();
+  if(!serverItems){
+    const r = await fetch('/api/items');
+    serverItems = await r.json();
+    _cacheSet(serverItems);
+  }
+  // prune stale date-keys from previous days
+  try{
+    const prefix=_CK.slice(0,_CK.lastIndexOf('_')+1);
+    Object.keys(localStorage).filter(k=>k.startsWith(prefix)&&k!==_CK).forEach(k=>localStorage.removeItem(k));
+  }catch{}
+  if(IS_GUEST){
+    const localItems = _guestItems();
+    // local items first, then server globals not already in local (by name)
+    allItems = [...localItems, ...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
+  } else {
+    allItems = serverItems;
+  }
+  const filtered = q ? allItems.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())) : allItems;
+  render(filtered);
 }
 
 function render(items){
   const body = document.getElementById('itemsBody');
+  const countEl = document.getElementById('itemCount');
+  const mine = allItems.filter(i=>!i.is_global).length;
+  const global = allItems.filter(i=>i.is_global).length;
+  countEl.textContent = items.length !== allItems.length
+    ? `${items.length} of ${allItems.length} shown`
+    : `${mine} private · ${global} global`;
   if(!items.length){
     body.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">💊</div>No items found.<br>Click "+ Add Item" to get started.</div></td></tr>`;
     return;
   }
-  body.innerHTML = items.map(i => `
+  body.innerHTML = items.map(i => {
+    const sid = String(i.id).replace(/'/g,"\\'");
+    const safeName = i.name.replace(/'/g,"\\'");
+    const isLocal = !i.is_global; // local = not a server global item
+    const canDel = isLocal || CAN_DELETE_GLOBAL;
+    const localBadge = IS_GUEST && isLocal ? '<span style="margin-left:6px;font-size:.72em;background:rgba(16,185,129,.15);color:#10b981;padding:2px 8px;border-radius:10px;font-weight:700">📱 Local</span>' : '';
+    const globalBadge = i.is_global ? '<span style="margin-left:6px;font-size:.72em;background:rgba(124,58,237,.15);color:#a78bfa;padding:2px 8px;border-radius:10px;font-weight:700">🌐 Global</span>' : '';
+    return `
     <tr>
       <td data-label="Code" style="font-family:monospace;font-size:.85em;color:#888">${i.code}</td>
-      <td data-label="Name" style="font-weight:600">${i.name}${i.is_global?'<span style="margin-left:6px;font-size:.72em;background:rgba(124,58,237,.15);color:#a78bfa;padding:2px 8px;border-radius:10px;font-weight:700">🌐 Global</span>':''}</td>
+      <td data-label="Name" style="font-weight:600">${i.name}${globalBadge}${localBadge}</td>
       <td data-label="Retail" class="num col-retail">Rs. ${(+i.retail_price).toFixed(2)}</td>
       <td data-label="Trade Price" class="num col-tp" style="font-weight:600">Rs. ${(+i.tp).toFixed(2)}</td>
       <td data-label="Tax" class="num col-tax" style="color:#888">${(+i.tax_pct)>0?'Rs. '+(+i.tax_pct).toFixed(2):'—'}</td>
@@ -293,12 +437,15 @@ function render(items){
         ${i.bonus_text?`<span class="badge badge-bonus">${i.bonus_text}</span>`:''}
         ${!i.discount_pct&&!i.bonus_text?'<span style="color:#ccc">—</span>':''}
       </td>
-      <td><div><button class="btn btn-sm btn-edit" onclick="editItem(${i.id})">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteItem(${i.id},'${i.name.replace(/'/g,"\\'")}')">Del</button></div></td>
-    </tr>`).join('');
+      <td><div><button class="btn btn-sm btn-edit" onclick="editItem('${sid}')">Edit</button>${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${sid}','${safeName}')">Del</button>` : ''}</div></td>
+    </tr>`;
+  }).join('');
 }
 
-let searchTimer;
-function search(q){ clearTimeout(searchTimer); searchTimer = setTimeout(()=>loadItems(q), 300); }
+function search(q){
+  const filtered = q ? allItems.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())) : allItems;
+  render(filtered);
+}
 
 function openModal(reset=true){
   if(reset){
@@ -321,7 +468,7 @@ function closeModal(){ document.getElementById('modal').classList.remove('open')
 function closeOnBg(e){ if(e.target===document.getElementById('modal')) closeModal(); }
 
 function editItem(id){
-  const i = allItems.find(x=>x.id===id);
+  const i = allItems.find(x=>String(x.id)===String(id));
   if(!i) return;
   document.getElementById('modalTitle').textContent = 'Edit Item';
   document.getElementById('editId').value = i.id;
@@ -345,16 +492,33 @@ async function saveItem(){
   if(!document.getElementById('f_name').value.trim()){ toast('Name required',true); return; }
   if(!retail || retail<=0){ toast('Valid retail price required',true); return; }
   const tp = parseFloat(document.getElementById('f_tp').value) || parseFloat((retail*0.85).toFixed(2));
+  const name = document.getElementById('f_name').value.trim();
+  const disc = parseFloat(document.getElementById('f_disc').value)||0;
+  const bonus = document.getElementById('f_bonus').value.trim();
+  const tax = parseFloat(document.getElementById('f_tax').value)||0;
+  const qty = parseFloat(document.getElementById('f_qty').value)||0;
+
+  // Guest: save to localStorage only
+  if(IS_GUEST || String(id).startsWith('li_')){
+    const list = _guestItems();
+    if(id){
+      const idx = list.findIndex(x=>String(x.id)===String(id));
+      if(idx>=0){ list[idx].name=name; list[idx].retail_price=retail; list[idx].tp=tp; list[idx].discount_pct=disc; list[idx].bonus_text=bonus; list[idx].tax_pct=tax; list[idx].qty=qty; }
+    } else {
+      list.push({id:'li_'+Date.now(), code:'LITEM'+String(list.length+1).padStart(4,'0'),
+        name, tp, retail_price:retail, discount_pct:disc, bonus_text:bonus, tax_pct:tax, qty, is_global:false});
+    }
+    _guestSaveItems(list);
+    toast(id?'Item updated!':'Item added!'); closeModal(); loadItems(document.getElementById('searchBox').value);
+    return;
+  }
+
+  // Registered user: server call
   const globalChk = document.getElementById('f_is_global');
   const payload = {
     code: document.getElementById('f_code').value.trim(),
-    name: document.getElementById('f_name').value.trim(),
-    retail_price: retail,
-    tp: tp,
-    discount_pct: parseFloat(document.getElementById('f_disc').value)||0,
-    bonus_text: document.getElementById('f_bonus').value.trim(),
-    tax_pct: parseFloat(document.getElementById('f_tax').value)||0,
-    qty: parseFloat(document.getElementById('f_qty').value)||0,
+    name, retail_price: retail, tp,
+    discount_pct: disc, bonus_text: bonus, tax_pct: tax, qty,
     category_id: document.getElementById('f_category').value||null,
     is_global: globalChk ? globalChk.checked : false,
   };
@@ -362,18 +526,169 @@ async function saveItem(){
   const method = id ? 'PUT' : 'POST';
   const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const res = await r.json();
-  if(r.ok){ toast(id?'Item updated!':'Item added!'); closeModal(); loadItems(document.getElementById('searchBox').value); }
-  else toast(res.error||'Error',true);
+  if(r.ok){ toast(id?'Item updated!':'Item added!'); _cacheClear(); closeModal(); loadItems(document.getElementById('searchBox').value); }
+  else{if(!_checkLocked(res))toast(res.error||'Error',true);}
 }
 
 async function deleteItem(id, name){
   if(!confirm(`Delete "${name}"?`)) return;
+  if(String(id).startsWith('li_')){
+    _guestSaveItems(_guestItems().filter(x=>String(x.id)!==String(id)));
+    toast('Deleted'); loadItems(document.getElementById('searchBox').value); return;
+  }
   const r = await fetch(`/api/items/${id}`,{method:'DELETE'});
-  if(r.ok){ toast('Deleted'); loadItems(document.getElementById('searchBox').value); }
+  if(r.ok){ toast('Deleted'); _cacheClear(); loadItems(document.getElementById('searchBox').value); }
   else toast('Error deleting',true);
 }
 
+function _guestClearItems(){
+  if(!confirm('Delete all your local items? This cannot be undone.')) return;
+  localStorage.removeItem(G_ITEMS_KEY);
+  toast('All local items cleared');
+  loadItems(document.getElementById('searchBox').value);
+}
+
 function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+// ── Bulk Delete ──────────────────────────────────────────────────────────────
+function openBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.add('open'); }
+function closeBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.remove('open'); }
+
+async function doBulkDelete(scope){
+  closeBulkDeleteModal();
+  const label = scope === 'recent' ? 'items from the last 24 hours' : 'ALL your private items';
+  if(!confirm(`Delete ${label}? This cannot be undone.`)) return;
+  const r = await fetch('/api/items/bulk-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
+  const res = await r.json();
+  if(r.ok){
+    toast(`Deleted ${res.deleted} item${res.deleted!==1?'s':''}`);
+    _cacheClear();
+    loadItems(document.getElementById('searchBox').value);
+  } else {
+    toast(res.error||'Error deleting', true);
+  }
+}
+
+// ── Import Modal ─────────────────────────────────────────────────────────────
+let _importFile = null;
+
+function openImportModal(){
+  _importFile = null;
+  document.getElementById('importFileName').textContent = '';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('importFileInput').value = '';
+  const btn = document.getElementById('importBtn');
+  if(IS_GUEST){
+    const used = _importQuotaUsed();
+    const rem = Math.max(0, 2 - used);
+    const note = document.getElementById('guestQuotaNote');
+    if(note) note.textContent = `Guest limit: ${rem} of 2 file import${rem!==1?'s':''} remaining today`;
+    if(rem <= 0){
+      btn.disabled = true; btn.style.opacity = '.5';
+    } else {
+      btn.disabled = true; btn.style.opacity = '.5'; // re-enabled on file pick
+    }
+  } else {
+    btn.disabled = true; btn.style.opacity = '.5';
+  }
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImportModal(){ document.getElementById('importModal').classList.remove('open'); }
+function closeImportOnBg(e){ if(e.target === document.getElementById('importModal')) closeImportModal(); }
+
+function importFileChosen(input){
+  _importFile = input.files[0] || null;
+  document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
+  const btn = document.getElementById('importBtn');
+  btn.disabled = !_importFile;
+  btn.style.opacity = _importFile ? '1' : '.5';
+  document.getElementById('importResult').style.display = 'none';
+}
+function importDragOver(e){
+  e.preventDefault();
+  document.getElementById('importDropZone').style.borderColor = 'var(--accent)';
+}
+function importDragLeave(e){
+  document.getElementById('importDropZone').style.borderColor = 'var(--border)';
+}
+function importDrop(e){
+  e.preventDefault();
+  importDragLeave(e);
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  _importFile = file;
+  document.getElementById('importFileName').textContent = file.name;
+  const btn = document.getElementById('importBtn');
+  btn.disabled = false; btn.style.opacity = '1';
+  document.getElementById('importResult').style.display = 'none';
+}
+
+function _showImportResult(ok, msg){
+  const box = document.getElementById('importResult');
+  box.style.display = 'block';
+  box.style.background = ok ? '#f0fdf4' : '#fef2f2';
+  box.style.color = ok ? '#15803d' : '#dc2626';
+  box.style.borderColor = ok ? '#bbf7d0' : '#fecaca';
+  box.textContent = msg;
+}
+
+async function doImport(){
+  if(!_importFile) return;
+  const btn = document.getElementById('importBtn');
+
+  // ── Guest: parse client-side, save to localStorage ──────────────────────────
+  if(IS_GUEST){
+    const used = _importQuotaUsed();
+    if(used >= 2){ _showImportResult(false, 'Guest limit: only 2 file imports per day. Try again tomorrow.'); return; }
+    btn.disabled = true; btn.textContent = 'Importing…';
+    try{
+      const text = await _importFile.text();
+      const parsed = _parseHtm(text);
+      if(!parsed.length){ _showImportResult(false, 'No items found in file. Check file format.'); btn.disabled=false; btn.textContent='Import'; return; }
+      const list = _guestItems();
+      const map = {}; list.forEach(i=>{ map[i.name.toLowerCase()]=i; });
+      let added=0, updated=0, skipped=0;
+      parsed.forEach(p=>{
+        const key=p.name.toLowerCase();
+        if(map[key]){
+          map[key].tp=p.tp; map[key].retail_price=p.retail_price; map[key].discount_pct=p.discount_pct;
+          if(p.bonus_text) map[key].bonus_text=p.bonus_text; map[key].tax_pct=p.tax_pct;
+          updated++;
+        } else {
+          map[key]={id:'li_'+Date.now()+'_'+added, code:'LITEM'+String(list.length+added+1).padStart(4,'0'),
+            name:p.name, tp:p.tp, retail_price:p.retail_price, discount_pct:p.discount_pct,
+            bonus_text:p.bonus_text, tax_pct:p.tax_pct, qty:0, is_global:false};
+          added++;
+        }
+      });
+      _guestSaveItems(Object.values(map));
+      _importQuotaIncrement();
+      const rem = Math.max(0, 2 - _importQuotaUsed());
+      const note = document.getElementById('guestQuotaNote');
+      if(note) note.textContent = `Guest limit: ${rem} of 2 file import${rem!==1?'s':''} remaining today`;
+      _showImportResult(true, `Done! Added: ${added} · Updated: ${updated} · Skipped: ${skipped} · ${rem} import${rem!==1?'s':''} left today`);
+      loadItems(document.getElementById('searchBox').value);
+    } catch(e){ _showImportResult(false, 'Could not read file'); }
+    btn.disabled = false; btn.textContent = 'Import';
+    return;
+  }
+
+  // ── Registered user: upload to server ───────────────────────────────────────
+  btn.disabled = true; btn.textContent = 'Importing…';
+  const fd = new FormData();
+  fd.append('file', _importFile);
+  try{
+    const r = await fetch('/api/items/import', {method:'POST', body: fd});
+    const res = await r.json();
+    if(r.ok){
+      const globalNote = res.alongside_global > 0 ? ` · ${res.alongside_global} kept alongside global` : '';
+      _showImportResult(true, `Done! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${globalNote}`);
+      _cacheClear();
+      loadItems(document.getElementById('searchBox').value);
+    } else { _showImportResult(false, res.error || 'Import failed'); }
+  } catch(e){ _showImportResult(false, 'Network error'); }
+  btn.disabled = false; btn.textContent = 'Import';
+}
 
 loadCategories();
 loadItems();

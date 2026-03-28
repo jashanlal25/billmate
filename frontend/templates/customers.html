@@ -195,6 +195,15 @@ textarea{resize:vertical;min-height:70px}
 
 <div class="toast" id="toast"></div>
 
+<div id="_lockedOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#1e1b4b;border:1.5px solid rgba(239,68,68,.4);border-radius:20px;padding:32px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:3em;margin-bottom:12px">🔒</div>
+    <div style="font-size:1.1em;font-weight:800;color:#f87171;margin-bottom:10px">Access Restricted</div>
+    <div style="font-size:.9em;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px">You have been locked for this action due to a violation.<br>Please contact your <strong style="color:#fff">Admin</strong> to restore access.</div>
+    <button onclick="document.getElementById('_lockedOverlay').style.display='none'" style="padding:11px 32px;background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:.95em;cursor:pointer">OK</button>
+  </div>
+</div>
+
 <script>
 const theme = localStorage.getItem('theme') || 'light';
 if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
@@ -213,6 +222,7 @@ function toast(msg, err=false){
   t.className = 'toast show'+(err?' error':'');
   setTimeout(()=>t.className='toast', 2800);
 }
+function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay').style.display='flex';return true;}return false;}
 
 async function loadCustomers(q=''){
   const r = await fetch('/api/customers?q='+encodeURIComponent(q));
@@ -284,7 +294,7 @@ async function saveCustomer(){
   const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const res=await r.json();
   if(r.ok){toast(id?'Customer updated!':'Customer added!');closeModal();loadCustomers(document.getElementById('searchBox').value);}
-  else toast(res.error||'Error',true);
+  else{if(!_checkLocked(res))toast(res.error||'Error',true);}
 }
 
 async function deleteCustomer(id,name){

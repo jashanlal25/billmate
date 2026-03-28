@@ -6,9 +6,10 @@
   <title>Super Admin Login</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:20px}
     .card{background:rgba(255,255,255,.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:44px 40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-    .logo{text-align:center;font-size:2.6em;margin-bottom:6px}
+    .logo{display:flex;justify-content:center;margin-bottom:16px}
+    .shield{background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;font-size:1.5em}
     .title{text-align:center;color:#fff;font-size:1.35em;font-weight:700;margin-bottom:4px}
     .subtitle{text-align:center;color:rgba(255,255,255,.45);font-size:.85em;margin-bottom:32px;letter-spacing:.3px}
     .label{display:block;color:rgba(255,255,255,.6);font-size:.8em;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
@@ -17,32 +18,101 @@
     .inp::placeholder{color:rgba(255,255,255,.3)}
     .btn{width:100%;padding:14px;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:12px;color:#fff;font-size:1em;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px;margin-top:4px}
     .btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,.4)}
-    .btn:active{transform:none}
+    .btn:disabled{opacity:.6;transform:none;cursor:default}
     .err{color:#f87171;font-size:.85em;margin-bottom:14px;min-height:1.2em;text-align:center}
-    .shield{display:inline-block;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:50%;width:52px;height:52px;line-height:52px;text-align:center;font-size:1.5em;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
-    .center{display:flex;justify-content:center}
+    .ok{color:#6ee7b7;font-size:.85em;margin-bottom:14px;min-height:1.2em;text-align:center}
+    .link{text-align:center;margin-top:18px}
+    .link a{color:rgba(255,255,255,.4);font-size:.82em;cursor:pointer;text-decoration:none;transition:color .2s}
+    .link a:hover{color:#a78bfa}
+    .step{display:none}
+    .step.active{display:block}
+    .hint-box{background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:10px;padding:12px 16px;margin-bottom:18px;color:#c4b5fd;font-size:.85em;text-align:center}
+    .hint-email{font-weight:700;font-size:1em;color:#a78bfa;display:block;margin-top:4px;font-family:monospace;letter-spacing:.5px}
+    .code-inp{text-align:center;font-size:2em;font-weight:800;letter-spacing:18px;font-family:monospace;padding:16px 12px}
+    .back-link{display:block;text-align:center;color:rgba(255,255,255,.35);font-size:.8em;margin-top:16px;cursor:pointer;text-decoration:none}
+    .back-link:hover{color:#a78bfa}
+    @media(max-width:440px){.card{padding:32px 22px}}
   </style>
 </head>
 <body>
 <div class="card">
-  <div class="center"><div class="shield">🔐</div></div>
+  <div class="logo"><div class="shield">🔐</div></div>
   <div class="title">Super Admin</div>
   <div class="subtitle">BillMate System Owner Portal</div>
-  <label class="label">Username</label>
-  <input class="inp" id="uname" type="text" placeholder="Admin" autocomplete="username">
-  <label class="label">Password</label>
-  <input class="inp" id="pwd" type="password" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-  <div class="err" id="err"></div>
-  <button class="btn" onclick="doLogin()">Access Super Admin Panel</button>
+
+  <!-- Step 1: Normal login -->
+  <div class="step active" id="stepLogin">
+    <label class="label">Username</label>
+    <input class="inp" id="uname" type="text" placeholder="Admin" autocomplete="username">
+    <label class="label">Password</label>
+    <input class="inp" id="pwd" type="password" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="err" id="loginErr"></div>
+    <button class="btn" id="loginBtn" onclick="doLogin()">Access Super Admin Panel</button>
+    <div class="link"><a onclick="goForgot()">Forgot Password?</a></div>
+  </div>
+
+  <!-- Step 2: Enter recovery email -->
+  <div class="step" id="stepEmail">
+    <div class="hint-box" id="emailHintBox">
+      Enter the registered recovery email:<br>
+      <span class="hint-email" id="emailHint"></span>
+    </div>
+    <label class="label">Recovery Email</label>
+    <input class="inp" id="recoveryEmail" type="email" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')doSendCode()">
+    <div class="err" id="emailErr"></div>
+    <div class="ok" id="emailOk"></div>
+    <button class="btn" id="sendCodeBtn" onclick="doSendCode()">Send Reset Code</button>
+    <a class="back-link" onclick="goStep('stepLogin')">← Back to Login</a>
+  </div>
+
+  <!-- Step 3: Enter 4-digit code -->
+  <div class="step" id="stepCode">
+    <div class="hint-box">
+      A 4-digit code has been sent to the registered recovery email.
+      <span style="display:block;font-size:.75em;color:rgba(255,255,255,.4);margin-top:4px">Code is valid for 24 hours</span>
+    </div>
+    <label class="label">Enter the 4-Digit Code</label>
+    <input class="inp code-inp" id="resetCode" type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')doVerifyCode()">
+    <div class="err" id="codeErr"></div>
+    <button class="btn" id="verifyBtn" onclick="doVerifyCode()">Verify &amp; Login</button>
+    <a class="back-link" onclick="goStep('stepEmail')">← Send code again</a>
+  </div>
 </div>
+
 <script>
+var _maskedEmail = '';
+
+// Load masked email hint on page load
+(async function(){
+  const r = await fetch('/api/superadmin/recovery-hint').catch(()=>null);
+  if(!r||!r.ok) return;
+  const d = await r.json();
+  if(d.hint){
+    _maskedEmail = d.hint;
+    document.getElementById('emailHint').textContent = d.hint;
+  }
+})();
+
+function goStep(id){
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goForgot(){
+  document.getElementById('emailErr').textContent='';
+  document.getElementById('emailOk').textContent='';
+  document.getElementById('recoveryEmail').value='';
+  goStep('stepEmail');
+  setTimeout(()=>document.getElementById('recoveryEmail').focus(),80);
+}
+
 async function doLogin(){
   const u=document.getElementById('uname').value.trim();
   const p=document.getElementById('pwd').value.trim();
-  const err=document.getElementById('err');
+  const err=document.getElementById('loginErr');
   err.textContent='';
   if(!u||!p){err.textContent='Enter username and password';return;}
-  const btn=document.querySelector('.btn');
+  const btn=document.getElementById('loginBtn');
   btn.disabled=true;btn.textContent='Verifying…';
   const r=await fetch('/auth/superadmin-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}).catch(()=>null);
   const d=r?await r.json().catch(()=>({})): {};
@@ -53,7 +123,56 @@ async function doLogin(){
     btn.disabled=false;btn.textContent='Access Super Admin Panel';
   }
 }
-document.getElementById('uname').focus();
+
+async function doSendCode(){
+  const email=document.getElementById('recoveryEmail').value.trim();
+  const err=document.getElementById('emailErr');
+  const ok=document.getElementById('emailOk');
+  err.textContent=''; ok.textContent='';
+  if(!email||!email.includes('@')){err.textContent='Enter a valid email address';return;}
+  const btn=document.getElementById('sendCodeBtn');
+  btn.disabled=true; btn.textContent='Sending…';
+  const r=await fetch('/api/superadmin/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  btn.disabled=false; btn.textContent='Send Reset Code';
+  if(d.locked){
+    err.textContent='Too many attempts. Try again in '+d.minutes+' minute'+(d.minutes===1?'':'s')+'.';
+    btn.disabled=true;
+    return;
+  }
+  if(!d.match){
+    const left=d.attempts_left!=null?' — '+d.attempts_left+' chance'+(d.attempts_left===1?'':'s')+' left':'';
+    err.textContent='Nice try, but limited chances!'+left;
+    return;
+  }
+  document.getElementById('codeErr').textContent='';
+  document.getElementById('resetCode').value='';
+  goStep('stepCode');
+  setTimeout(()=>document.getElementById('resetCode').focus(),80);
+}
+
+async function doVerifyCode(){
+  const code=document.getElementById('resetCode').value.trim();
+  const err=document.getElementById('codeErr');
+  err.textContent='';
+  if(code.length!==4||!/^\d{4}$/.test(code)){err.textContent='Enter a 4-digit code';return;}
+  const btn=document.getElementById('verifyBtn');
+  btn.disabled=true;btn.textContent='Verifying…';
+  const r=await fetch('/api/superadmin/verify-reset-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    window.location.href='/superadmin/users';
+  } else {
+    err.textContent=d.error||'Invalid code';
+    btn.disabled=false;btn.textContent='Verify & Login';
+  }
+}
+
+if(new URLSearchParams(location.search).get('forgot')==='1'){
+  goForgot();
+} else {
+  document.getElementById('uname').focus();
+}
 </script>
 </body>
 </html>

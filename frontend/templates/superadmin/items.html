@@ -95,6 +95,8 @@
   <span class="nav-badge">SUPER ADMIN</span>
   <div class="nav-spacer"></div>
   <a href="/superadmin/users" class="users-btn"><span class="btn-icon">👥</span><span class="btn-txt">Users</span></a>
+  <a href="/superadmin/messages" class="users-btn"><span class="btn-icon">📬</span><span class="btn-txt">Messages</span><span id="msgBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.78em;margin-left:3px"></span></a>
+  <a href="/superadmin/ip-logs" class="users-btn"><span class="btn-icon">🔍</span><span class="btn-txt">IP Logs</span></a>
   <a href="/auth/logout" class="logout-btn"><span class="btn-icon">🚪</span><span class="btn-txt">Logout</span></a>
 </nav>
 
@@ -102,6 +104,8 @@
   <div class="page-head">
     <div class="page-title">🌐 Global Items Catalogue <span id="countBadge" style="font-size:.75em;font-weight:500;color:rgba(255,255,255,.4)"></span></div>
     <input class="search-box" id="searchBox" type="search" placeholder="Search items..." oninput="filterItems(this.value)">
+    <button class="add-btn" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="openBulkDeleteModal()">🗑 Delete Items</button>
+    <button class="add-btn" style="background:linear-gradient(135deg,#059669,#047857)" onclick="openImportModal()">⬆ Import File</button>
     <button class="add-btn" onclick="openAdd()">+ Add Global Item</button>
   </div>
   <div class="card">
@@ -168,6 +172,45 @@
     <div class="m-actions">
       <button class="mbtn mbtn-close" onclick="closeModal()">Cancel</button>
       <button class="mbtn mbtn-primary" onclick="saveItem()">Save Global Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div class="overlay" id="bulkDelOverlay" onclick="if(event.target===this)closeBulkDeleteModal()">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title" style="color:#f87171">🗑 Delete Global Items</div>
+    <p style="font-size:.82em;color:rgba(255,255,255,.45);margin-bottom:18px">Removes global items from all users' catalogues. This action cannot be undone.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <button class="mbtn" style="background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.25);text-align:left;padding:14px 18px" onclick="doBulkDelete('recent')">
+        <div style="font-weight:700;font-size:.92em">🕐 Last 24 Hours Only</div>
+        <div style="font-size:.76em;opacity:.75;margin-top:3px">Remove global items added in the most recent import session</div>
+      </button>
+      <button class="mbtn" style="background:rgba(239,68,68,.18);color:#f87171;border:1px solid rgba(239,68,68,.25);text-align:left;padding:14px 18px" onclick="doBulkDelete('all')">
+        <div style="font-weight:700;font-size:.92em">⚠️ Delete ALL Global Items</div>
+        <div style="font-size:.76em;opacity:.75;margin-top:3px">Wipe the entire global catalogue — affects every user</div>
+      </button>
+    </div>
+    <button class="mbtn mbtn-close" style="width:100%" onclick="closeBulkDeleteModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="overlay" id="importOverlay" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">⬆ Import Global Items from File</div>
+    <p style="font-size:.82em;color:rgba(255,255,255,.45);margin-bottom:16px">Supports offer list / stock list HTM files. Items with matching names will be updated; new items will be added as global and visible to all users.</p>
+    <div id="importDropZone" style="border:2px dashed rgba(255,255,255,.18);border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:rgba(255,255,255,.04)" onclick="document.getElementById('importFileInput').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
+      <div style="font-size:2.4em;margin-bottom:8px">📂</div>
+      <div style="font-weight:700;color:#e2e8f0;font-size:.92em">Click to choose file or drag &amp; drop</div>
+      <div style="font-size:.78em;color:rgba(255,255,255,.35);margin-top:4px">HTM / HTML offer-list or stock-list files</div>
+      <div id="importFileName" style="margin-top:10px;font-size:.82em;color:#a78bfa;font-weight:600"></div>
+    </div>
+    <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
+    <div id="importResult" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:.85em;font-weight:600"></div>
+    <div class="m-actions" style="margin-top:16px">
+      <button class="mbtn mbtn-close" onclick="closeImportModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" id="importBtn" onclick="doImport()" disabled style="opacity:.5">Import as Global</button>
     </div>
   </div>
 </div>
@@ -309,8 +352,101 @@ async function delItem(id,name){
   else toast('Failed to delete','error');
 }
 
+// ── Bulk Delete ───────────────────────────────────────────────────────────────
+function openBulkDeleteModal(){ document.getElementById('bulkDelOverlay').classList.add('open'); }
+function closeBulkDeleteModal(){ document.getElementById('bulkDelOverlay').classList.remove('open'); }
+
+async function doBulkDelete(scope){
+  closeBulkDeleteModal();
+  const label = scope === 'recent' ? 'global items added in the last 24 hours' : 'ALL global items';
+  if(!confirm(`Delete ${label}?\nThis cannot be undone and affects every user.`)) return;
+  const r = await fetch('/api/superadmin/items/bulk-delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scope})
+  }).catch(()=>null);
+  const d = r ? await r.json().catch(()=>({})) : {};
+  if(r && r.ok){
+    toast(`Deleted ${d.deleted} global item${d.deleted!==1?'s':''}`);
+    loadItems();
+  } else {
+    toast(d.error || 'Delete failed');
+  }
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+var _importFile = null;
+
+function openImportModal(){
+  _importFile = null;
+  document.getElementById('importFileName').textContent = '';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('importFileInput').value = '';
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true; btn.style.opacity = '.5';
+  document.getElementById('importOverlay').classList.add('open');
+}
+function closeImportModal(){ document.getElementById('importOverlay').classList.remove('open'); }
+
+function importFileChosen(input){
+  _importFile = input.files[0] || null;
+  document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
+  const btn = document.getElementById('importBtn');
+  btn.disabled = !_importFile; btn.style.opacity = _importFile ? '1' : '.5';
+  document.getElementById('importResult').style.display = 'none';
+}
+function importDragOver(e){ e.preventDefault(); document.getElementById('importDropZone').style.borderColor='#a78bfa'; }
+function importDragLeave(){ document.getElementById('importDropZone').style.borderColor='rgba(255,255,255,.18)'; }
+function importDrop(e){
+  e.preventDefault(); importDragLeave();
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  _importFile = file;
+  document.getElementById('importFileName').textContent = file.name;
+  const btn = document.getElementById('importBtn');
+  btn.disabled = false; btn.style.opacity = '1';
+  document.getElementById('importResult').style.display = 'none';
+}
+
+async function doImport(){
+  if(!_importFile) return;
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true; btn.textContent = 'Importing…';
+  const fd = new FormData();
+  fd.append('file', _importFile);
+  try{
+    const r = await fetch('/api/superadmin/items/import', {method:'POST', body: fd});
+    const res = await r.json();
+    const box = document.getElementById('importResult');
+    box.style.display = 'block';
+    if(r.ok){
+      box.style.background = 'rgba(16,185,129,.15)';
+      box.style.color = '#6ee7b7';
+      box.style.border = '1px solid rgba(16,185,129,.3)';
+      box.textContent = `Done! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}`;
+      loadItems();
+    } else {
+      box.style.background = 'rgba(239,68,68,.15)';
+      box.style.color = '#fca5a5';
+      box.style.border = '1px solid rgba(239,68,68,.25)';
+      box.textContent = res.error || 'Import failed';
+    }
+  } catch(e){
+    const box = document.getElementById('importResult');
+    box.style.display = 'block';
+    box.style.background = 'rgba(239,68,68,.15)';
+    box.style.color = '#fca5a5';
+    box.style.border = '1px solid rgba(239,68,68,.25)';
+    box.textContent = 'Network error';
+  }
+  btn.disabled = false; btn.textContent = 'Import as Global';
+}
+
 loadItems();
 loadCategories();
+fetch('/api/superadmin/pending-count').then(r=>r.json()).then(d=>{
+  if(d.count>0){const b=document.getElementById('msgBadge');b.textContent=d.count;b.style.display='inline';}
+}).catch(()=>{});
 </script>
 </body>
 </html>

@@ -14,6 +14,16 @@ class User(db.Model):
     is_superadmin = db.Column(db.Boolean, default=False)
     is_suspended = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Superadmin password recovery
+    recovery_email = db.Column(db.String(120), nullable=True)
+    reset_code_hash = db.Column(db.String(200), nullable=True)
+    reset_code_expiry = db.Column(db.DateTime, nullable=True)
+    # Per-user feature permissions (all True by default)
+    perm_bill      = db.Column(db.Boolean, default=True, nullable=False, server_default='true')
+    perm_items     = db.Column(db.Boolean, default=True, nullable=False, server_default='true')
+    perm_customers = db.Column(db.Boolean, default=True, nullable=False, server_default='true')
+    perm_suppliers = db.Column(db.Boolean, default=True, nullable=False, server_default='true')
+    perm_purchases = db.Column(db.Boolean, default=True, nullable=False, server_default='true')
 
     def to_dict(self):
         return {'id': self.id, 'username': self.username}
@@ -28,6 +38,13 @@ class PasswordResetRequest(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending / resolved / dismissed
     requested_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
+
+
+class SystemConfig(db.Model):
+    """Global on/off switches controlled by superadmin."""
+    __tablename__ = 'system_config'
+    key   = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.String(200), nullable=False)
 
 
 class GuestLimit(db.Model):
@@ -132,6 +149,24 @@ class Item(db.Model):
         return round(float(retail_price) * 0.85, 2)
 
 
+class UserIPLog(db.Model):
+    """One row per (user, ip_address, calendar_date). Retained for 5 days."""
+    __tablename__ = 'user_ip_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    username = db.Column(db.String(80), nullable=False)
+    ip_address = db.Column(db.String(50), nullable=False)
+    log_date = db.Column(db.Date, nullable=False, index=True)
+    first_seen_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow)
+    request_count = db.Column(db.Integer, default=1)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'ip_address', 'log_date', name='uq_user_ip_date'),
+    )
+
+
 class UserItemDiscount(db.Model):
     """Per-user discount rates for shared items"""
     __tablename__ = 'user_item_discounts'
@@ -142,6 +177,23 @@ class UserItemDiscount(db.Model):
     discount_pct = db.Column(db.Numeric(5, 2), default=0)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'item_id'),)
+
+
+class UserItemOverride(db.Model):
+    """Per-user overrides for global item fields (TP, retail, tax, bonus).
+    NULL means "use the global item's value". Discount is handled separately
+    in UserItemDiscount."""
+    __tablename__ = 'user_item_overrides'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    tp = db.Column(db.Numeric(10, 2), nullable=True)
+    retail_price = db.Column(db.Numeric(10, 2), nullable=True)
+    tax_pct = db.Column(db.Numeric(5, 2), nullable=True)
+    bonus_text = db.Column(db.String(100), nullable=True)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'item_id', name='uq_user_item_override'),)
 
 
 class Customer(db.Model):

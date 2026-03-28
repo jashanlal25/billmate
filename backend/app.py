@@ -7,6 +7,13 @@ if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
 from flask import Flask, render_template, request, jsonify, redirect, session, url_for
+from bs4 import BeautifulSoup
+import re
+import secrets
+import smtplib
+import threading
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
 from sqlalchemy import func
@@ -29,7 +36,7 @@ app = Flask(__name__,
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutes (frontend enforces 5-min idle logout)
 
 # Database — must be set via DATABASE_URL environment variable
 _db_url = os.environ.get('DATABASE_URL', '')
@@ -40,17 +47,69 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, PasswordResetRequest
+from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig
 db.init_app(app)
 migrate = Migrate(app, db)
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
 GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/api/invoices', '/api/items',
-                           '/api/settings', '/static']
+                           '/api/settings', '/api/guest/', '/static']
 
 def get_client_ip():
     return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+
+# ── IP logging ──────────────────────────────────────────────────────────────────
+# In-memory cache: (user_id, ip, date_str) → already written to DB this day.
+# Avoids a DB hit on every request; resets on app restart (harmless — just
+# re-writes last_seen_at for the first request after restart).
+_ip_log_cache: set = set()
+_reset_attempts = {'count': 0, 'locked_until': None}  # superadmin forgot-password rate limit
+
+def _log_user_ip(uid: int, username: str, ip: str):
+    today = datetime.utcnow().date()
+    key = (uid, ip, str(today))
+    if key in _ip_log_cache:
+        return
+    _ip_log_cache.add(key)
+    try:
+        existing = UserIPLog.query.filter_by(user_id=uid, ip_address=ip, log_date=today).first()
+        if existing:
+            existing.last_seen_at = datetime.utcnow()
+            existing.request_count = (existing.request_count or 0) + 1
+        else:
+            db.session.add(UserIPLog(
+                user_id=uid, username=username,
+                ip_address=ip, log_date=today,
+            ))
+            # Purge entries older than 5 days (only on new-entry path to keep it cheap)
+            cutoff = datetime.utcnow() - timedelta(days=5)
+            UserIPLog.query.filter(UserIPLog.first_seen_at < cutoff).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        _ip_log_cache.discard(key)
+
+_defaults_seeded = False
+@app.before_request
+def seed_defaults():
+    global _defaults_seeded
+    if not _defaults_seeded:
+        _defaults_seeded = True
+        for key in ('registration_open', 'invoicing_open'):
+            if not SystemConfig.query.get(key):
+                db.session.add(SystemConfig(key=key, value='1'))
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+@app.before_request
+def record_ip():
+    uid = session.get('user_id') or session.get('superadmin_uid')
+    username = session.get('username')
+    if uid and username and not session.get('is_guest'):
+        _log_user_ip(int(uid), username, get_client_ip())
 
 def get_user_settings(user_id=None):
     """Get settings for the current user. Returns None if no settings exist."""
@@ -80,8 +139,10 @@ def check_auth():
         return
     if path == '/api/forgot-password-request':
         return
-    # Superadmin login page — always accessible
+    # Superadmin login page + public recovery endpoints — always accessible
     if path == '/superadmin/login':
+        return
+    if path in ('/api/superadmin/recovery-hint', '/api/superadmin/forgot-password', '/api/superadmin/verify-reset-code'):
         return
     # Superadmin — only their own panel + global items API
     if session.get('is_superadmin'):
@@ -184,6 +245,8 @@ def auth_register():
         return jsonify({'error': 'Username and password required'}), 400
     if len(password) < 4:
         return jsonify({'error': 'Password must be at least 4 characters'}), 400
+    if _cfg('registration_open', '1') == '0':
+        return jsonify({'error': 'New registrations are currently closed by the administrator.'}), 403
     if username.lower() == 'admin':
         return jsonify({'error': 'Username not available'}), 400
     if User.query.filter_by(username=username).first():
@@ -259,7 +322,18 @@ def auth_superadmin_login():
     username = (data.get('username') or '').strip()
     password = (data.get('password') or '').strip()
     user = User.query.filter_by(username=username, is_superadmin=True).first()
-    if not user or not check_password_hash(user.password_hash, password):
+    if not user:
+        return jsonify({'error': 'Invalid super admin credentials'}), 401
+    # Accept either the main password OR a valid reset code
+    password_ok = check_password_hash(user.password_hash, password)
+    code_ok = (
+        not password_ok
+        and user.reset_code_hash
+        and user.reset_code_expiry
+        and datetime.utcnow() <= user.reset_code_expiry
+        and check_password_hash(user.reset_code_hash, password)
+    )
+    if not password_ok and not code_ok:
         return jsonify({'error': 'Invalid super admin credentials'}), 401
     session.clear()
     session.permanent = True
@@ -345,6 +419,31 @@ def superadmin_delete_user(uid):
     db.session.commit()
     return jsonify({'success': True})
 
+@app.route('/api/superadmin/users/<int:uid>/clear-data', methods=['DELETE'])
+def superadmin_clear_user_data(uid):
+    user = User.query.get(uid)
+    if not user or user.is_superadmin:
+        return jsonify({'error': 'User not found'}), 404
+    data = request.get_json() or {}
+    targets = data.get('targets', [])
+    if not targets:
+        return jsonify({'error': 'No data types selected'}), 400
+    if 'invoices' in targets:
+        for inv in Invoice.query.filter_by(user_id=uid).all():
+            db.session.delete(inv)
+    if 'purchases' in targets:
+        for pur in Purchase.query.filter_by(user_id=uid).all():
+            db.session.delete(pur)
+    if 'items' in targets:
+        UserItemDiscount.query.filter_by(user_id=uid).delete()
+        Item.query.filter_by(user_id=uid).delete()
+    if 'customers' in targets:
+        Customer.query.filter_by(user_id=uid).delete()
+    if 'suppliers' in targets:
+        Supplier.query.filter_by(user_id=uid).delete()
+    db.session.commit()
+    return jsonify({'success': True})
+
 @app.route('/api/superadmin/users/<int:uid>/suspend', methods=['POST'])
 def superadmin_suspend_user(uid):
     user = User.query.get(uid)
@@ -396,6 +495,196 @@ def superadmin_change_own_password():
     db.session.commit()
     return jsonify({'success': True})
 
+# ── Superadmin recovery email management (requires SA session) ────────────────
+
+@app.route('/api/superadmin/set-recovery-email', methods=['POST'])
+def superadmin_set_recovery_email():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    email = (request.get_json() or {}).get('email', '').strip().lower()
+    if not email or '@' not in email:
+        return jsonify({'error': 'Valid email required'}), 400
+    user = User.query.get(session['superadmin_uid'])
+    user.recovery_email = email
+    db.session.commit()
+    return jsonify({'success': True, 'masked': _mask_email(email)})
+
+@app.route('/api/superadmin/get-recovery-email')
+def superadmin_get_recovery_email():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    user = User.query.get(session['superadmin_uid'])
+    return jsonify({'email': user.recovery_email or '', 'masked': _mask_email(user.recovery_email) if user.recovery_email else ''})
+
+# ── System config helpers ─────────────────────────────────────────────────────
+
+def _cfg(key, default='1'):
+    row = SystemConfig.query.get(key)
+    return row.value if row else default
+
+def _cfg_set(key, value):
+    row = SystemConfig.query.get(key)
+    if row:
+        row.value = value
+    else:
+        db.session.add(SystemConfig(key=key, value=value))
+    db.session.commit()
+
+@app.route('/api/superadmin/system-config', methods=['GET'])
+def get_system_config():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    return jsonify({
+        'registration_open': _cfg('registration_open', '1') == '1',
+        'invoicing_open':    _cfg('invoicing_open',    '1') == '1',
+    })
+
+@app.route('/api/superadmin/system-config', methods=['POST'])
+def set_system_config():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    data = request.get_json() or {}
+    if 'registration_open' in data:
+        _cfg_set('registration_open', '1' if data['registration_open'] else '0')
+    if 'invoicing_open' in data:
+        _cfg_set('invoicing_open', '1' if data['invoicing_open'] else '0')
+    return jsonify({'success': True})
+
+# ── Per-user permissions ───────────────────────────────────────────────────────
+
+PERM_FIELDS = ['perm_bill', 'perm_items', 'perm_customers', 'perm_suppliers', 'perm_purchases']
+
+@app.route('/api/superadmin/users/<int:uid>/permissions', methods=['GET'])
+def get_user_permissions(uid):
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    u = User.query.get_or_404(uid)
+    return jsonify({f: getattr(u, f) for f in PERM_FIELDS})
+
+@app.route('/api/superadmin/users/<int:uid>/permissions', methods=['POST'])
+def set_user_permissions(uid):
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    u = User.query.get_or_404(uid)
+    data = request.get_json() or {}
+    for f in PERM_FIELDS:
+        if f in data:
+            setattr(u, f, bool(data[f]))
+    db.session.commit()
+    return jsonify({'success': True})
+
+# ── Superadmin forgot-password flow (public — no session required) ────────────
+
+def _mask_email(email):
+    """Return a partially masked email: *********25@gmail.com"""
+    try:
+        local, domain = email.split('@', 1)
+        if len(local) <= 2:
+            masked_local = '*' * len(local)
+        else:
+            masked_local = '*' * (len(local) - 2) + local[-2:]
+        return f'{masked_local}@{domain}'
+    except Exception:
+        return '***@***'
+
+def _send_reset_email(to_email: str, code: str):
+    smtp_user = os.environ.get('SMTP_USER', '')
+    smtp_pass = os.environ.get('SMTP_PASS', '').replace(' ', '')
+    smtp_host = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    if not smtp_user or not smtp_pass:
+        raise RuntimeError('SMTP credentials not configured')
+    msg = MIMEMultipart('alternative')
+    msg['From'] = f'BillMate <{smtp_user}>'
+    msg['To'] = to_email
+    msg['Subject'] = 'BillMate — Super Admin Reset Code'
+    body_text = (
+        f'Your Super Admin reset code is:\n\n'
+        f'  {code}\n\n'
+        f'This code is valid for 24 hours.\n'
+        f'You can still log in with your original password if you remember it.\n\n'
+        f'If you did not request this, ignore this email.'
+    )
+    body_html = f'''
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#f8f9fa;border-radius:16px">
+      <h2 style="color:#1a1a2e;margin-bottom:8px">🔐 Super Admin Reset Code</h2>
+      <p style="color:#555;margin-bottom:24px">Enter this code on the BillMate Super Admin login page:</p>
+      <div style="background:#fff;border:2px solid #7c3aed;border-radius:12px;padding:20px 32px;text-align:center;margin-bottom:24px">
+        <span style="font-size:2.4em;font-weight:800;letter-spacing:12px;color:#7c3aed;font-family:monospace">{code}</span>
+      </div>
+      <p style="color:#888;font-size:.85em">Valid for <strong>24 hours</strong>. Your original password still works if you remember it.</p>
+      <p style="color:#bbb;font-size:.78em;margin-top:16px">If you did not request this, ignore this email.</p>
+    </div>'''
+    msg.attach(MIMEText(body_text, 'plain'))
+    msg.attach(MIMEText(body_html, 'html'))
+    with smtplib.SMTP(smtp_host, smtp_port) as srv:
+        srv.ehlo()
+        srv.starttls()
+        srv.login(smtp_user, smtp_pass)
+        srv.sendmail(smtp_user, to_email, msg.as_string())
+
+@app.route('/api/superadmin/recovery-hint')
+def superadmin_recovery_hint():
+    """Returns masked email hint — safe to call without auth."""
+    user = User.query.filter_by(is_superadmin=True).first()
+    if not user or not user.recovery_email:
+        return jsonify({'hint': None})
+    return jsonify({'hint': _mask_email(user.recovery_email)})
+
+@app.route('/api/superadmin/forgot-password', methods=['POST'])
+def superadmin_forgot_password():
+    global _reset_attempts
+    now = datetime.utcnow()
+    # Check cooldown
+    if _reset_attempts['locked_until'] and now < _reset_attempts['locked_until']:
+        remaining = int((_reset_attempts['locked_until'] - now).total_seconds() / 60)
+        return jsonify({'locked': True, 'minutes': remaining})
+    email = (request.get_json() or {}).get('email', '').strip().lower()
+    if not email:
+        return jsonify({'match': False})
+    user = User.query.filter_by(is_superadmin=True).first()
+    if not user or not user.recovery_email:
+        return jsonify({'match': False})
+    if user.recovery_email.lower() != email:
+        _reset_attempts['count'] += 1
+        if _reset_attempts['count'] >= 3:
+            _reset_attempts['locked_until'] = now + timedelta(hours=2)
+            _reset_attempts['count'] = 0
+            return jsonify({'locked': True, 'minutes': 120})
+        return jsonify({'match': False, 'attempts_left': 3 - _reset_attempts['count']})
+    # Correct email — reset counter
+    _reset_attempts = {'count': 0, 'locked_until': None}
+    code = f'{secrets.randbelow(10000):04d}'
+    user.reset_code_hash = generate_password_hash(code)
+    user.reset_code_expiry = datetime.utcnow() + timedelta(hours=24)
+    db.session.commit()
+    try:
+        _send_reset_email(user.recovery_email, code)
+    except Exception as e:
+        app.logger.error(f'Reset email failed: {e}')
+    return jsonify({'match': True})
+
+@app.route('/api/superadmin/verify-reset-code', methods=['POST'])
+def superadmin_verify_reset_code():
+    """Verify the 4-digit code and start a session if valid."""
+    code = (request.get_json() or {}).get('code', '').strip()
+    if not code:
+        return jsonify({'error': 'Code is required'}), 400
+    user = User.query.filter_by(is_superadmin=True).first()
+    if not user or not user.reset_code_hash or not user.reset_code_expiry:
+        return jsonify({'error': 'Invalid or expired code'}), 401
+    if datetime.utcnow() > user.reset_code_expiry:
+        return jsonify({'error': 'Code has expired. Please request a new one.'}), 401
+    if not check_password_hash(user.reset_code_hash, code):
+        return jsonify({'error': 'Invalid code'}), 401
+    # Valid — log in
+    session.clear()
+    session.permanent = True
+    session['is_superadmin'] = True
+    session['superadmin_uid'] = user.id
+    session['username'] = user.username
+    return jsonify({'success': True})
+
 # ── Password Reset Requests ───────────────────────────────────────────────────
 
 @app.route('/api/forgot-password-request', methods=['POST'])
@@ -404,6 +693,9 @@ def forgot_password_request():
     username = (data.get('username') or '').strip()
     if not username:
         return jsonify({'error': 'Username is required'}), 400
+    # If username belongs to a superadmin, redirect client to superadmin recovery flow
+    if User.query.filter_by(username=username, is_superadmin=True).first():
+        return jsonify({'superadmin': True})
     user = User.query.filter_by(username=username, is_superadmin=False).first()
     if not user:
         return jsonify({'error': 'Username not found'}), 404
@@ -419,6 +711,31 @@ def forgot_password_request():
 @app.route('/superadmin/messages')
 def superadmin_messages_page():
     return render_template('superadmin/messages.html')
+
+@app.route('/superadmin/ip-logs')
+def superadmin_ip_logs_page():
+    if not session.get('is_superadmin'):
+        return redirect('/superadmin/users')
+    return render_template('superadmin/ip_logs.html')
+
+@app.route('/api/superadmin/ip-logs')
+def superadmin_get_ip_logs():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    cutoff = datetime.utcnow() - timedelta(days=5)
+    logs = (UserIPLog.query
+            .filter(UserIPLog.first_seen_at >= cutoff)
+            .order_by(UserIPLog.last_seen_at.desc())
+            .all())
+    return jsonify([{
+        'username': l.username,
+        'user_id': l.user_id,
+        'ip': l.ip_address,
+        'date': l.log_date.isoformat(),
+        'first_seen': l.first_seen_at.strftime('%H:%M'),
+        'last_seen': l.last_seen_at.strftime('%H:%M'),
+        'count': l.request_count,
+    } for l in logs])
 
 @app.route('/api/superadmin/messages')
 def superadmin_get_messages():
@@ -466,6 +783,123 @@ def superadmin_dismiss_message(rid):
 def superadmin_pending_count():
     count = PasswordResetRequest.query.filter_by(status='pending').count()
     return jsonify({'count': count})
+
+@app.route('/api/superadmin/items/bulk-delete', methods=['POST'])
+def superadmin_bulk_delete_items():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    scope = (request.get_json() or {}).get('scope', 'all')
+    query = Item.query.filter_by(is_global=True, is_active=True)
+    if scope == 'recent':
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        query = query.filter(Item.created_at >= cutoff)
+    items = query.all()
+    count = len(items)
+    for item in items:
+        item.is_active = False
+    db.session.commit()
+    return jsonify({'deleted': count})
+
+@app.route('/api/superadmin/items/import', methods=['POST'])
+def superadmin_import_items():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Superadmin only'}), 403
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'error': 'Empty filename'}), 400
+    try:
+        html = f.read().decode('utf-8', errors='replace')
+    except Exception:
+        return jsonify({'error': 'Could not read file'}), 400
+
+    # Load all existing global items once
+    existing = Item.query.filter_by(is_global=True, is_active=True).all()
+    existing_map = {item.name.lower(): item for item in existing}
+    used_codes = {item.code for item in existing}
+    code_counter = len(existing)
+
+    def _next_code():
+        nonlocal code_counter
+        while True:
+            code_counter += 1
+            candidate = f'GITM{code_counter:04d}'
+            if candidate not in used_codes:
+                used_codes.add(candidate)
+                return candidate
+
+    def _clean(s):
+        return re.sub(r'\s+', ' ', s).strip() if s else ''
+
+    def _num(s):
+        m = re.search(r'[-+]?\d+\.?\d*', _clean(s))
+        return float(m.group()) if m else 0.0
+
+    added = updated = skipped = 0
+
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
+        nonlocal added, updated, skipped
+        name = _clean(name)
+        if not name or tp <= 0:
+            skipped += 1
+            return
+        key = name.lower()
+        if key in existing_map:
+            item = existing_map[key]
+            item.tp = tp
+            item.retail_price = retail
+            item.discount_pct = disc_pct
+            if bonus:
+                item.bonus_text = bonus
+            item.tax_pct = tax_pct
+            updated += 1
+        else:
+            item = Item(
+                user_id=None, is_global=True,
+                code=_next_code(), name=name,
+                retail_price=retail, tp=tp,
+                discount_pct=disc_pct, bonus_text=bonus,
+                tax_pct=tax_pct, qty=0,
+            )
+            db.session.add(item)
+            existing_map[key] = item
+            added += 1
+
+    soup = BeautifulSoup(html, 'html.parser')
+    new_rows = soup.find_all('tr', class_='item-row')
+    if new_rows:
+        for row in new_rows:
+            tds = row.find_all('td')
+            if len(tds) < 2:
+                continue
+            name = _clean(tds[1].get_text())
+            tp = float(row.get('data-tp', 0) or 0)
+            disc_pct = float(row.get('data-disc', 0) or 0)
+            bonus = _clean(row.get('data-bonus', '') or '')
+            tax_pct = float(row.get('data-tax', 0) or 0)
+            retail = round(tp / 0.85, 2) if tp > 0 else 0
+            _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+    else:
+        for row in soup.find_all('tr', class_='item'):
+            tds = row.find_all('td')
+            if len(tds) < 5:
+                continue
+            if len(tds) >= 8:
+                name     = _clean(tds[2].get_text())
+                disc_pct = _num(tds[3].get_text())
+                tp       = _num(tds[4].get_text())
+                bonus    = ''
+            else:
+                name     = _clean(tds[1].get_text())
+                disc_pct = _num(tds[3].get_text())
+                bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
+                tp       = _num(tds[-1].get_text())
+            retail = round(tp / 0.85, 2) if tp > 0 else 0
+            _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+
+    db.session.commit()
+    return jsonify({'added': added, 'updated': updated, 'skipped': skipped})
 
 @app.route('/admin/unlock', methods=['GET', 'POST'])
 def admin_unlock():
@@ -608,7 +1042,10 @@ def purchase_page():
 
 @app.route('/items')
 def items_page():
-    return render_template('items.html')
+    return render_template('items.html',
+        can_delete_global=bool(session.get('is_admin') or session.get('is_superadmin')),
+        is_guest=bool(session.get('is_guest'))
+    )
 
 @app.route('/customers')
 def customers_page():
@@ -616,7 +1053,7 @@ def customers_page():
 
 @app.route('/billing')
 def billing_page():
-    return render_template('billing.html')
+    return render_template('billing.html', is_guest=bool(session.get('is_guest')))
 
 
 # ── Settings API ──────────────────────────────────────────────────────────────
@@ -681,8 +1118,8 @@ def delete_category(cid):
 def get_items():
     q = request.args.get('q', '').strip()
     uid = session.get('user_id')
-    # Superadmin sees only global items; regular users see own + global
-    if session.get('is_superadmin'):
+    # Superadmin + guests see only global items; regular users see own + global
+    if session.get('is_superadmin') or session.get('is_guest') or not uid:
         query = Item.query.filter_by(is_active=True, is_global=True)
     else:
         query = Item.query.filter_by(is_active=True).filter(
@@ -691,21 +1128,35 @@ def get_items():
     if q:
         query = query.filter(Item.name.ilike(f'%{q}%'))
     items = query.order_by(Item.name).all()
-    # Per-user discounts apply only to global items
+    # Load per-user customisations for global items (single queries)
     user_discounts = {}
+    user_overrides = {}
     if uid:
-        uds = UserItemDiscount.query.filter_by(user_id=uid).all()
-        user_discounts = {ud.item_id: float(ud.discount_pct or 0) for ud in uds}
+        for ud in UserItemDiscount.query.filter_by(user_id=uid).all():
+            user_discounts[ud.item_id] = float(ud.discount_pct or 0)
+        for ov in UserItemOverride.query.filter_by(user_id=uid).all():
+            user_overrides[ov.item_id] = ov
     result = []
     for i in items:
         d = i.to_dict()
-        if i.is_global:
+        if i.is_global and uid:
             d['discount_pct'] = user_discounts.get(i.id, 0)
+            ov = user_overrides.get(i.id)
+            if ov:
+                if ov.tp is not None:          d['tp']           = float(ov.tp)
+                if ov.retail_price is not None: d['retail_price'] = float(ov.retail_price)
+                if ov.tax_pct is not None:      d['tax_pct']      = float(ov.tax_pct)
+                if ov.bonus_text is not None:   d['bonus_text']   = ov.bonus_text
         result.append(d)
     return jsonify(result)
 
 @app.route('/api/items', methods=['POST'])
 def add_item():
+    if session.get('is_guest'):
+        return jsonify({'error': 'Guest items are stored locally in your browser.'}), 403
+    uid = session.get('user_id')
+    if uid and not User.query.get(uid).perm_items:
+        return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
     data = request.get_json()
     name = data.get('name', '').strip()
     code = data.get('code', '').strip()
@@ -772,24 +1223,59 @@ def add_item():
 @app.route('/api/items/<int:iid>', methods=['PUT'])
 def update_item(iid):
     item = Item.query.get_or_404(iid)
+    uid = session.get('user_id')
+    is_admin = session.get('is_admin') or session.get('is_superadmin')
     data = request.get_json()
+
+    if item.is_global and not is_admin:
+        # Regular user editing a global item → save as per-user override only
+        ov = UserItemOverride.query.filter_by(user_id=uid, item_id=iid).first()
+        if not ov:
+            ov = UserItemOverride(user_id=uid, item_id=iid)
+            db.session.add(ov)
+        if 'tp' in data:
+            ov.tp = float(data['tp'])
+        if 'retail_price' in data:
+            ov.retail_price = float(data['retail_price'])
+        if 'tax_pct' in data:
+            ov.tax_pct = float(data['tax_pct'] or 0)
+        if 'bonus_text' in data:
+            ov.bonus_text = data['bonus_text'].strip()
+        # Discount still goes to UserItemDiscount
+        if 'discount_pct' in data and uid:
+            ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
+            disc_val = float(data['discount_pct'] or 0)
+            if ud:
+                ud.discount_pct = disc_val
+            elif disc_val:
+                db.session.add(UserItemDiscount(user_id=uid, item_id=iid, discount_pct=disc_val))
+        db.session.commit()
+        # Return item dict with overrides applied
+        d = item.to_dict()
+        if ov.tp is not None:           d['tp']           = float(ov.tp)
+        if ov.retail_price is not None: d['retail_price'] = float(ov.retail_price)
+        if ov.tax_pct is not None:      d['tax_pct']      = float(ov.tax_pct)
+        if ov.bonus_text is not None:   d['bonus_text']   = ov.bonus_text
+        ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
+        d['discount_pct'] = float(ud.discount_pct or 0) if ud else 0
+        return jsonify(d)
+
+    # Own private item OR admin editing global item → update the record directly
+    if not item.is_global and item.user_id != uid:
+        return jsonify({'error': 'Not your item'}), 403
     if 'name' in data:
         item.name = data['name'].strip()
     if 'retail_price' in data:
         item.retail_price = float(data['retail_price'])
     if 'tp' in data:
         item.tp = float(data['tp'])
-    if 'discount_pct' in data:
-        # Save discount per-user, not on the shared item
-        uid = session.get('user_id')
-        if uid:
-            ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
-            disc_val = float(data['discount_pct'] or 0)
-            if ud:
-                ud.discount_pct = disc_val
-            elif disc_val:
-                ud = UserItemDiscount(user_id=uid, item_id=iid, discount_pct=disc_val)
-                db.session.add(ud)
+    if 'discount_pct' in data and uid:
+        ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
+        disc_val = float(data['discount_pct'] or 0)
+        if ud:
+            ud.discount_pct = disc_val
+        elif disc_val:
+            db.session.add(UserItemDiscount(user_id=uid, item_id=iid, discount_pct=disc_val))
     if 'bonus_text' in data:
         item.bonus_text = data['bonus_text'].strip()
     if 'tax_pct' in data:
@@ -800,7 +1286,6 @@ def update_item(iid):
         item.qty = float(data['qty'] or 0)
     db.session.commit()
     d = item.to_dict()
-    uid = session.get('user_id')
     if uid:
         ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
         d['discount_pct'] = float(ud.discount_pct or 0) if ud else 0
@@ -819,6 +1304,9 @@ def get_suppliers():
 
 @app.route('/api/suppliers', methods=['POST'])
 def add_supplier():
+    uid = session.get('user_id')
+    if uid and not User.query.get(uid).perm_suppliers:
+        return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
     data = request.get_json()
     name = data.get('name', '').strip()
     if not name:
@@ -857,6 +1345,9 @@ def get_purchases():
 
 @app.route('/api/purchase', methods=['POST'])
 def save_purchase():
+    uid = session.get('user_id')
+    if uid and not User.query.get(uid).perm_purchases:
+        return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
     data = request.get_json()
     lines = data.get('lines', [])
     if not lines:
@@ -1043,6 +1534,159 @@ def delete_item(iid):
     return jsonify({'success': True})
 
 
+@app.route('/api/items/bulk-delete', methods=['POST'])
+def bulk_delete_items():
+    if session.get('is_guest'):
+        return jsonify({'error': 'Guests cannot delete items.'}), 403
+    uid = session.get('user_id')
+    data = request.get_json() or {}
+    scope = data.get('scope', 'all')  # 'all' or 'recent'
+
+    query = Item.query.filter_by(user_id=uid, is_active=True, is_global=False)
+
+    if scope == 'recent':
+        # Items added in the last import session: those created today or
+        # during the most recent batch (last 24 hours as a practical window)
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        query = query.filter(Item.created_at >= cutoff)
+
+    items = query.all()
+    count = len(items)
+    for item in items:
+        item.is_active = False
+    db.session.commit()
+    return jsonify({'deleted': count})
+
+
+@app.route('/api/items/import', methods=['POST'])
+def import_items():
+    if session.get('is_guest'):
+        return jsonify({'error': 'Guests cannot import items.'}), 403
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'error': 'Empty filename'}), 400
+
+    try:
+        html = f.read().decode('utf-8', errors='replace')
+    except Exception:
+        return jsonify({'error': 'Could not read file'}), 400
+
+    uid = session.get('user_id')
+
+    # ── Load all existing user items once (single query) ──────────────────────
+    existing_items = Item.query.filter_by(user_id=uid, is_active=True).all()
+    # keyed by lowercase name for O(1) lookup
+    existing_map = {item.name.lower(): item for item in existing_items}
+    # collect all existing codes to avoid duplicates during code generation
+    used_codes = {item.code for item in existing_items}
+    # running counter for new codes
+    code_counter = len(existing_items)
+
+    # Global item names — used to detect "kept alongside global" items.
+    # When an imported item name matches a global item but the user has no
+    # private item with that name yet, we always create a new private item
+    # (never modify the global). Both coexist in the user's catalogue.
+    global_names = {
+        r[0].lower()
+        for r in Item.query.filter_by(is_global=True, is_active=True).with_entities(Item.name).all()
+    }
+
+    def _next_code():
+        nonlocal code_counter
+        while True:
+            code_counter += 1
+            candidate = f'ITM{code_counter:04d}'
+            if candidate not in used_codes:
+                used_codes.add(candidate)
+                return candidate
+
+    def _clean(s):
+        return re.sub(r'\s+', ' ', s).strip() if s else ''
+
+    def _num(s):
+        m = re.search(r'[-+]?\d+\.?\d*', _clean(s))
+        return float(m.group()) if m else 0.0
+
+    added = updated = skipped = alongside_global = 0
+
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
+        nonlocal added, updated, skipped, alongside_global
+        name = _clean(name)
+        if not name or tp <= 0:
+            skipped += 1
+            return
+        key = name.lower()
+        if key in existing_map:
+            # Update the user's existing private item
+            item = existing_map[key]
+            item.tp = tp
+            item.retail_price = retail
+            item.discount_pct = disc_pct
+            if bonus:
+                item.bonus_text = bonus
+            item.tax_pct = tax_pct
+            updated += 1
+        else:
+            # Create a new private item for this user.
+            # If a global item with the same name exists, we still create the
+            # private copy — both will coexist in the user's catalogue.
+            item = Item(
+                user_id=uid, is_global=False,
+                code=_next_code(), name=name,
+                retail_price=retail, tp=tp,
+                discount_pct=disc_pct, bonus_text=bonus,
+                tax_pct=tax_pct, qty=0,
+            )
+            db.session.add(item)
+            existing_map[key] = item  # prevent dupes within same file
+            if key in global_names:
+                alongside_global += 1
+            added += 1
+
+    # ── Parse HTML ─────────────────────────────────────────────────────────────
+    soup = BeautifulSoup(html, 'html.parser')
+
+    new_rows = soup.find_all('tr', class_='item-row')
+    if new_rows:
+        # Format A: new_pattern — data-tp / data-disc / data-tax attributes
+        for row in new_rows:
+            tds = row.find_all('td')
+            if len(tds) < 2:
+                continue
+            name = _clean(tds[1].get_text())
+            tp = float(row.get('data-tp', 0) or 0)
+            disc_pct = float(row.get('data-disc', 0) or 0)
+            bonus = _clean(row.get('data-bonus', '') or '')
+            tax_pct = float(row.get('data-tax', 0) or 0)
+            retail = round(tp / 0.85, 2) if tp > 0 else 0
+            _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+    else:
+        # Format B/C: classic HTM — <tr class="item">
+        # STOCK (9 cols): SR# | Code | Name | Disc% | TP | Box | Pcs | Cost | Amt
+        # CASH  (6 cols): Code | Name | qty-input | Disc% | Bonus | TP
+        for row in soup.find_all('tr', class_='item'):
+            tds = row.find_all('td')
+            if len(tds) < 5:
+                continue
+            if len(tds) >= 8:
+                name     = _clean(tds[2].get_text())
+                disc_pct = _num(tds[3].get_text())
+                tp       = _num(tds[4].get_text())
+                bonus    = ''
+            else:
+                name     = _clean(tds[1].get_text())
+                disc_pct = _num(tds[3].get_text())
+                bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
+                tp       = _num(tds[-1].get_text())
+            retail = round(tp / 0.85, 2) if tp > 0 else 0
+            _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+
+    db.session.commit()
+    return jsonify({'added': added, 'updated': updated, 'skipped': skipped, 'alongside_global': alongside_global})
+
+
 # ── Customers API ─────────────────────────────────────────────────────────────
 
 @app.route('/api/customers', methods=['GET'])
@@ -1070,6 +1714,9 @@ def get_customers():
 
 @app.route('/api/customers', methods=['POST'])
 def add_customer():
+    uid = session.get('user_id')
+    if uid and not User.query.get(uid).perm_customers:
+        return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
     data = request.get_json()
     name = data.get('name', '').strip()
     if not name:
@@ -1108,23 +1755,56 @@ def delete_customer(cid):
     return jsonify({'success': True})
 
 
+# ── Guest claim endpoint ───────────────────────────────────────────────────────
+
+@app.route('/api/guest/claim-invoice', methods=['POST'])
+def guest_claim_invoice():
+    """IP-based counter: max 4 invoices per 12 hours for guests."""
+    if not session.get('is_guest'):
+        return jsonify({'error': 'Not a guest session'}), 403
+    ip = get_client_ip()
+    now = datetime.utcnow()
+    gl = GuestLimit.query.filter_by(ip_address=ip).first()
+    if gl:
+        if (now - gl.window_start) > timedelta(hours=12):
+            gl.invoice_count = 0
+            gl.window_start = now
+        if gl.invoice_count >= 4:
+            return jsonify({'error': 'Guest limit reached (4 invoices per 12 hours). Please register for a free account.'}), 429
+        gl.invoice_count += 1
+    else:
+        gl = GuestLimit(ip_address=ip, invoice_count=1, window_start=now)
+        db.session.add(gl)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
 # ── Invoices API ──────────────────────────────────────────────────────────────
 
-def _ensure_item_exists(name, tp, retail_price, tax_pct):
-    """Auto-create an item in the catalog if it doesn't already exist (by name)."""
-    existing = Item.query.filter(Item.name.ilike(name), Item.is_active == True).first()
+def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_text='', user_id=None):
+    """Auto-create an item in the user's catalog if it doesn't already exist (by name)."""
+    query = Item.query.filter(Item.name.ilike(name), Item.is_active == True)
+    if user_id:
+        query = query.filter(db.or_(Item.user_id == user_id, Item.is_global == True))
+    else:
+        query = query.filter(Item.is_global == True)
+    existing = query.first()
     if existing:
         return existing
-    last = Item.query.order_by(Item.id.desc()).first()
-    code = f'ITM{(last.id + 1 if last else 1):04d}'
-    while Item.query.filter_by(code=code).first():
-        code = code[:-4] + str(int(code[-4:]) + 1).zfill(4)
+    count = Item.query.filter_by(is_global=False, user_id=user_id).count()
+    code = f'ITM{count + 1:04d}'
+    while Item.query.filter_by(code=code, user_id=user_id).first():
+        count += 1
+        code = f'ITM{count + 1:04d}'
     item = Item(
+        user_id=user_id,
         code=code,
         name=name,
         retail_price=round(float(retail_price or 0) or (float(tp) / 0.85), 2),
         tp=float(tp),
         tax_pct=float(tax_pct or 0),
+        discount_pct=float(discount_pct or 0),
+        bonus_text=bonus_text or '',
     )
     db.session.add(item)
     db.session.flush()
@@ -1158,12 +1838,12 @@ def next_invoice_number():
 @app.route('/api/invoices', methods=['GET'])
 def get_invoices():
     uid = session.get('user_id')
+    if not uid:
+        return jsonify({'items': [], 'total': 0, 'offset': 0, 'limit': 100})
     cust_id = request.args.get('customer_id')
     offset = max(0, int(request.args.get('offset', 0)))
     limit = min(max(1, int(request.args.get('limit', 100))), 500)
-    query = Invoice.query.filter(Invoice.status != 'deleted')
-    if uid:
-        query = query.filter_by(user_id=uid)
+    query = Invoice.query.filter(Invoice.status != 'deleted').filter_by(user_id=uid)
     query = query.order_by(Invoice.id.desc())
     if cust_id:
         query = query.filter_by(customer_id=int(cust_id)).limit(5)
@@ -1182,22 +1862,15 @@ def get_invoices():
 
 @app.route('/api/invoices', methods=['POST'])
 def create_invoice():
-    # Guest invoice limit: 3 per IP per 12 hours
     if session.get('is_guest'):
-        ip = get_client_ip()
-        now = datetime.utcnow()
-        gl = GuestLimit.query.filter_by(ip_address=ip).first()
-        if gl:
-            if (now - gl.window_start) > timedelta(hours=12):
-                gl.invoice_count = 0
-                gl.window_start = now
-            if gl.invoice_count >= 3:
-                return jsonify({'error': 'Guest limit reached. Max 3 invoices per 12 hours. Please register for full access.'}), 403
-            gl.invoice_count += 1
-        else:
-            gl = GuestLimit(ip_address=ip, invoice_count=1, window_start=now)
-            db.session.add(gl)
-        db.session.flush()
+        return jsonify({'error': 'Guest invoices are stored locally in your browser.'}), 403
+    if _cfg('invoicing_open', '1') == '0':
+        return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
+    uid = session.get('user_id')
+    if uid:
+        u = User.query.get(uid)
+        if u and not u.perm_bill:
+            return jsonify({'error': 'You have been locked for this action. Contact your Admin.', 'locked': True}), 403
     data = request.get_json()
     cust_id = data.get('customer_id') or None
     cust_name = (data.get('customer_name') or '').strip() or 'Walk-in'
@@ -1224,6 +1897,9 @@ def create_invoice():
                 tp=float(line_data.get('tp', 0)),
                 retail_price=float(line_data.get('retail', 0)),
                 tax_pct=float(line_data.get('tax_pct', 0) or 0),
+                discount_pct=float(line_data.get('discount_pct', 0) or 0),
+                bonus_text=line_data.get('bonus_text', '') or '',
+                user_id=session.get('user_id'),
             )
         line = InvoiceLine(
             invoice_id=inv.id,
@@ -1255,6 +1931,8 @@ def get_invoice(inv_id):
 
 @app.route('/api/invoices/<int:inv_id>', methods=['PUT'])
 def update_invoice(inv_id):
+    if session.get('is_guest'):
+        return jsonify({'error': 'Guests cannot update server invoices.'}), 403
     inv = Invoice.query.get_or_404(inv_id)
     if inv.status in ('finalised', 'cancelled'):
         label = 'Finalised' if inv.status == 'finalised' else 'Cancelled'
@@ -1282,6 +1960,9 @@ def update_invoice(inv_id):
                 tp=float(line_data.get('tp', 0)),
                 retail_price=float(line_data.get('retail', 0)),
                 tax_pct=float(line_data.get('tax_pct', 0) or 0),
+                discount_pct=float(line_data.get('discount_pct', 0) or 0),
+                bonus_text=line_data.get('bonus_text', '') or '',
+                user_id=session.get('user_id'),
             )
         line = InvoiceLine(
             invoice_id=inv.id,
@@ -1297,6 +1978,7 @@ def update_invoice(inv_id):
         line.calculate_line_net()
         db.session.add(line)
 
+    db.session.flush()  # write new lines to DB so inv.lines reloads correctly below
     inv.recalculate_totals()
     inv.total = round(float(inv.subtotal) + float(inv.tax_amount) - inv.discount_amount, 2)
     db.session.flush()

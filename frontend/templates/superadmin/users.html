@@ -65,6 +65,31 @@
     .ab-unlock:hover{background:rgba(249,115,22,.32)}
     .badge-suspended{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7em;font-weight:700;background:rgba(239,68,68,.2);color:#f87171;margin-left:6px;vertical-align:middle}
     .badge-adminlock{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7em;font-weight:700;background:rgba(249,115,22,.2);color:#fb923c;margin-left:6px;vertical-align:middle}
+
+    /* Global toggles */
+    .toggle-bar{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 22px;margin-bottom:16px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+    .toggle-item{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+    .toggle-label{flex:1;font-size:.9em;color:#e2e8f0}
+    .toggle-label small{display:block;font-size:.78em;color:rgba(255,255,255,.4);margin-top:2px}
+    .tog{position:relative;width:46px;height:26px;flex-shrink:0}
+    .tog input{opacity:0;width:0;height:0;position:absolute}
+    .tog-slider{position:absolute;inset:0;border-radius:13px;background:rgba(255,255,255,.15);cursor:pointer;transition:background .2s}
+    .tog-slider:before{content:'';position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;transition:transform .2s}
+    .tog input:checked+.tog-slider{background:#7c3aed}
+    .tog input:checked+.tog-slider:before{transform:translateX(20px)}
+    /* Permissions grid */
+    .perm-grid{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+    .perm-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px}
+    .perm-icon{font-size:1.1em;width:22px;text-align:center;flex-shrink:0}
+    .perm-name{flex:1;font-size:.84em;color:#e2e8f0;font-weight:600}
+    /* Recovery email card */
+    .rec-card{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:16px;padding:18px 22px;margin-bottom:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+    .rec-card-info{flex:1;min-width:180px}
+    .rec-card-label{font-size:.75em;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    .rec-card-email{font-size:.95em;color:#c4b5fd;font-family:monospace;letter-spacing:.5px}
+    .rec-card-email.unset{color:rgba(255,255,255,.3);font-style:italic;font-family:inherit;letter-spacing:0}
+    .ab-rec{background:rgba(124,58,237,.2);color:#a78bfa;padding:8px 18px;border:none;border-radius:9px;font-size:.82em;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .ab-rec:hover{background:rgba(124,58,237,.35)}
     .uname-link{cursor:pointer;border-bottom:1px dashed rgba(167,139,250,.5);transition:color .2s}
     .uname-link:hover{color:#a78bfa}
     .profile-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -98,6 +123,12 @@
     .mbtn:hover{transform:translateY(-1px)}
     .mbtn-primary{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff}
     .mbtn-danger{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff}
+    .mbtn-warning{background:linear-gradient(135deg,#d97706,#b45309);color:#fff}
+    .clear-checks{display:flex;flex-direction:column;gap:2px;margin:6px 0}
+    .clear-check-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:background .15s;font-size:.9em;color:rgba(255,255,255,.85)}
+    .clear-check-row:hover{background:rgba(255,255,255,.06)}
+    .clear-check-row input[type=checkbox]{width:17px;height:17px;accent-color:#ef4444;cursor:pointer;flex-shrink:0}
+    .clear-check-icon{font-size:1.1em;width:22px;text-align:center}
     .mbtn-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.1)}
     .del-name{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 16px;text-align:center;color:#f87171;font-weight:700;margin-bottom:16px}
 
@@ -138,6 +169,7 @@
   <span class="nav-user">{{ session.username }}</span>
   <a href="/superadmin/messages" class="logout-btn" style="background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.3);color:#fcd34d;margin-right:6px"><span class="btn-icon">📬</span><span class="btn-txt">Messages</span><span id="msgBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:.78em;margin-left:3px"></span></a>
   <a href="/superadmin/items" class="logout-btn" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7;margin-right:6px"><span class="btn-icon">🌐</span><span class="btn-txt">Items</span></a>
+  <a href="/superadmin/ip-logs" class="logout-btn" style="background:rgba(14,165,233,.15);border-color:rgba(14,165,233,.3);color:#7dd3fc;margin-right:6px"><span class="btn-icon">🔍</span><span class="btn-txt">IP Logs</span></a>
   <button class="logout-btn" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.4);color:#a78bfa;margin-right:6px" onclick="openOwnPwdModal()"><span class="btn-icon">🔑</span><span class="btn-txt">Change Pwd</span></button>
   <a href="/auth/logout" class="logout-btn"><span class="btn-icon">🚪</span><span class="btn-txt">Logout</span></a>
 </nav>
@@ -157,6 +189,35 @@
       <div class="stat-val" id="statInvoices">—</div>
       <div class="stat-label">Total Invoices</div>
     </div>
+  </div>
+
+  <!-- Global Toggles -->
+  <div class="toggle-bar">
+    <div style="font-size:.8em;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;width:100%;margin-bottom:4px">Global Controls</div>
+    <div class="toggle-item">
+      <div class="toggle-label">
+        New User Registration
+        <small>Allow new users to sign up</small>
+      </div>
+      <label class="tog"><input type="checkbox" id="togRegistration" onchange="saveGlobalToggle('registration_open',this.checked)"><span class="tog-slider"></span></label>
+    </div>
+    <div class="toggle-item">
+      <div class="toggle-label">
+        Invoice Creation
+        <small>Allow all users to create invoices</small>
+      </div>
+      <label class="tog"><input type="checkbox" id="togInvoicing" onchange="saveGlobalToggle('invoicing_open',this.checked)"><span class="tog-slider"></span></label>
+    </div>
+  </div>
+
+  <!-- Recovery Email -->
+  <div class="rec-card">
+    <div style="font-size:1.8em">📧</div>
+    <div class="rec-card-info">
+      <div class="rec-card-label">Password Recovery Email</div>
+      <div class="rec-card-email unset" id="recEmailDisplay">Loading…</div>
+    </div>
+    <button class="ab-rec" onclick="openRecModal()">Set / Update</button>
   </div>
 
   <!-- Table section -->
@@ -249,8 +310,44 @@
     <div class="modal-title" id="profileName">—</div>
     <div style="text-align:center"><span class="uid-chip" id="profileUid">ID #—</span></div>
     <div id="profileBody"></div>
-    <div class="m-actions" style="margin-top:16px">
+    <div style="margin:14px 0 6px;font-size:.75em;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px">Feature Permissions</div>
+    <div class="perm-grid" id="permGrid">
+      <div class="perm-row"><span class="perm-icon">🧾</span><span class="perm-name">Create Bills</span><label class="tog"><input type="checkbox" id="pp_bill" onchange="savePerm('perm_bill',this.checked)"><span class="tog-slider"></span></label></div>
+      <div class="perm-row"><span class="perm-icon">📦</span><span class="perm-name">Add Items</span><label class="tog"><input type="checkbox" id="pp_items" onchange="savePerm('perm_items',this.checked)"><span class="tog-slider"></span></label></div>
+      <div class="perm-row"><span class="perm-icon">👥</span><span class="perm-name">Add Customers</span><label class="tog"><input type="checkbox" id="pp_customers" onchange="savePerm('perm_customers',this.checked)"><span class="tog-slider"></span></label></div>
+      <div class="perm-row"><span class="perm-icon">🏭</span><span class="perm-name">Add Suppliers</span><label class="tog"><input type="checkbox" id="pp_suppliers" onchange="savePerm('perm_suppliers',this.checked)"><span class="tog-slider"></span></label></div>
+      <div class="perm-row"><span class="perm-icon">🛒</span><span class="perm-name">Add Purchases</span><label class="tog"><input type="checkbox" id="pp_purchases" onchange="savePerm('perm_purchases',this.checked)"><span class="tog-slider"></span></label></div>
+    </div>
+    <div style="margin:14px 0 6px;font-size:.75em;font-weight:700;color:rgba(255,100,100,.55);text-transform:uppercase;letter-spacing:.5px">Danger Zone</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="mbtn mbtn-warning" style="flex:1;min-width:130px" onclick="openSetAdminPwdFromProfile()">Set Admin Password</button>
+      <button class="mbtn mbtn-danger" style="flex:1;min-width:130px" onclick="openClearDataModal()">Clear All Data</button>
+    </div>
+    <div class="m-actions" style="margin-top:4px">
       <button class="mbtn mbtn-close" onclick="closeProfile()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Clear User Data Modal -->
+<div class="overlay" id="clearDataOverlay">
+  <div class="modal">
+    <div class="modal-icon">🗑️</div>
+    <div class="modal-title">Clear User Data</div>
+    <div class="modal-sub">Select what to permanently delete for <strong id="clearDataName" style="color:#fff"></strong>. The account itself will remain.</div>
+    <div style="margin:14px 0 4px;font-size:.75em;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px">Select Data to Delete</div>
+    <div class="clear-checks">
+      <label class="clear-check-row"><input type="checkbox" id="cd_invoices"><span class="clear-check-icon">🧾</span><span>Invoices</span></label>
+      <label class="clear-check-row"><input type="checkbox" id="cd_purchases"><span class="clear-check-icon">🛒</span><span>Purchases</span></label>
+      <label class="clear-check-row"><input type="checkbox" id="cd_items"><span class="clear-check-icon">📦</span><span>Items</span></label>
+      <label class="clear-check-row"><input type="checkbox" id="cd_customers"><span class="clear-check-icon">👥</span><span>Customers</span></label>
+      <label class="clear-check-row"><input type="checkbox" id="cd_suppliers"><span class="clear-check-icon">🏭</span><span>Suppliers</span></label>
+      <label class="clear-check-row" style="border-top:1px solid rgba(255,255,255,.08);margin-top:4px;padding-top:10px"><input type="checkbox" id="cd_all" onchange="toggleAllClearChecks(this.checked)"><span class="clear-check-icon">☑️</span><span style="font-weight:600">Select All</span></label>
+    </div>
+    <div class="m-err" id="clearDataErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeClearDataModal()">Cancel</button>
+      <button class="mbtn mbtn-danger" onclick="confirmClearData()">Clear Selected</button>
     </div>
   </div>
 </div>
@@ -267,6 +364,22 @@
     <div class="m-actions">
       <button class="mbtn mbtn-close" onclick="closeDelModal()">Cancel</button>
       <button class="mbtn mbtn-danger" onclick="confirmDelete()">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recovery Email Modal -->
+<div class="overlay" id="recOverlay">
+  <div class="modal">
+    <div class="modal-icon">📧</div>
+    <div class="modal-title">Recovery Email</div>
+    <div class="modal-sub">Set the email address where password reset codes will be sent</div>
+    <label class="m-label">Recovery Email Address</label>
+    <input class="m-inp" id="recEmailInp" type="email" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')saveRecEmail()">
+    <div class="m-err" id="recErr"></div>
+    <div class="m-actions">
+      <button class="mbtn mbtn-close" onclick="closeRecModal()">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="saveRecEmail()">Save Email</button>
     </div>
   </div>
 </div>
@@ -434,6 +547,7 @@ function openProfile(uid){
       </div>
     </div>`).join('');
   document.getElementById('profileOverlay').classList.add('open');
+  loadPerms(uid);
 }
 function closeProfile(){document.getElementById('profileOverlay').classList.remove('open');}
 
@@ -495,14 +609,122 @@ async function saveOwnPwd(){
   else{err.textContent=d.error||'Failed to update password';}
 }
 
+// Global toggles
+async function loadGlobalToggles(){
+  const r=await fetch('/api/superadmin/system-config').catch(()=>null);
+  if(!r||!r.ok) return;
+  const d=await r.json();
+  document.getElementById('togRegistration').checked=d.registration_open;
+  document.getElementById('togInvoicing').checked=d.invoicing_open;
+}
+async function saveGlobalToggle(key, val){
+  await fetch('/api/superadmin/system-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:val})}).catch(()=>null);
+  toast(val?'Enabled':'Disabled');
+}
+
+// Per-user permissions
+var _permUserId=null;
+async function loadPerms(uid){
+  _permUserId=uid;
+  const r=await fetch('/api/superadmin/users/'+uid+'/permissions').catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  document.getElementById('pp_bill').checked     = d.perm_bill     !==false;
+  document.getElementById('pp_items').checked    = d.perm_items    !==false;
+  document.getElementById('pp_customers').checked= d.perm_customers!==false;
+  document.getElementById('pp_suppliers').checked= d.perm_suppliers!==false;
+  document.getElementById('pp_purchases').checked= d.perm_purchases!==false;
+}
+async function savePerm(field, val){
+  if(!_permUserId) return;
+  await fetch('/api/superadmin/users/'+_permUserId+'/permissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:val})}).catch(()=>null);
+  toast(val?'Permission granted':'Permission revoked');
+}
+
+// Set admin password from profile modal
+function openSetAdminPwdFromProfile(){
+  const uid=_permUserId;
+  const u=_allUsers.find(x=>x.id===uid);
+  if(!u) return;
+  closeProfile();
+  unlockAdmin(uid, u.username);
+}
+
+// Clear selected user data
+var _clearDataUid=null;
+function openClearDataModal(){
+  const uid=_permUserId;
+  const u=_allUsers.find(x=>x.id===uid);
+  if(!u) return;
+  _clearDataUid=uid;
+  document.getElementById('clearDataName').textContent=u.username;
+  document.getElementById('clearDataErr').textContent='';
+  ['invoices','purchases','items','customers','suppliers'].forEach(k=>document.getElementById('cd_'+k).checked=false);
+  document.getElementById('cd_all').checked=false;
+  document.getElementById('clearDataOverlay').classList.add('open');
+}
+function toggleAllClearChecks(v){
+  ['invoices','purchases','items','customers','suppliers'].forEach(k=>document.getElementById('cd_'+k).checked=v);
+}
+function closeClearDataModal(){document.getElementById('clearDataOverlay').classList.remove('open');}
+async function confirmClearData(){
+  if(!_clearDataUid) return;
+  const targets=['invoices','purchases','items','customers','suppliers'].filter(k=>document.getElementById('cd_'+k).checked);
+  const err=document.getElementById('clearDataErr');
+  if(!targets.length){err.textContent='Select at least one data type';return;}
+  err.textContent='';
+  const r=await fetch('/api/superadmin/users/'+_clearDataUid+'/clear-data',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({targets})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){
+    closeClearDataModal();
+    toast(targets.length===5?'All data cleared':'Selected data cleared');
+    loadUsers();
+  } else {
+    err.textContent=d.error||'Failed to clear data';
+  }
+}
+
+// Recovery email
+async function loadRecEmail(){
+  const r=await fetch('/api/superadmin/get-recovery-email').catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  const el=document.getElementById('recEmailDisplay');
+  if(d.email){
+    el.textContent=d.email;
+    el.classList.remove('unset');
+  } else {
+    el.textContent='Not set — reset codes cannot be sent';
+    el.classList.add('unset');
+  }
+}
+function openRecModal(){
+  document.getElementById('recEmailInp').value='';
+  document.getElementById('recErr').textContent='';
+  document.getElementById('recOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('recEmailInp').focus(),100);
+}
+function closeRecModal(){document.getElementById('recOverlay').classList.remove('open');}
+async function saveRecEmail(){
+  const email=document.getElementById('recEmailInp').value.trim();
+  const err=document.getElementById('recErr');
+  err.textContent='';
+  if(!email||!email.includes('@')){err.textContent='Enter a valid email address';return;}
+  const r=await fetch('/api/superadmin/set-recovery-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})}).catch(()=>null);
+  const d=r?await r.json().catch(()=>({})): {};
+  if(d.success){closeRecModal();toast('Recovery email updated');loadRecEmail();}
+  else{err.textContent=d.error||'Failed to update email';}
+}
+
 // Close modal on overlay click
 document.getElementById('ownPwdOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeOwnPwdModal();});
 document.getElementById('pwdOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closePwdModal();});
 document.getElementById('delOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeDelModal();});
 document.getElementById('unlockAdminOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeUnlockAdminModal();});
 document.getElementById('profileOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeProfile();});
+document.getElementById('recOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeRecModal();});
 
 loadUsers();
+loadRecEmail();
+loadGlobalToggles();
 
 // Load pending message badge
 fetch('/api/superadmin/pending-count').then(r=>r.json()).then(d=>{

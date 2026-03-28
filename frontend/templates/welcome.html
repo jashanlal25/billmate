@@ -85,7 +85,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
 
     <div class="divider">or</div>
     <button class="btn-guest" onclick="location.href='/auth/guest'">👤 Continue as Guest</button>
-    <div class="guest-note">Guest: billing &amp; items only &nbsp;·&nbsp; max 3 invoices / 12 hrs</div>
+    <div class="guest-note">Guest: billing &amp; items only &nbsp;·&nbsp; max 4 invoices / 12 hrs</div>
   </div>
 </div>
 
@@ -151,6 +151,10 @@ async function doReset(){
   const r=await fetch('/api/forgot-password-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username})});
   const res=await r.json();
   btn.disabled=false;btn.textContent='Send Reset Request';
+  if(res.superadmin){
+    window.location.href='/superadmin/login?forgot=1';
+    return;
+  }
   if(r.ok){
     const ok=document.getElementById('rs_ok');
     ok.textContent='Request sent! Please contact your Admin to get your new password.';
