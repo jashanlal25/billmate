@@ -293,6 +293,7 @@ function toggleNav(){document.getElementById('navMenu').classList.toggle('open')
 
 function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
 
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toast(msg,err=false){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show'+(err?' error':'');

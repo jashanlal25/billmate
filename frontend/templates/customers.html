@@ -216,6 +216,7 @@ function toggleTheme(){
 
 let allCustomers = [];
 
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toast(msg, err=false){
   const t = document.getElementById('toast');
   t.textContent = msg;

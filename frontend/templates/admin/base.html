@@ -154,6 +154,7 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </div>
 <script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function saveNewAdminPwd(){
   const pwd=document.getElementById('newAdminPwd').value.trim();
   const confirm=document.getElementById('confirmAdminPwd').value.trim();
