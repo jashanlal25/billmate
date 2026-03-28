@@ -3,6 +3,18 @@
 {% block btn_setup %}active{% endblock %}
 
 {% block content_main %}
+<style>
+@media(max-width:600px){
+  .setup-phone-grid{grid-template-columns:1fr !important}
+  .setup-row{grid-template-columns:1fr !important}
+}
+.phone-wrap{display:flex;align-items:stretch;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:var(--inp)}
+.phone-plus{display:flex;align-items:center;padding:0 6px 0 12px;color:var(--sub);font-weight:700;font-size:.95em;user-select:none;flex-shrink:0}
+.phone-code{width:52px;padding:11px 4px 11px 0;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700}
+.phone-num{flex:1;min-width:0;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none}
+.wa-label-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.wa-same-lbl{display:inline-flex;align-items:center;gap:4px;font-size:.75em;color:var(--sub);cursor:pointer;user-select:none;white-space:nowrap}
+</style>
 <div class="section-header" style="max-width:640px;margin:0 auto"><div class="section-title">⚙️ Shop Setup</div></div>
 <div class="card" style="padding:28px;max-width:640px;margin:0 auto">
   <div style="margin-bottom:18px">
@@ -13,30 +25,30 @@
     <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Address *</label>
     <textarea id="s_address" placeholder="Shop address..." style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;resize:vertical;min-height:70px"></textarea>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px">
+  <div class="setup-phone-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px">
     <div>
       <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Phone *</label>
-      <div style="display:flex;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:var(--inp)">
-        <span style="padding:11px 6px 11px 12px;color:var(--sub);font-weight:700;font-size:.95em;white-space:nowrap;user-select:none">+</span>
-        <input id="s_phone_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:11px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
-        <input id="s_phone_num" type="tel" placeholder="3001234567" style="flex:1;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+      <div class="phone-wrap">
+        <span class="phone-plus">+</span>
+        <input id="s_phone_code" class="phone-code" type="text" placeholder="92" maxlength="4">
+        <input id="s_phone_num" class="phone-num" type="tel" placeholder="3001234567">
       </div>
     </div>
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="wa-label-row">
         <label style="font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px">WhatsApp *</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;font-size:.75em;color:var(--sub);cursor:pointer;user-select:none">
+        <label class="wa-same-lbl">
           <input type="checkbox" id="s_same_phone" onchange="toggleSamePhone()" style="accent-color:#667eea;width:14px;height:14px;cursor:pointer"> Same as phone
         </label>
       </div>
-      <div style="display:flex;border:1.5px solid var(--border);border-radius:11px;overflow:hidden;background:var(--inp)">
-        <span style="padding:11px 6px 11px 12px;color:var(--sub);font-weight:700;font-size:.95em;white-space:nowrap;user-select:none">+</span>
-        <input id="s_wa_code" type="text" placeholder="92" maxlength="4" style="width:44px;padding:11px 4px;border:none;border-right:1.5px solid var(--border);background:transparent;color:var(--text);font-size:.95em;outline:none;font-weight:700">
-        <input id="s_wa_num" type="tel" placeholder="3001234567" style="flex:1;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none">
+      <div class="phone-wrap">
+        <span class="phone-plus">+</span>
+        <input id="s_wa_code" class="phone-code" type="text" placeholder="92" maxlength="4">
+        <input id="s_wa_num" class="phone-num" type="tel" placeholder="3001234567">
       </div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
+  <div class="setup-row" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
     <div>
       <label style="display:block;font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">NTN (optional)</label>
       <input id="s_ntn" placeholder="Tax registration number" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none">
