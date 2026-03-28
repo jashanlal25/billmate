@@ -238,10 +238,10 @@ function render(list){
   }
   body.innerHTML = list.map(c=>`
     <tr>
-      <td data-label="Name" style="font-weight:600">${c.name}</td>
-      <td data-label="Phone">${c.phone||'—'}</td>
-      <td data-label="WhatsApp">${c.whatsapp?`<a href="https://wa.me/${c.whatsapp}" target="_blank" style="color:#25d366">${c.whatsapp}</a>`:'—'}</td>
-      <td data-label="Address" style="font-size:.85em;color:#888;max-width:180px;overflow:hidden;text-overflow:ellipsis">${c.address||'—'}</td>
+      <td data-label="Name" style="font-weight:600">${esc(c.name)}</td>
+      <td data-label="Phone">${esc(c.phone)||'—'}</td>
+      <td data-label="WhatsApp">${c.whatsapp?`<a href="https://wa.me/${encodeURIComponent(c.whatsapp)}" target="_blank" style="color:#25d366">${esc(c.whatsapp)}</a>`:'—'}</td>
+      <td data-label="Address" style="font-size:.85em;color:#888;max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.address)||'—'}</td>
       <td data-label="Credit Limit">Rs. ${(+c.credit_limit).toFixed(0)}</td>
       <td data-label="Balance Due" class="${c.balance>0?'bal-pos':'bal-zero'}">Rs. ${(+c.balance).toFixed(2)}</td>
       <td><div><button class="btn btn-sm" onclick="viewCustomer(${c.id})">View</button><button class="btn btn-sm btn-bill" onclick="newBill(${c.id})">Bill</button></div></td>

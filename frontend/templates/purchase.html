@@ -317,8 +317,8 @@ async function searchSuppliers(q){
       dd.innerHTML=items.map(s=>`
         <div onclick="selectSupplier(${s.id},'${s.name.replace(/'/g,"\\'")}','${(s.phone||'').replace(/'/g,"\\'")}');"
           style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)">
-          <div style="font-weight:600;font-size:.9em;color:var(--text)">${s.name}</div>
-          ${s.phone?`<div style="font-size:.78em;color:var(--sub)">${s.phone}</div>`:''}
+          <div style="font-weight:600;font-size:.9em;color:var(--text)">${esc(s.name)}</div>
+          ${s.phone?`<div style="font-size:.78em;color:var(--sub)">${esc(s.phone)}</div>`:''}
         </div>`).join('');
     }
     dd.style.display='block';
@@ -355,7 +355,7 @@ async function searchItems(q){
     } else {
       dd.innerHTML=items.map(i=>`
         <div class="dd-item" onclick="addItem(${i.id},'${i.name.replace(/'/g,"\\'")}',${i.tp},${i.retail_price},${i.tax_pct||0},${i.qty})">
-          <div class="dd-name">${i.name}${i.code?` <span style="color:var(--sub);font-size:.8em">(${i.code})</span>`:''}</div>
+          <div class="dd-name">${esc(i.name)}${i.code?` <span style="color:var(--sub);font-size:.8em">(${esc(i.code)})</span>`:''}</div>
           <div class="dd-meta">Retail: Rs.${(+i.retail_price).toFixed(2)} &nbsp;·&nbsp; TP: Rs.${(+i.tp).toFixed(2)} &nbsp;·&nbsp; Stock: ${(+i.qty).toFixed(0)}</div>
         </div>`).join('')+addRow;
     }
@@ -491,7 +491,7 @@ function renderSessionHistory(){
     <div class="hist-row" style="grid-template-columns:auto 1fr auto auto">
       <span class="hist-no">${p.purchase_number}</span>
       <span style="font-size:.9em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-        ${p.supplier_name} &nbsp;·&nbsp; ${p.lines.map(l=>`${l.item_name}&nbsp;&nbsp;<span style="color:var(--accent)">TP:&nbsp;${(+l.tp).toFixed(0)}</span>&nbsp;&nbsp;<span style="color:var(--sub)">×&nbsp;${(+l.qty).toFixed(0)}</span>`).join('&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;')}
+        ${esc(p.supplier_name)} &nbsp;·&nbsp; ${p.lines.map(l=>`${esc(l.item_name)}&nbsp;&nbsp;<span style="color:var(--accent)">TP:&nbsp;${(+l.tp).toFixed(0)}</span>&nbsp;&nbsp;<span style="color:var(--sub)">×&nbsp;${(+l.qty).toFixed(0)}</span>`).join('&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;')}
       </span>
       <span style="font-size:.85em;font-weight:700">Rs.${(+p.total_cost).toFixed(0)}</span>
       <span>
@@ -509,7 +509,7 @@ function viewSessionPurchase(idx){
   document.getElementById('sm_lines').innerHTML=p.lines.map((l,i)=>`
     <tr>
       <td style="padding:8px 10px;color:var(--sub);border-bottom:1px solid var(--border)">${i+1}</td>
-      <td style="padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border)">${l.item_name}</td>
+      <td style="padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border)">${esc(l.item_name)}</td>
       <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.retail).toFixed(2)}</td>
       <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.disc_pct)>0?(+l.disc_pct).toFixed(1)+'%':'—'}</td>
@@ -542,7 +542,7 @@ function buildPurchasePrintHtml(p, forPdf){
   const s=purShopSettings, accent='#4f46e5';
   const rows=p.lines.map((l,i)=>`<tr style="${i%2===1?'background:#f8f8ff':''}">
     <td style="text-align:center;color:#888;width:28px">${i+1}</td>
-    <td style="font-weight:600">${l.item_name}</td>
+    <td style="font-weight:600">${esc(l.item_name)}</td>
     <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
     <td style="text-align:right;color:#555">Rs.${(+l.retail).toFixed(2)}</td>
     <td style="text-align:center;color:#555">${(+(l.disc_pct||l.disc||0))>0?(+(l.disc_pct||l.disc||0)).toFixed(1)+'%':'—'}</td>
@@ -582,7 +582,7 @@ function buildPurchasePrintHtml(p, forPdf){
   <div class="pur-title">Purchase Invoice</div>
   <div class="info-row">
     <div class="info-item"><div class="lbl">Purchase #</div><div class="val">${p.purchase_number}</div></div>
-    <div class="info-item"><div class="lbl">Supplier</div><div class="val">${p.supplier_name}</div></div>
+    <div class="info-item"><div class="lbl">Supplier</div><div class="val">${esc(p.supplier_name)}</div></div>
     <div class="info-item"><div class="lbl">Date</div><div class="val">${p.purchase_date}</div></div>
   </div>
   <table>

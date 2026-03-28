@@ -81,16 +81,16 @@ function renderCustomers(list){
   if(!list.length){body.innerHTML=`<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div>No customers found.</div></td></tr>`;return;}
   body.innerHTML=list.map(c=>`
     <tr>
-      <td data-label="Name" style="font-weight:600">${c.name}</td>
-      <td data-label="Phone">${c.phone||'—'}</td>
-      <td data-label="Address" style="font-size:.85em;color:var(--sub)">${c.address||'—'}</td>
+      <td data-label="Name" style="font-weight:600">${esc(c.name)}</td>
+      <td data-label="Phone">${esc(c.phone)||'—'}</td>
+      <td data-label="Address" style="font-size:.85em;color:var(--sub)">${esc(c.address)||'—'}</td>
       <td data-label="Credit Limit">Rs. ${(+c.credit_limit).toFixed(0)}</td>
       <td data-label="Balance" style="font-weight:600;color:${c.balance>0?'#ef4444':'#888'}">Rs. ${(+c.balance).toFixed(2)}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="act-btn ab-view" onclick="viewCust(${c.id})">View</button>
           <button class="act-btn ab-edit" onclick="openCustEdit(${c.id})">✏️ Edit</button>
-          <button class="act-btn ab-del" onclick="deleteCustomer(${c.id},'${c.name.replace(/'/g,"\\'")}')">🗑 Delete</button>
+          <button class="act-btn ab-del" onclick="deleteCustomer(${c.id},'${c.id}')">🗑 Delete</button>
         </div>
       </td>
     </tr>`).join('');

@@ -29,6 +29,11 @@ function toggleNav() {
   document.getElementById('navMenu').classList.toggle('open');
 }
 
+// === HTML Escape (prevents XSS when inserting user data into innerHTML) ===
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // === Title Case ===
 function toTitleCase(str) {
   return str.replace(/(\b\w)/g, c => c.toUpperCase());

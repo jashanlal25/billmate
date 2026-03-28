@@ -87,15 +87,15 @@ function renderSuppliers(list){
   if(!list.length){body.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">🏭</div>No suppliers found.</div></td></tr>`;return;}
   body.innerHTML=list.map(s=>`
     <tr>
-      <td data-label="Name" style="font-weight:600">${s.name}</td>
-      <td data-label="Phone">${s.phone||'—'}</td>
-      <td data-label="Address" style="font-size:.85em;color:var(--sub)">${s.address||'—'}</td>
-      <td data-label="Notes" style="font-size:.85em;color:var(--sub)">${s.notes||'—'}</td>
+      <td data-label="Name" style="font-weight:600">${esc(s.name)}</td>
+      <td data-label="Phone">${esc(s.phone)||'—'}</td>
+      <td data-label="Address" style="font-size:.85em;color:var(--sub)">${esc(s.address)||'—'}</td>
+      <td data-label="Notes" style="font-size:.85em;color:var(--sub)">${esc(s.notes)||'—'}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="act-btn ab-view" onclick="viewSup(${s.id})">View</button>
           <button class="act-btn ab-edit" onclick="openSupEdit(${s.id})">✏️ Edit</button>
-          <button class="act-btn ab-del" onclick="deleteSupplier(${s.id},'${s.name.replace(/'/g,"\\'")}')">🗑 Delete</button>
+          <button class="act-btn ab-del" onclick="deleteSupplier(${s.id})">🗑 Delete</button>
         </div>
       </td>
     </tr>`).join('');

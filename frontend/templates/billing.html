@@ -619,8 +619,8 @@ async function searchCustomer(q){
     if(!customers.length){dd.innerHTML='<div class="dd-item" style="color:#888">No customers found</div>';dd.classList.add('open');setTimeout(()=>dd.classList.remove('open'),3000);return;}
     dd.innerHTML=customers.map(c=>`
       <div class="dd-item" onclick="selectCustomer(${c.id})">
-        <div class="dd-name">${c.name}</div>
-        <div class="dd-meta">${c.phone||''} ${c.address?'· '+c.address:''}</div>
+        <div class="dd-name">${esc(c.name)}</div>
+        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}</div>
       </div>`).join('');
     dd.classList.add('open');
   },250);
@@ -664,8 +664,8 @@ async function custSearchKey(e){
     if(!customers.length){ dd.classList.remove('open'); return; }
     dd.innerHTML = customers.map(c=>`
       <div class="dd-item" onclick="selectCustomer(${c.id})">
-        <div class="dd-name">${c.name}</div>
-        <div class="dd-meta">${c.phone||''} ${c.address?'· '+c.address:''}</div>
+        <div class="dd-name">${esc(c.name)}</div>
+        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}</div>
       </div>`).join('');
     dd.classList.add('open');
   }
@@ -748,8 +748,8 @@ function _renderItemDropdown(items, q){
   }
   dd.innerHTML=items.map(i=>`
     <div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
-      <div class="dd-name">${i.name}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+i.bonus_text:''}</div>
+      <div class="dd-name">${esc(i.name)}</div>
+      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''}</div>
     </div>`).join('')+addRow;
   dd.classList.add('open');
 }
@@ -859,8 +859,8 @@ function renderLines(){
     <tr>
       <td style="color:#888;font-size:.8em">${i+1}</td>
       <td>
-        <div style="font-weight:600;font-size:.88em">${l.item_name}</div>
-        ${l.bonus?`<div style="font-size:.75em;color:#16a34a">${l.bonus}</div>`:''}
+        <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
+        ${l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:''}
       </td>
       <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
       <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
@@ -1352,7 +1352,7 @@ function _guestViewInvoice(id){
   document.getElementById('mInvLines').innerHTML=inv.lines.map((l,i)=>`
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;color:#888">${i+1}</td>
-      <td style="padding:8px 10px;font-weight:600">${l.item_name}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${l.bonus_text}</span>`:''}</td>
+      <td style="padding:8px 10px;font-weight:600">${esc(l.item_name)}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
       <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
@@ -1415,7 +1415,7 @@ async function viewInvoice(id){
   document.getElementById('mInvLines').innerHTML = inv.lines.map((l,i) => `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;color:#888">${i+1}</td>
-      <td style="padding:8px 10px;font-weight:600">${l.item_name}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${l.bonus_text}</span>`:''}</td>
+      <td style="padding:8px 10px;font-weight:600">${esc(l.item_name)}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
       <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
@@ -1477,7 +1477,7 @@ function buildInvoicePrintHtml(inv, forPdf){
     const lineTotal = ((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
     return `<tr style="${i%2===1?'background:#f8f8ff':''}">
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
-      <td><span style="font-weight:600">${l.item_name}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${l.bonus_text}</span>`:''}</td>
+      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}</td>
       <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>

@@ -34,8 +34,14 @@ app = Flask(__name__,
     static_url_path='/static'
 )
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-app.secret_key = os.environ.get('SECRET_KEY', 'change-me-in-production')
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+_secret = os.environ.get('SECRET_KEY', '')
+if not _secret:
+    import secrets as _secrets
+    _secret = _secrets.token_hex(32)
+app.secret_key = _secret
+app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutes (frontend enforces 5-min idle logout)
 
 # Database — must be set via DATABASE_URL environment variable
@@ -57,7 +63,16 @@ GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/api/invoices', '/api/items',
                            '/api/settings', '/api/guest/', '/static']
 
 def get_client_ip():
-    return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    # On Vercel, X-Vercel-Forwarded-For is set by the edge and cannot be spoofed by clients.
+    # Fall back to the rightmost entry in X-Forwarded-For (last untrusted hop),
+    # then to remote_addr. Taking the rightmost prevents header injection attacks.
+    vercel_ip = request.headers.get('X-Vercel-Forwarded-For', '').strip()
+    if vercel_ip:
+        return vercel_ip.split(',')[-1].strip()
+    xff = request.headers.get('X-Forwarded-For', '').strip()
+    if xff:
+        return xff.split(',')[-1].strip()
+    return request.remote_addr
 
 # ── IP logging ──────────────────────────────────────────────────────────────────
 # In-memory cache: (user_id, ip, date_str) → already written to DB this day.
@@ -65,6 +80,33 @@ def get_client_ip():
 # re-writes last_seen_at for the first request after restart).
 _ip_log_cache: set = set()
 _reset_attempts = {'count': 0, 'locked_until': None}  # superadmin forgot-password rate limit
+
+# Per-IP login rate limiting (in-memory; resets on restart — intentional for serverless)
+_login_attempts: dict = {}  # ip -> {'count': int, 'locked_until': datetime|None}
+_DUMMY_HASH = generate_password_hash('__dummy_never_matches__')  # for constant-time checks
+
+def _login_rate_check(ip: str, max_attempts: int = 10, lockout_min: int = 15):
+    """Returns (allowed: bool, wait_seconds: int)."""
+    now = datetime.utcnow()
+    rec = _login_attempts.get(ip, {'count': 0, 'locked_until': None})
+    if rec['locked_until']:
+        if now < rec['locked_until']:
+            return False, int((rec['locked_until'] - now).total_seconds())
+        rec = {'count': 0, 'locked_until': None}
+        _login_attempts[ip] = rec
+    return True, 0
+
+def _login_rate_fail(ip: str, max_attempts: int = 10, lockout_min: int = 15):
+    now = datetime.utcnow()
+    rec = _login_attempts.get(ip, {'count': 0, 'locked_until': None})
+    if not rec['locked_until']:
+        rec['count'] += 1
+        if rec['count'] >= max_attempts:
+            rec['locked_until'] = now + timedelta(minutes=lockout_min)
+    _login_attempts[ip] = rec
+
+def _login_rate_clear(ip: str):
+    _login_attempts.pop(ip, None)
 
 def _log_user_ip(uid: int, username: str, ip: str):
     today = datetime.utcnow().date()
@@ -238,6 +280,11 @@ def auth_guest():
 
 @app.route('/auth/register', methods=['POST'])
 def auth_register():
+    ip = get_client_ip()
+    # 5 registrations per IP per 24 hours prevents spam account creation
+    allowed, wait = _login_rate_check(ip, max_attempts=5, lockout_min=1440)
+    if not allowed:
+        return jsonify({'error': f'Too many registrations from this IP. Try again in {wait//3600+1} hours.'}), 429
     data = request.get_json()
     username = (data.get('username') or '').strip()
     password = (data.get('password') or '').strip()
@@ -271,16 +318,28 @@ def auth_register():
     session['username'] = user.username
     # New user always needs setup
     session['is_admin'] = True  # auto-grant admin for initial setup
+    _login_rate_fail(ip, max_attempts=5, lockout_min=1440)  # count each registration toward the limit
     return jsonify({'success': True, 'needs_setup': True})
 
 @app.route('/auth/login', methods=['POST'])
 def auth_login():
+    ip = get_client_ip()
+    allowed, wait = _login_rate_check(ip, max_attempts=10, lockout_min=15)
+    if not allowed:
+        return jsonify({'error': f'Too many failed attempts. Try again in {wait//60+1} minutes.'}), 429
     data = request.get_json()
     username = (data.get('username') or '').strip()
     password = (data.get('password') or '').strip()
     user = User.query.filter_by(username=username).first()
-    if not user or not check_password_hash(user.password_hash, password):
+    # Always run check_password_hash to prevent timing-based username enumeration
+    hash_to_check = user.password_hash if user else _DUMMY_HASH
+    password_valid = check_password_hash(hash_to_check, password)
+    if not user or not password_valid:
+        _login_rate_fail(ip, max_attempts=10, lockout_min=15)
         return jsonify({'error': 'Invalid username or password'}), 401
+    if user.is_suspended:
+        return jsonify({'error': 'Account suspended. Contact your administrator.'}), 403
+    _login_rate_clear(ip)
     if user.is_superadmin:
         session.clear()
         session.permanent = True
@@ -296,20 +355,21 @@ def auth_login():
 
 @app.route('/auth/admin-login', methods=['POST'])
 def auth_admin_login():
+    ip = get_client_ip()
+    allowed, wait = _login_rate_check(ip, max_attempts=10, lockout_min=15)
+    if not allowed:
+        return jsonify({'error': f'Too many failed attempts. Try again in {wait//60+1} minutes.'}), 429
     data = request.get_json()
     password = (data.get('password') or '').strip()
-
-    # Verify admin credentials against user's settings
     s = get_user_settings()
     if not s or not s.admin_password_hash:
         return jsonify({'error': 'Admin password not set'}), 401
-
-    # Check the password against the admin password hash
     if check_password_hash(s.admin_password_hash, password):
-        session['is_admin'] = True
+        _login_rate_clear(ip)
+        session['is_admin'] = True  # intentionally additive — preserves user_id/username
         return jsonify({'success': True})
-    else:
-        return jsonify({'error': 'Invalid admin password'}), 401
+    _login_rate_fail(ip, max_attempts=10, lockout_min=15)
+    return jsonify({'error': 'Invalid admin password'}), 401
 
 @app.route('/auth/logout')
 def auth_logout():
@@ -318,23 +378,29 @@ def auth_logout():
 
 @app.route('/auth/superadmin-login', methods=['POST'])
 def auth_superadmin_login():
+    ip = get_client_ip()
+    allowed, wait = _login_rate_check(ip, max_attempts=5, lockout_min=30)
+    if not allowed:
+        return jsonify({'error': f'Too many failed attempts. Try again in {wait//60+1} minutes.'}), 429
     data = request.get_json()
     username = (data.get('username') or '').strip()
     password = (data.get('password') or '').strip()
     user = User.query.filter_by(username=username, is_superadmin=True).first()
-    if not user:
-        return jsonify({'error': 'Invalid super admin credentials'}), 401
-    # Accept either the main password OR a valid reset code
-    password_ok = check_password_hash(user.password_hash, password)
+    # Always hash-check to prevent timing attack even when user not found
+    hash_to_check = user.password_hash if user else _DUMMY_HASH
+    password_ok = user and check_password_hash(hash_to_check, password)
     code_ok = (
         not password_ok
+        and user
         and user.reset_code_hash
         and user.reset_code_expiry
         and datetime.utcnow() <= user.reset_code_expiry
         and check_password_hash(user.reset_code_hash, password)
     )
     if not password_ok and not code_ok:
+        _login_rate_fail(ip, max_attempts=5, lockout_min=30)
         return jsonify({'error': 'Invalid super admin credentials'}), 401
+    _login_rate_clear(ip)
     session.clear()
     session.permanent = True
     session['is_superadmin'] = True
@@ -1319,6 +1385,9 @@ def add_supplier():
 @app.route('/api/suppliers/<int:sid>', methods=['PUT'])
 def update_supplier(sid):
     s = Supplier.query.get_or_404(sid)
+    uid = session.get('user_id')
+    if s.user_id and s.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
     if 'name' in data: s.name = data['name'].strip()
     if 'phone' in data: s.phone = data['phone'].strip()
@@ -1330,6 +1399,9 @@ def update_supplier(sid):
 @app.route('/api/suppliers/<int:sid>', methods=['DELETE'])
 def delete_supplier(sid):
     s = Supplier.query.get_or_404(sid)
+    uid = session.get('user_id')
+    if s.user_id and s.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     s.is_active = False
     db.session.commit()
     return jsonify({'success': True})
@@ -1428,6 +1500,9 @@ def save_purchase():
 @app.route('/api/purchases/<int:pid>', methods=['DELETE'])
 def delete_purchase(pid):
     p = Purchase.query.get_or_404(pid)
+    uid = session.get('user_id')
+    if p.user_id and p.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     # Reverse stock qty
     for line in p.lines:
         if line.item_id:
@@ -1441,6 +1516,9 @@ def delete_purchase(pid):
 @app.route('/api/purchases/<int:pid>', methods=['PUT'])
 def update_purchase(pid):
     p = Purchase.query.get_or_404(pid)
+    uid = session.get('user_id')
+    if p.user_id and p.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
 
     # Reverse old stock
@@ -1567,6 +1645,15 @@ def import_items():
     f = request.files['file']
     if not f.filename:
         return jsonify({'error': 'Empty filename'}), 400
+    allowed_ext = {'.html', '.htm', '.csv', '.txt'}
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in allowed_ext:
+        return jsonify({'error': 'Only .html, .htm, .csv, .txt files are allowed'}), 400
+    f.seek(0, 2)
+    size = f.tell()
+    f.seek(0)
+    if size > 4 * 1024 * 1024:  # 4 MB cap
+        return jsonify({'error': 'File too large (max 4 MB)'}), 400
 
     try:
         html = f.read().decode('utf-8', errors='replace')
@@ -1737,6 +1824,9 @@ def add_customer():
 @app.route('/api/customers/<int:cid>', methods=['PUT'])
 def update_customer(cid):
     c = Customer.query.get_or_404(cid)
+    uid = session.get('user_id')
+    if c.user_id and c.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
     if 'name' in data:       c.name         = data['name'].strip()
     if 'phone' in data:      c.phone        = data['phone'].strip()
@@ -1750,6 +1840,9 @@ def update_customer(cid):
 @app.route('/api/customers/<int:cid>', methods=['DELETE'])
 def delete_customer(cid):
     c = Customer.query.get_or_404(cid)
+    uid = session.get('user_id')
+    if c.user_id and c.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     c.is_active = False
     db.session.commit()
     return jsonify({'success': True})
@@ -1927,6 +2020,9 @@ def create_invoice():
 @app.route('/api/invoices/<int:inv_id>', methods=['GET'])
 def get_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     return jsonify(inv.to_dict())
 
 @app.route('/api/invoices/<int:inv_id>', methods=['PUT'])
@@ -1934,6 +2030,9 @@ def update_invoice(inv_id):
     if session.get('is_guest'):
         return jsonify({'error': 'Guests cannot update server invoices.'}), 403
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('finalised', 'cancelled'):
         label = 'Finalised' if inv.status == 'finalised' else 'Cancelled'
         return jsonify({'error': f'Cannot edit a {label} invoice. Unlock it first from Admin page.'}), 400
@@ -1989,6 +2088,9 @@ def update_invoice(inv_id):
 @app.route('/api/invoices/<int:inv_id>', methods=['DELETE'])
 def delete_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status != 'draft':
         label = {'posted': 'Pending Delivery', 'finalised': 'Finalised', 'cancelled': 'Cancelled'}.get(inv.status, inv.status)
         return jsonify({'error': f'Cannot delete a {label} invoice. Only pending (draft) invoices can be deleted.'}), 400
@@ -2023,6 +2125,9 @@ def admin_suppliers():
 @app.route('/api/invoices/<int:inv_id>/unpost', methods=['POST'])
 def unpost_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status not in ('posted', 'finalised'):
         return jsonify({'error': 'Invoice cannot be unlocked'}), 400
     inv.status = 'draft'
@@ -2037,6 +2142,9 @@ def unpost_invoice(inv_id):
 @app.route('/api/invoices/<int:inv_id>/cancel', methods=['POST'])
 def cancel_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('cancelled', 'deleted'):
         return jsonify({'error': 'Already cancelled'}), 400
     was_posted = inv.status == 'posted'
@@ -2052,6 +2160,9 @@ def cancel_invoice(inv_id):
 @app.route('/api/invoices/<int:inv_id>/finalise', methods=['POST'])
 def finalise_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status != 'posted':
         return jsonify({'error': 'Only Pending Delivery invoices can be finalised'}), 400
     inv.status = 'finalised'
@@ -2061,6 +2172,9 @@ def finalise_invoice(inv_id):
 @app.route('/api/invoices/<int:inv_id>/post', methods=['POST'])
 def post_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
+    uid = session.get('user_id')
+    if uid and inv.user_id and inv.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('posted', 'finalised', 'cancelled'):
         return jsonify({'error': 'Invoice is already saved or finalised'}), 400
     inv.status = 'posted'

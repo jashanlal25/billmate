@@ -154,7 +154,7 @@ async function openDetail(id){
   document.getElementById('dLines').innerHTML=inv.lines.map((l,i)=>`
     <tr>
       <td>${i+1}</td>
-      <td><strong>${l.item_name}</strong>${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${l.bonus_text}</span>`:''}</td>
+      <td><strong>${esc(l.item_name)}</strong>${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
       <td style="text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:right">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
@@ -249,7 +249,7 @@ function buildInvoicePrintHtml(inv, forPdf){
     const lineTotal=((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
     return `<tr style="${i%2===1?'background:#f8f8ff':''}">
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
-      <td><span style="font-weight:600">${l.item_name}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${l.bonus_text}</span>`:''}</td>
+      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}</td>
       <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:center;color:#555">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
@@ -300,7 +300,7 @@ function buildInvoicePrintHtml(inv, forPdf){
   <div class="bill-row">
     <div class="cust-block">
       <div class="lbl">Bill To</div>
-      <div class="cust-row-item"><span class="k">Customer Name</span><span class="v cust-name-val">${inv.customer_name||'Walk-in Customer'}</span></div>
+      <div class="cust-row-item"><span class="k">Customer Name</span><span class="v cust-name-val">${esc(inv.customer_name||'Walk-in Customer')}</span></div>
     </div>
     <div class="meta-boxes">
       <div class="meta-box"><div class="lbl">Invoice #</div><div class="val">${inv.invoice_number}</div></div>

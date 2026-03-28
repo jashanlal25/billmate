@@ -378,7 +378,7 @@ async function loadCategories(){
   const sel = document.getElementById('f_category');
   sel.innerHTML = '<option value="">-- None --</option>';
   categories.forEach(c => {
-    sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+    sel.innerHTML += `<option value="${c.id}">${esc(c.name)}</option>`;
   });
 }
 
@@ -426,15 +426,15 @@ function render(items){
     const globalBadge = i.is_global ? '<span style="margin-left:6px;font-size:.72em;background:rgba(124,58,237,.15);color:#a78bfa;padding:2px 8px;border-radius:10px;font-weight:700">🌐 Global</span>' : '';
     return `
     <tr>
-      <td data-label="Code" style="font-family:monospace;font-size:.85em;color:#888">${i.code}</td>
-      <td data-label="Name" style="font-weight:600">${i.name}${globalBadge}${localBadge}</td>
+      <td data-label="Code" style="font-family:monospace;font-size:.85em;color:#888">${esc(i.code)}</td>
+      <td data-label="Name" style="font-weight:600">${esc(i.name)}${globalBadge}${localBadge}</td>
       <td data-label="Retail" class="num col-retail">Rs. ${(+i.retail_price).toFixed(2)}</td>
       <td data-label="Trade Price" class="num col-tp" style="font-weight:600">Rs. ${(+i.tp).toFixed(2)}</td>
       <td data-label="Tax" class="num col-tax" style="color:#888">${(+i.tax_pct)>0?'Rs. '+(+i.tax_pct).toFixed(2):'—'}</td>
       <td data-label="Qty" class="num" style="${(+i.qty)!==0?(+i.qty)<0?'color:#ef4444;font-weight:600':'font-weight:600':'color:#aaa'}">${(+i.qty)!==0?((+i.qty)%1===0?(+i.qty).toFixed(0):(+i.qty).toFixed(2)):'—'}</td>
       <td data-label="Disc/Bonus">
         ${i.discount_pct>0?`<span class="badge badge-disc">${(+i.discount_pct).toFixed(1)}%</span> `:''}
-        ${i.bonus_text?`<span class="badge badge-bonus">${i.bonus_text}</span>`:''}
+        ${i.bonus_text?`<span class="badge badge-bonus">${esc(i.bonus_text)}</span>`:''}
         ${!i.discount_pct&&!i.bonus_text?'<span style="color:#ccc">—</span>':''}
       </td>
       <td><div><button class="btn btn-sm btn-edit" onclick="editItem('${sid}')">Edit</button>${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${sid}','${safeName}')">Del</button>` : ''}</div></td>
