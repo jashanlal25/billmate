@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments — BillMate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
+:root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row-hover:#f0f0ff;--red:#ef4444;--green:#10b981}
+[data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row-hover:#2e2e44}
+[data-theme=dim]{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#d8d8d8;--text:#000;--sub:#444;--border:#c0c0c0;--inp:#cecece;--shadow:0 4px 15px rgba(0,0,0,.12);--accent:#7c8ef0;--row-hover:#d0d0d0;--red:#ef4444;--green:#10b981}
+@view-transition{navigation:auto}
+body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 16px 40px}
+.nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:4px}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
+.nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.nav-right{display:flex;align-items:center;gap:8px}
+.user-menu{position:relative;cursor:pointer;padding:7px 14px;border-radius:10px;background:rgba(102,126,234,.15);color:#a5b4fc;font-size:.82em;font-weight:600;user-select:none}
+.user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:120px;z-index:1000}
+.user-menu.open .user-dropdown{display:block}
+.user-dropdown-item{display:block;padding:10px 16px;color:#ef4444;font-size:.9em;font-weight:600;text-decoration:none;transition:background .15s}
+.user-dropdown-item:hover{background:#fef2f2}
+.theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.nav-hamburger{display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:20px;align-items:center;justify-content:center}
+.nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-mobile-menu.open{display:flex}
+.nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
+/* Layout */
+.page-wrap{max-width:1160px;margin:0 auto}
+.page-title{color:#fff;font-size:1.5em;font-weight:700;margin-bottom:20px}
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.06);border-radius:14px;padding:4px;margin-bottom:20px;width:fit-content}
+.tab-btn{padding:10px 24px;border:none;border-radius:10px;font-size:.9em;font-weight:600;cursor:pointer;background:transparent;color:rgba(255,255,255,.6);transition:all .2s}
+.tab-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;box-shadow:0 4px 12px rgba(102,126,234,.4)}
+/* Main grid */
+.pmt-grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:760px){.pmt-grid{grid-template-columns:1fr}}
+/* Card */
+.card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+.card-title{font-size:.85em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+/* Search + filter */
+.list-header{margin-bottom:10px}
+.search-row{display:flex;gap:8px;margin-bottom:8px}
+.search-inp{flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.88em;outline:none}
+.search-inp:focus{border-color:var(--accent)}
+.toggle-row{display:flex;gap:6px}
+.filter-btn{flex:1;padding:7px 8px;border:1.5px solid var(--border);border-radius:10px;background:transparent;color:var(--sub);font-size:.78em;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
+.filter-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(102,126,234,.3)}
+/* Entity list */
+.entity-list{max-height:420px;overflow-y:auto}
+.entity-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--border)}
+.entity-row:last-child{border-bottom:none}
+.entity-row:hover{background:var(--row-hover)}
+.entity-row.selected{background:linear-gradient(135deg,rgba(102,126,234,.15),rgba(118,75,162,.15));border-left:3px solid var(--accent)}
+.entity-row.walkin-row{border-top:2px dashed var(--border);margin-top:4px}
+.entity-name{font-weight:600;color:var(--text);font-size:.88em}
+.entity-sub{font-size:.75em;color:var(--sub);margin-top:1px}
+.entity-bal{font-size:.85em;font-weight:700;color:var(--red);white-space:nowrap;margin-left:8px}
+.entity-bal.zero{color:var(--green)}
+.entity-bal.accent{color:var(--accent)}
+.billing-hdr{padding:5px 10px;font-size:.72em;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;background:rgba(102,126,234,.07);border-radius:6px;margin:4px 0}
+/* Right panel */
+.right-panel{display:flex;flex-direction:column;gap:16px}
+.empty-state{text-align:center;padding:50px 20px;color:var(--sub);font-size:.9em}
+.empty-icon{font-size:2.5em;margin-bottom:10px}
+/* Form */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:500px){.form-row{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:.8em;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.4px}
+.form-inp{padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.9em;outline:none;width:100%}
+.form-inp:focus{border-color:var(--accent)}
+.form-inp.amount-inp{border-color:var(--green);font-size:1.1em;font-weight:700}
+.form-inp.amount-inp:focus{box-shadow:0 0 0 3px rgba(16,185,129,.15)}
+/* Buttons */
+.btn{width:100%;padding:12px;border:none;border-radius:12px;font-size:.95em;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
+.btn-green{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,.3)}
+.btn-green:hover{transform:translateY(-1px)}
+.btn-green:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* Selected entity header */
+.sel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sel-name{font-size:1.1em;font-weight:700;color:var(--text)}
+.sel-bal-wrap{text-align:right}
+.sel-bal-label{font-size:.75em;color:var(--sub);display:block}
+.sel-bal-val{font-size:1.3em;font-weight:700;color:var(--red)}
+.sel-bal-val.zero{color:var(--green)}
+.sel-bal-val.accent{color:var(--accent)}
+/* Tables */
+table{width:100%;border-collapse:collapse}
+th{padding:8px 10px;text-align:left;font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border)}
+td{padding:9px 10px;font-size:.87em;color:var(--text);border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.td-amt{font-weight:700;color:var(--green);text-align:right}
+.td-name{font-weight:600}
+.td-del{width:36px;text-align:center}
+.del-btn{background:none;border:none;cursor:pointer;color:var(--red);font-size:1em;padding:4px;border-radius:6px;opacity:.6;transition:opacity .15s}
+.del-btn:hover{opacity:1}
+.no-history{text-align:center;padding:20px;color:var(--sub);font-size:.88em}
+/* Summary totals */
+.sum-row-stat{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:.88em}
+.sum-row-stat .lbl{color:var(--sub)}
+.sum-row-stat.total-row{border-top:1px dashed var(--border);margin-top:6px;padding-top:10px}
+.sum-row-stat.total-row .val{color:var(--green);font-size:1em;font-weight:700}
+/* Invoice / purchase list */
+.inv-status{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.72em;font-weight:700;white-space:nowrap}
+.inv-status.paid{background:rgba(16,185,129,.15);color:var(--green)}
+.inv-status.partial{background:rgba(245,158,11,.15);color:#f59e0b}
+.inv-status.unpaid{background:rgba(239,68,68,.15);color:var(--red)}
+.fill-btn{background:rgba(102,126,234,.12);border:1.5px solid rgba(102,126,234,.3);border-radius:7px;color:var(--accent);font-size:.75em;font-weight:700;padding:3px 9px;cursor:pointer;white-space:nowrap;margin-left:4px}
+.fill-btn:hover{background:rgba(102,126,234,.25)}
+.inv-table-wrap{overflow-x:auto;margin-top:2px}
+/* All-payments section */
+.all-pay-wrap{margin-top:20px}
+.all-pay-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.all-pay-title{color:#fff;font-size:1em;font-weight:700}
+.all-pay-total{color:#a5b4fc;font-size:.88em;font-weight:600}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
+  <div class="nav-links">
+    <a href="/billing"   class="nav-link">🧾 Billing</a>
+    <a href="/items"     class="nav-link">💊 Items</a>
+    <a href="/customers" class="nav-link">👥 Customers</a>
+    <a href="/purchase"  class="nav-link">🛒 Purchase</a>
+    <a href="/payments"  class="nav-link active">💳 Payments</a>
+    <a href="/admin"     class="nav-link">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu" onclick="this.classList.toggle('open')">
+      <span class="user-name">{{ session.username or 'Guest' }}</span>
+      <div class="user-dropdown">
+        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
+      </div>
+    </div>
+    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing"   class="nav-link">🧾 Billing</a>
+  <a href="/items"     class="nav-link">💊 Items</a>
+  <a href="/customers" class="nav-link">👥 Customers</a>
+  <a href="/purchase"  class="nav-link">🛒 Purchase</a>
+  <a href="/payments"  class="nav-link active">💳 Payments</a>
+  <a href="/admin"     class="nav-link">🛡️ Admin</a>
+</div>
+
+<div class="page-wrap">
+  <div class="page-title">💳 Payments</div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabCust" onclick="switchTab('customer')">👥 Customer Payments</button>
+    <button class="tab-btn" id="tabSupp" onclick="switchTab('supplier')">🏭 Supplier Payments</button>
+  </div>
+
+  <!-- CUSTOMER TAB -->
+  <div id="custTab">
+    <div class="pmt-grid">
+      <div class="card">
+        <div class="list-header">
+          <div class="search-row">
+            <input class="search-inp" id="custSearch" type="text" placeholder="Search name / phone…" oninput="searchCustomers(this.value)">
+          </div>
+          <div class="toggle-row">
+            <button class="filter-btn active" id="cFilterDue" onclick="setCustFilter('due')">⚠️ With Balance</button>
+            <button class="filter-btn" id="cFilterAll" onclick="setCustFilter('all')">👁 All</button>
+          </div>
+        </div>
+        <div class="entity-list" id="custList"><div class="no-history">Loading…</div></div>
+      </div>
+      <div class="right-panel" id="custRight">
+        <div class="card"><div class="empty-state"><div class="empty-icon">👆</div>Select a customer to record a payment</div></div>
+      </div>
+    </div>
+    <!-- All Payments Received -->
+    <div class="all-pay-wrap">
+      <div class="all-pay-hdr">
+        <div class="all-pay-title">📋 All Payments Received</div>
+        <div class="all-pay-total" id="custAllTotal"></div>
+      </div>
+      <div class="card">
+        <div id="custAllList"><div class="no-history">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPLIER TAB -->
+  <div id="suppTab" style="display:none">
+    <div class="pmt-grid">
+      <div class="card">
+        <div class="list-header">
+          <div class="search-row">
+            <input class="search-inp" id="suppSearch" type="text" placeholder="Search supplier name…" oninput="searchSuppliers(this.value)">
+          </div>
+          <div class="toggle-row">
+            <button class="filter-btn active" id="sFilterDue" onclick="setSuppFilter('due')">⚠️ With Balance</button>
+            <button class="filter-btn" id="sFilterAll" onclick="setSuppFilter('all')">👁 All</button>
+          </div>
+        </div>
+        <div class="entity-list" id="suppList"><div class="no-history">Loading…</div></div>
+      </div>
+      <div class="right-panel" id="suppRight">
+        <div class="card"><div class="empty-state"><div class="empty-icon">👆</div>Select a supplier to record a payment</div></div>
+      </div>
+    </div>
+    <!-- All Payments Made -->
+    <div class="all-pay-wrap">
+      <div class="all-pay-hdr">
+        <div class="all-pay-title">📋 All Payments Made</div>
+        <div class="all-pay-total" id="suppAllTotal"></div>
+      </div>
+      <div class="card">
+        <div id="suppAllList"><div class="no-history">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/js/common.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const WALKIN={id:'walkin',name:'Walk-in / Unnamed',phone:'Not linked to any account',balance:0};
+let customers=[],billingCustomers=[],suppliers=[],billingSuppliers=[];
+let custFilter='due',suppFilter='due';
+let custQuery='',suppQuery='';
+let selCustomer=null,selSupplier=null;
+let custPayments=[],suppPayments=[];
+let custInvoices=[],suppPurchases=[];
+let allCustPayments=[],allSuppPayments=[];
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  try{const s=await fetch('/api/settings');if(s.ok){const d=await s.json();document.getElementById('shopLogo').textContent='⚡ '+(d.shop_name||'BillMate');}}catch(e){}
+  loadCustomers();
+  loadAllCustPayments();
+  loadSuppliers();
+  loadAllSuppPayments();
+})();
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(t){
+  document.getElementById('custTab').style.display=t==='customer'?'block':'none';
+  document.getElementById('suppTab').style.display=t==='supplier'?'block':'none';
+  document.getElementById('tabCust').classList.toggle('active',t==='customer');
+  document.getElementById('tabSupp').classList.toggle('active',t==='supplier');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function round2(v){return Math.round((+v)*100)/100;}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function toast(msg,isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=isErr?'#ef4444':'#10b981';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+function toggleTheme(){
+  const themes=['','dark','dim'];
+  const cur=document.documentElement.getAttribute('data-theme')||'';
+  const next=themes[(themes.indexOf(cur)+1)%themes.length];
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('theme',next);
+  document.getElementById('themeBtn').textContent=next==='dark'?'☀️':next==='dim'?'🌤':'🌙';
+}
+function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+(()=>{
+  const t=localStorage.getItem('theme')||'';
+  document.documentElement.setAttribute('data-theme',t);
+  const b=document.getElementById('themeBtn');
+  if(b)b.textContent=t==='dark'?'☀️':t==='dim'?'🌤':'🌙';
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CUSTOMER SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+function setCustFilter(f){
+  custFilter=f;
+  document.getElementById('cFilterDue').classList.toggle('active',f==='due');
+  document.getElementById('cFilterAll').classList.toggle('active',f==='all');
+  renderCustList();
+}
+
+async function loadCustomers(q=''){
+  custQuery=q;
+  const qs=q?'?q='+encodeURIComponent(q):'';
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/customers'+qs),
+    fetch('/api/payments/billing-customers'+qs)
+  ]);
+  if(r1.ok)customers=await r1.json();
+  if(r2.ok)billingCustomers=await r2.json();
+  renderCustList();
+}
+function searchCustomers(v){loadCustomers(v);}
+
+function renderCustList(){
+  const el=document.getElementById('custList');
+  let list=custFilter==='due'?customers.filter(c=>(+c.balance)>0):customers;
+  let blist=custFilter==='due'?billingCustomers.filter(c=>(+c.balance)>0.001):billingCustomers;
+  const showWalkin=!custQuery;
+
+  const custRows=list.map(c=>`
+    <div class="entity-row${selCustomer&&selCustomer.id===c.id?' selected':''}" onclick="selectCustomer(${c.id})">
+      <div><div class="entity-name">${esc(c.name)}</div><div class="entity-sub">${c.phone||'—'}</div></div>
+      <div class="entity-bal${(+c.balance)<=0?' zero':''}">${(+c.balance)>0?'Rs.'+(+c.balance).toFixed(0):'Clear'}</div>
+    </div>`).join('');
+
+  const billingSection=blist.length?`<div class="billing-hdr">📋 From Billing (No Account)</div>`+
+    blist.map(c=>`
+      <div class="entity-row${selCustomer&&selCustomer.id==='bc:'+c.billing_name?' selected':''}" onclick='selectBillingCust(${JSON.stringify(c).replace(/'/g,"&#39;")})'>
+        <div><div class="entity-name">${esc(c.billing_name)}</div>
+          <div class="entity-sub">Billed Rs.${(+c.total_billed).toFixed(0)} · Paid Rs.${(+c.total_paid).toFixed(0)}</div></div>
+        <div class="entity-bal${(+c.balance)<=0.001?' zero':''}">${(+c.balance)>0.001?'Rs.'+(+c.balance).toFixed(0):'Clear'}</div>
+      </div>`).join(''):'';
+
+  const walkinRow=showWalkin?`
+    <div class="entity-row walkin-row${selCustomer&&selCustomer.id==='walkin'?' selected':''}" onclick="selectWalkin()">
+      <div><div class="entity-name">🚶 Walk-in / Unnamed</div><div class="entity-sub">Cash not linked to any account</div></div>
+      <div class="entity-bal accent">Entry</div>
+    </div>`:'';
+
+  if(!list.length&&!blist.length&&!showWalkin){el.innerHTML='<div class="no-history">No customers found</div>';return;}
+  el.innerHTML=custRows+billingSection+walkinRow;
+}
+
+async function selectCustomer(id){
+  selCustomer=customers.find(c=>c.id===id)||null;
+  if(!selCustomer)return;
+  renderCustList();
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/customer-history?customer_id='+id),
+    fetch('/api/payments/customer-invoices?customer_id='+id)
+  ]);
+  custPayments=r1.ok?await r1.json():[];
+  custInvoices=r2.ok?await r2.json():[];
+  renderCustRight();
+}
+async function selectBillingCust(bc){
+  selCustomer={id:'bc:'+bc.billing_name,name:bc.billing_name,billing_name:bc.billing_name,
+    balance:bc.balance,total_billed:bc.total_billed,total_paid:bc.total_paid,isBilling:true};
+  renderCustList();
+  const bn=encodeURIComponent(bc.billing_name);
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/customer-history?billing_name='+bn),
+    fetch('/api/payments/customer-invoices?billing_name='+bn)
+  ]);
+  custPayments=r1.ok?await r1.json():[];
+  custInvoices=r2.ok?await r2.json():[];
+  renderCustRight();
+}
+async function selectWalkin(){
+  selCustomer=WALKIN;custInvoices=[];
+  renderCustList();
+  const r=await fetch('/api/payments/customer-history?customer_id=walkin');
+  custPayments=r.ok?await r.json():[];
+  renderCustRight();
+}
+async function refreshCustInvoices(){
+  if(!selCustomer||selCustomer.id==='walkin'){custInvoices=[];return;}
+  const url=selCustomer.isBilling
+    ?'/api/payments/customer-invoices?billing_name='+encodeURIComponent(selCustomer.billing_name)
+    :'/api/payments/customer-invoices?customer_id='+selCustomer.id;
+  const r=await fetch(url);
+  custInvoices=r.ok?await r.json():[];
+}
+
+function renderCustRight(){
+  const el=document.getElementById('custRight');
+  if(!selCustomer){el.innerHTML='<div class="card"><div class="empty-state"><div class="empty-icon">👆</div>Select a customer to record a payment</div></div>';return;}
+  const isWalkin=selCustomer.id==='walkin';
+  const isBilling=selCustomer.isBilling;
+  const bal=+selCustomer.balance;
+  const today=new Date().toISOString().split('T')[0];
+  const displayName=isWalkin?'🚶 Walk-in / Unnamed':isBilling?'📋 '+esc(selCustomer.name):esc(selCustomer.name);
+  const subLine=isWalkin?'Cash entry — not linked to any account'
+    :isBilling?`Net due after billing: Rs.${(+selCustomer.total_billed).toFixed(2)} · Paid via payments: Rs.${(+selCustomer.total_paid).toFixed(2)}`
+    :selCustomer.phone||'';
+  const balLabel=isWalkin?'Type':isBilling?'Balance Due':'Outstanding';
+  const balVal=isWalkin?'Walk-in':bal>0.001?'Rs.'+bal.toFixed(2):'Cleared';
+  const balCls=isWalkin?' accent':bal<=0.001?' zero':'';
+  // Auto-fill from oldest outstanding invoice
+  const firstDue=custInvoices.find(i=>i.pay_status==='partial'||i.pay_status==='unpaid');
+  const prefill=firstDue?firstDue.remaining.toFixed(2):(!isWalkin&&bal>0.001?bal.toFixed(2):'');
+  const invoiceCard=!isWalkin?`
+    <div class="card">
+      <div class="card-title">📄 Invoices — Oldest First</div>
+      ${renderInvoiceList(custInvoices,'cAmtInp')}
+    </div>`:'';
+  el.innerHTML=invoiceCard+`
+    <div class="card">
+      <div class="sel-header">
+        <div><div class="sel-name">${displayName}</div>
+          <div style="font-size:.8em;color:var(--sub);margin-top:2px">${subLine}</div></div>
+        <div class="sel-bal-wrap">
+          <span class="sel-bal-label">${balLabel}</span>
+          <div class="sel-bal-val${balCls}">${balVal}</div>
+        </div>
+      </div>
+      <div class="card-title">Record Payment Received</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount Received (Rs.)</label>
+          <input class="form-inp amount-inp" id="cAmtInp" type="number" min="0.01" step="0.01" placeholder="0.00" ${prefill?'value="'+prefill+'"':''}>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Date</label>
+          <input class="form-inp" id="cDateInp" type="date" value="${today}">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Notes (optional)</label>
+        <input class="form-inp" id="cNotesInp" type="text" placeholder="Cash / Bank Transfer / Cheque…">
+      </div>
+      <button class="btn btn-green" onclick="saveCustPayment()">✅ Save Payment</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Payment History — ${displayName}</div>
+      ${renderHistTable(custPayments,'cust')}
+    </div>`;
+}
+
+function renderInvoiceList(invoices,amtId){
+  if(!invoices.length)return'<div class="no-history">No invoices found</div>';
+  const rows=invoices.map(inv=>{
+    const badge=`<span class="inv-status ${inv.pay_status}">${inv.pay_status==='paid'?'✅ Paid':inv.pay_status==='partial'?'⚡ Partial':'❌ Unpaid'}</span>`;
+    const fillBtn=(inv.pay_status==='partial'||inv.pay_status==='unpaid')
+      ?`<button class="fill-btn" onclick="document.getElementById('${amtId}').value='${inv.remaining.toFixed(2)}';document.getElementById('${amtId}').focus()">↑ Fill Rs.${inv.remaining.toFixed(0)}</button>`:'';
+    return`<tr>
+      <td>${inv.invoice_date}</td>
+      <td style="font-size:.8em;color:var(--sub)">${esc(inv.invoice_number)}</td>
+      <td style="text-align:right;font-weight:600">Rs.${(+inv.total).toFixed(0)}</td>
+      <td style="text-align:right;color:var(--sub)">${(+inv.amount_paid_at_billing)>0.001?'Rs.'+(+inv.amount_paid_at_billing).toFixed(0):'—'}</td>
+      <td style="text-align:right;color:${inv.remaining>0.001?'var(--red)':'var(--green)'};font-weight:700">Rs.${inv.remaining.toFixed(0)}</td>
+      <td style="white-space:nowrap">${badge}${fillBtn}</td>
+    </tr>`;
+  }).join('');
+  const totalRemaining=invoices.reduce((s,i)=>s+i.remaining,0);
+  return`<div class="inv-table-wrap"><table>
+    <thead><tr><th>Date</th><th>Invoice#</th><th style="text-align:right">Total</th><th style="text-align:right">Cash Rcvd</th><th style="text-align:right">Remaining</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  ${totalRemaining>0.001?`<div class="sum-row-stat total-row" style="margin-top:8px"><span class="lbl">Total Remaining</span><span class="val">Rs.${totalRemaining.toFixed(2)}</span></div>`:''}`;
+}
+
+function renderHistTable(pmts,type){
+  if(!pmts.length)return'<div class="no-history">No payments recorded yet</div>';
+  const rows=pmts.map(p=>`<tr>
+    <td>${p.payment_date}</td>
+    <td class="td-amt">Rs.${(+p.amount).toFixed(2)}</td>
+    <td>${esc(p.notes||'—')}</td>
+    <td class="td-del"><button class="del-btn" onclick="delPayment(${p.id},'${type}')" title="Delete">🗑</button></td>
+  </tr>`).join('');
+  const total=pmts.reduce((s,p)=>s+(+p.amount),0);
+  return`<table><thead><tr><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="sum-row-stat total-row" style="margin-top:10px"><span class="lbl">Total</span><span class="val">Rs.${total.toFixed(2)}</span></div>`;
+}
+
+async function saveCustPayment(){
+  const amt=parseFloat(document.getElementById('cAmtInp').value)||0;
+  const dt=document.getElementById('cDateInp').value;
+  const notes=document.getElementById('cNotesInp').value.trim();
+  if(amt<=0){toast('Enter a valid amount',true);return;}
+  const isWalkin=selCustomer.id==='walkin';
+  const isBilling=selCustomer.isBilling;
+  const btn=document.querySelector('#custRight .btn-green');
+  btn.disabled=true;btn.textContent='Saving…';
+  const body={customer_id:(!isWalkin&&!isBilling)?selCustomer.id:null,
+    billing_name:isBilling?selCustomer.billing_name:null,amount:amt,payment_date:dt,notes};
+  const r=await fetch('/api/payments/customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  btn.disabled=false;btn.textContent='✅ Save Payment';
+  if(r.ok){
+    const p=await r.json();
+    custPayments.unshift(p);
+    allCustPayments.unshift(p);
+    if(!isWalkin&&!isBilling){
+      selCustomer.balance=round2(selCustomer.balance-amt);
+      const ci=customers.findIndex(c=>c.id===selCustomer.id);
+      if(ci>=0)customers[ci].balance=selCustomer.balance;
+    } else if(isBilling){
+      selCustomer.balance=round2(selCustomer.balance-amt);
+      selCustomer.total_paid=round2((+selCustomer.total_paid)+amt);
+      const bi=billingCustomers.findIndex(c=>c.billing_name===selCustomer.billing_name);
+      if(bi>=0){billingCustomers[bi].balance=selCustomer.balance;billingCustomers[bi].total_paid=selCustomer.total_paid;}
+    }
+    await refreshCustInvoices();
+    renderCustList();renderCustRight();renderAllCustPayments();
+    toast('Payment of Rs.'+amt.toFixed(2)+' saved');
+  } else {const e=await r.json();toast(e.error||'Error',true);}
+}
+
+async function delPayment(pid,type){
+  if(!confirm('Delete this payment? The balance will be reversed.'))return;
+  const url='/api/payments/'+(type==='cust'?'customer':'supplier')+'/'+pid;
+  const r=await fetch(url,{method:'DELETE'});
+  if(r.ok){
+    if(type==='cust'){
+      const pmt=custPayments.find(p=>p.id===pid);
+      const isWalkin=selCustomer.id==='walkin';
+      const isBilling=selCustomer.isBilling;
+      if(pmt&&!isWalkin){
+        selCustomer.balance=round2(selCustomer.balance+(+pmt.amount));
+        if(isBilling){
+          selCustomer.total_paid=round2((+selCustomer.total_paid)-(+pmt.amount));
+          const bi=billingCustomers.findIndex(c=>c.billing_name===selCustomer.billing_name);
+          if(bi>=0){billingCustomers[bi].balance=selCustomer.balance;billingCustomers[bi].total_paid=selCustomer.total_paid;}
+        } else {
+          const ci=customers.findIndex(c=>c.id===selCustomer.id);
+          if(ci>=0)customers[ci].balance=selCustomer.balance;
+        }
+      }
+      custPayments=custPayments.filter(p=>p.id!==pid);
+      allCustPayments=allCustPayments.filter(p=>p.id!==pid);
+      await refreshCustInvoices();
+      renderCustList();renderCustRight();renderAllCustPayments();
+    } else {
+      const pmt=suppPayments.find(p=>p.id===pid);
+      const isBillingS=selSupplier&&selSupplier.isBilling;
+      if(pmt){
+        if(!isBillingS){
+          selSupplier.balance=round2(selSupplier.balance+(+pmt.amount));
+          const si=suppliers.findIndex(s=>s.id===selSupplier.id);
+          if(si>=0)suppliers[si].balance=selSupplier.balance;
+        } else {
+          selSupplier.balance=round2(selSupplier.balance+(+pmt.amount));
+          selSupplier.total_paid=round2((+selSupplier.total_paid)-(+pmt.amount));
+          const bi=billingSuppliers.findIndex(s=>s.billing_name===selSupplier.billing_name);
+          if(bi>=0){billingSuppliers[bi].balance=selSupplier.balance;billingSuppliers[bi].total_paid=selSupplier.total_paid;}
+        }
+      }
+      suppPayments=suppPayments.filter(p=>p.id!==pid);
+      allSuppPayments=allSuppPayments.filter(p=>p.id!==pid);
+      await refreshSuppPurchases();
+      renderSuppList();renderSuppRight();renderAllSuppPayments();
+    }
+    toast('Payment deleted');
+  } else {toast('Error deleting',true);}
+}
+
+// All Customer Payments table
+async function loadAllCustPayments(){
+  const r=await fetch('/api/payments/all-customer-payments');
+  if(r.ok)allCustPayments=await r.json();
+  renderAllCustPayments();
+}
+function renderAllCustPayments(){
+  const el=document.getElementById('custAllList');
+  const pmts=allCustPayments;
+  if(!pmts.length){el.innerHTML='<div class="no-history">No payments recorded yet</div>';document.getElementById('custAllTotal').textContent='';return;}
+  const total=pmts.reduce((s,p)=>s+(+p.amount),0);
+  document.getElementById('custAllTotal').textContent='Total: Rs.'+total.toFixed(2);
+  const rows=pmts.map(p=>`<tr>
+    <td class="td-name">${esc(p.customer_name)}</td>
+    <td>${p.payment_date}</td>
+    <td class="td-amt">Rs.${(+p.amount).toFixed(2)}</td>
+    <td>${esc(p.notes||'—')}</td>
+    <td class="td-del"><button class="del-btn" onclick="delPaymentFromAll(${p.id},'cust')" title="Delete">🗑</button></td>
+  </tr>`).join('');
+  el.innerHTML=`<table><thead><tr><th>Customer</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function delPaymentFromAll(pid,type){
+  if(!confirm('Delete this payment? Balance will be reversed.'))return;
+  const pmt=type==='cust'?allCustPayments.find(p=>p.id===pid):allSuppPayments.find(p=>p.id===pid);
+  const url='/api/payments/'+(type==='cust'?'customer':'supplier')+'/'+pid;
+  const r=await fetch(url,{method:'DELETE'});
+  if(r.ok){
+    if(type==='cust'){
+      // reverse in customer list if loaded
+      if(pmt&&pmt.customer_id){const ci=customers.findIndex(c=>c.id===pmt.customer_id);if(ci>=0)customers[ci].balance=round2(customers[ci].balance+(+pmt.amount));}
+      if(pmt&&pmt.billing_name){const bi=billingCustomers.findIndex(c=>c.billing_name===pmt.billing_name);if(bi>=0){billingCustomers[bi].total_paid=round2(billingCustomers[bi].total_paid-(+pmt.amount));billingCustomers[bi].balance=round2(billingCustomers[bi].balance+(+pmt.amount));}}
+      allCustPayments=allCustPayments.filter(p=>p.id!==pid);
+      custPayments=custPayments.filter(p=>p.id!==pid);
+      renderCustList();if(selCustomer)renderCustRight();renderAllCustPayments();
+    } else {
+      if(pmt&&pmt.supplier_id){const si=suppliers.findIndex(s=>s.id===pmt.supplier_id);if(si>=0)suppliers[si].balance=round2(suppliers[si].balance+(+pmt.amount));}
+      if(pmt&&pmt.billing_name){const bi=billingSuppliers.findIndex(s=>s.billing_name===pmt.billing_name);if(bi>=0){billingSuppliers[bi].total_paid=round2(billingSuppliers[bi].total_paid-(+pmt.amount));billingSuppliers[bi].balance=round2(billingSuppliers[bi].balance+(+pmt.amount));}}
+      allSuppPayments=allSuppPayments.filter(p=>p.id!==pid);
+      suppPayments=suppPayments.filter(p=>p.id!==pid);
+      renderSuppList();if(selSupplier)renderSuppRight();renderAllSuppPayments();
+    }
+    toast('Payment deleted');
+  } else {toast('Error deleting',true);}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUPPLIER SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+function setSuppFilter(f){
+  suppFilter=f;
+  document.getElementById('sFilterDue').classList.toggle('active',f==='due');
+  document.getElementById('sFilterAll').classList.toggle('active',f==='all');
+  renderSuppList();
+}
+
+async function loadSuppliers(q=''){
+  suppQuery=q;
+  const qs=q?'?q='+encodeURIComponent(q):'';
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/suppliers'+qs),
+    fetch('/api/payments/billing-suppliers'+qs)
+  ]);
+  if(r1.ok)suppliers=await r1.json();
+  if(r2.ok)billingSuppliers=await r2.json();
+  renderSuppList();
+}
+function searchSuppliers(v){loadSuppliers(v);}
+
+function renderSuppList(){
+  const el=document.getElementById('suppList');
+  let list=suppFilter==='due'?suppliers.filter(s=>(+s.balance)>0):suppliers;
+  let blist=suppFilter==='due'?billingSuppliers.filter(s=>(+s.balance)>0.001):billingSuppliers;
+  const showCounter=!suppQuery;
+
+  const suppRows=list.map(s=>`
+    <div class="entity-row${selSupplier&&selSupplier.id===s.id?' selected':''}" onclick="selectSupplier(${s.id})">
+      <div><div class="entity-name">${esc(s.name)}</div><div class="entity-sub">${s.phone||'—'}</div></div>
+      <div class="entity-bal${(+s.balance)<=0?' zero':''}">${(+s.balance)>0?'Rs.'+(+s.balance).toFixed(0):'Clear'}</div>
+    </div>`).join('');
+
+  const billingSection=blist.length?`<div class="billing-hdr">📋 From Purchases (No Account)</div>`+
+    blist.map(s=>`
+      <div class="entity-row${selSupplier&&selSupplier.id==='bs:'+s.billing_name?' selected':''}" onclick='selectBillingSupp(${JSON.stringify(s).replace(/'/g,"&#39;")})'>
+        <div><div class="entity-name">${esc(s.billing_name)}</div>
+          <div class="entity-sub">Purchased Rs.${(+s.total_purchased).toFixed(0)} · Paid Rs.${(+s.total_paid).toFixed(0)}</div></div>
+        <div class="entity-bal${(+s.balance)<=0.001?' zero':''}">${(+s.balance)>0.001?'Rs.'+(+s.balance).toFixed(0):'Clear'}</div>
+      </div>`).join(''):'';
+
+  if(!list.length&&!blist.length){el.innerHTML='<div class="no-history">'+(suppFilter==='due'?'No suppliers with balance':'No suppliers found')+'</div>';return;}
+  el.innerHTML=suppRows+billingSection;
+}
+
+async function selectSupplier(id){
+  selSupplier=suppliers.find(s=>s.id===id)||null;
+  if(!selSupplier)return;
+  renderSuppList();
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/supplier-history?supplier_id='+id),
+    fetch('/api/payments/supplier-purchases?supplier_id='+id)
+  ]);
+  suppPayments=r1.ok?await r1.json():[];
+  suppPurchases=r2.ok?await r2.json():[];
+  renderSuppRight();
+}
+async function selectBillingSupp(bs){
+  selSupplier={id:'bs:'+bs.billing_name,name:bs.billing_name,billing_name:bs.billing_name,
+    balance:bs.balance,total_purchased:bs.total_purchased,total_paid:bs.total_paid,isBilling:true};
+  renderSuppList();
+  const bn=encodeURIComponent(bs.billing_name);
+  const [r1,r2]=await Promise.all([
+    fetch('/api/payments/supplier-history?billing_name='+bn),
+    fetch('/api/payments/supplier-purchases?billing_name='+bn)
+  ]);
+  suppPayments=r1.ok?await r1.json():[];
+  suppPurchases=r2.ok?await r2.json():[];
+  renderSuppRight();
+}
+async function refreshSuppPurchases(){
+  if(!selSupplier){suppPurchases=[];return;}
+  const url=selSupplier.isBilling
+    ?'/api/payments/supplier-purchases?billing_name='+encodeURIComponent(selSupplier.billing_name)
+    :'/api/payments/supplier-purchases?supplier_id='+selSupplier.id;
+  const r=await fetch(url);
+  suppPurchases=r.ok?await r.json():[];
+}
+
+function renderSuppRight(){
+  const el=document.getElementById('suppRight');
+  if(!selSupplier){el.innerHTML='<div class="card"><div class="empty-state"><div class="empty-icon">👆</div>Select a supplier to record a payment</div></div>';return;}
+  const isBilling=selSupplier.isBilling;
+  const bal=+selSupplier.balance;
+  const today=new Date().toISOString().split('T')[0];
+  const displayName=isBilling?'📋 '+esc(selSupplier.name):esc(selSupplier.name);
+  const subLine=isBilling
+    ?`Purchased: Rs.${(+selSupplier.total_purchased).toFixed(2)} · Paid so far: Rs.${(+selSupplier.total_paid).toFixed(2)}`
+    :selSupplier.phone||'';
+  // Auto-fill from oldest outstanding purchase
+  const firstDue=suppPurchases.find(p=>p.pay_status==='partial'||p.pay_status==='unpaid');
+  const prefill=firstDue?firstDue.remaining.toFixed(2):(bal>0.001?bal.toFixed(2):'');
+  el.innerHTML=`
+    <div class="card">
+      <div class="card-title">📄 Purchases — Oldest First</div>
+      ${renderPurchaseList(suppPurchases,'sAmtInp')}
+    </div>
+    <div class="card">
+      <div class="sel-header">
+        <div><div class="sel-name">${displayName}</div>
+          <div style="font-size:.8em;color:var(--sub);margin-top:2px">${subLine}</div></div>
+        <div class="sel-bal-wrap">
+          <span class="sel-bal-label">Amount Owed</span>
+          <div class="sel-bal-val${bal<=0.001?' zero':''}">${bal>0.001?'Rs.'+bal.toFixed(2):'Cleared'}</div>
+        </div>
+      </div>
+      <div class="card-title">Record Payment Made</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount Paid (Rs.)</label>
+          <input class="form-inp amount-inp" id="sAmtInp" type="number" min="0.01" step="0.01" placeholder="0.00" ${prefill?'value="'+prefill+'"':''}>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Date</label>
+          <input class="form-inp" id="sDateInp" type="date" value="${today}">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Notes (optional)</label>
+        <input class="form-inp" id="sNotesInp" type="text" placeholder="Cash / Bank Transfer / Cheque…">
+      </div>
+      <button class="btn btn-green" onclick="saveSuppPayment()">✅ Save Payment</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Payment History — ${displayName}</div>
+      ${renderHistTable(suppPayments,'supp')}
+    </div>`;
+}
+
+function renderPurchaseList(purchases,amtId){
+  if(!purchases.length)return'<div class="no-history">No purchases found</div>';
+  const rows=purchases.map(p=>{
+    const badge=`<span class="inv-status ${p.pay_status}">${p.pay_status==='paid'?'✅ Paid':p.pay_status==='partial'?'⚡ Partial':'❌ Unpaid'}</span>`;
+    const fillBtn=(p.pay_status==='partial'||p.pay_status==='unpaid')
+      ?`<button class="fill-btn" onclick="document.getElementById('${amtId}').value='${p.remaining.toFixed(2)}';document.getElementById('${amtId}').focus()">↑ Fill Rs.${p.remaining.toFixed(0)}</button>`:'';
+    return`<tr>
+      <td>${p.purchase_date}</td>
+      <td style="font-size:.8em;color:var(--sub)">${esc(p.purchase_number)}</td>
+      <td style="text-align:right;font-weight:600">Rs.${(+p.total_cost).toFixed(0)}</td>
+      <td style="text-align:right;color:${p.remaining>0.001?'var(--red)':'var(--green)'};font-weight:700">Rs.${p.remaining.toFixed(0)}</td>
+      <td style="white-space:nowrap">${badge}${fillBtn}</td>
+    </tr>`;
+  }).join('');
+  const totalRemaining=purchases.reduce((s,p)=>s+p.remaining,0);
+  return`<div class="inv-table-wrap"><table>
+    <thead><tr><th>Date</th><th>Purchase#</th><th style="text-align:right">Total</th><th style="text-align:right">Remaining</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  ${totalRemaining>0.001?`<div class="sum-row-stat total-row" style="margin-top:8px"><span class="lbl">Total Remaining</span><span class="val">Rs.${totalRemaining.toFixed(2)}</span></div>`:''}`;
+}
+
+async function saveSuppPayment(){
+  const amt=parseFloat(document.getElementById('sAmtInp').value)||0;
+  const dt=document.getElementById('sDateInp').value;
+  const notes=document.getElementById('sNotesInp').value.trim();
+  if(amt<=0){toast('Enter a valid amount',true);return;}
+  const isBilling=selSupplier.isBilling;
+  const btn=document.querySelector('#suppRight .btn-green');
+  btn.disabled=true;btn.textContent='Saving…';
+  const body={supplier_id:isBilling?null:selSupplier.id,
+    billing_name:isBilling?selSupplier.billing_name:null,amount:amt,payment_date:dt,notes};
+  const r=await fetch('/api/payments/supplier',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  btn.disabled=false;btn.textContent='✅ Save Payment';
+  if(r.ok){
+    const p=await r.json();
+    suppPayments.unshift(p);
+    allSuppPayments.unshift(p);
+    if(!isBilling){
+      selSupplier.balance=round2(selSupplier.balance-amt);
+      const si=suppliers.findIndex(s=>s.id===selSupplier.id);
+      if(si>=0)suppliers[si].balance=selSupplier.balance;
+    } else {
+      selSupplier.balance=round2(selSupplier.balance-amt);
+      selSupplier.total_paid=round2((+selSupplier.total_paid)+amt);
+      const bi=billingSuppliers.findIndex(s=>s.billing_name===selSupplier.billing_name);
+      if(bi>=0){billingSuppliers[bi].balance=selSupplier.balance;billingSuppliers[bi].total_paid=selSupplier.total_paid;}
+    }
+    await refreshSuppPurchases();
+    renderSuppList();renderSuppRight();renderAllSuppPayments();
+    toast('Payment of Rs.'+amt.toFixed(2)+' saved');
+  } else {const e=await r.json();toast(e.error||'Error',true);}
+}
+
+// All Supplier Payments table
+async function loadAllSuppPayments(){
+  const r=await fetch('/api/payments/all-supplier-payments');
+  if(r.ok)allSuppPayments=await r.json();
+  renderAllSuppPayments();
+}
+function renderAllSuppPayments(){
+  const el=document.getElementById('suppAllList');
+  const pmts=allSuppPayments;
+  if(!pmts.length){el.innerHTML='<div class="no-history">No payments recorded yet</div>';document.getElementById('suppAllTotal').textContent='';return;}
+  const total=pmts.reduce((s,p)=>s+(+p.amount),0);
+  document.getElementById('suppAllTotal').textContent='Total: Rs.'+total.toFixed(2);
+  const rows=pmts.map(p=>`<tr>
+    <td class="td-name">${esc(p.supplier_name)}</td>
+    <td>${p.payment_date}</td>
+    <td class="td-amt">Rs.${(+p.amount).toFixed(2)}</td>
+    <td>${esc(p.notes||'—')}</td>
+    <td class="td-del"><button class="del-btn" onclick="delPaymentFromAll(${p.id},'supp')" title="Delete">🗑</button></td>
+  </tr>`).join('');
+  el.innerHTML=`<table><thead><tr><th>Supplier</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+</script>
+</body>
+</html>

@@ -237,6 +237,7 @@ class Supplier(db.Model):
     phone = db.Column(db.String(30))
     address = db.Column(db.Text)
     notes = db.Column(db.Text)
+    balance = db.Column(db.Numeric(10, 2), default=0)  # positive = you owe supplier
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -247,6 +248,7 @@ class Supplier(db.Model):
             'phone': self.phone or '',
             'address': self.address or '',
             'notes': self.notes or '',
+            'balance': float(self.balance or 0),
         }
 
 
@@ -290,6 +292,7 @@ class PurchaseLine(db.Model):
     line_total = db.Column(db.Numeric(10, 2), default=0)
 
     def to_dict(self):
+        item = Item.query.get(self.item_id) if self.item_id else None
         return {
             'item_id': self.item_id,
             'item_name': self.item_name,
@@ -299,6 +302,7 @@ class PurchaseLine(db.Model):
             'disc_pct': float(self.disc_pct or 0),
             'tax': float(self.tax or 0),
             'line_total': float(self.line_total or 0),
+            'current_stock': float(item.qty or 0) if item else None,
         }
 
 
@@ -313,6 +317,7 @@ class Invoice(db.Model):
     invoice_date = db.Column(db.Date, nullable=False, default=date.today)
     status = db.Column(db.String(20), default='draft')   # draft / posted / cancelled
     previous_balance = db.Column(db.Numeric(10, 2), default=0)  # customer balance before this invoice
+    amount_paid = db.Column(db.Numeric(10, 2), default=0)       # cash received at billing time
     subtotal = db.Column(db.Numeric(10, 2), default=0)
     discount_amount = db.Column(db.Numeric(10, 2), default=0)
     tax_amount = db.Column(db.Numeric(10, 2), default=0)
@@ -347,6 +352,7 @@ class Invoice(db.Model):
             'tax_amount': float(self.tax_amount or 0),
             'total': float(self.total or 0),
             'notes': self.notes or '',
+            'amount_paid': float(self.amount_paid or 0),
             'lines': [line.to_dict() for line in self.lines],
         }
 
@@ -388,4 +394,70 @@ class InvoiceLine(db.Model):
             'bonus_text': self.bonus_text or '',
             'tax_pct': float(self.tax_pct or 0),
             'line_net': float(self.line_net),
+        }
+
+
+class CustomerPayment(db.Model):
+    __tablename__ = 'customer_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)  # NULL = walk-in or billing-name
+    billing_name = db.Column(db.String(150), nullable=True)  # name from invoice when no customer record exists
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_date = db.Column(db.Date, nullable=False, default=date.today)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    customer = db.relationship('Customer', backref='payments', lazy=True)
+
+    def to_dict(self):
+        if self.customer:
+            name = self.customer.name
+        elif self.billing_name:
+            name = self.billing_name
+        else:
+            name = 'Walk-in'
+        return {
+            'id': self.id,
+            'customer_id': self.customer_id,
+            'billing_name': self.billing_name or '',
+            'customer_name': name,
+            'amount': float(self.amount),
+            'payment_date': self.payment_date.isoformat(),
+            'notes': self.notes or '',
+            'created_at': self.created_at.isoformat(),
+        }
+
+
+class SupplierPayment(db.Model):
+    __tablename__ = 'supplier_payments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)  # NULL = billing-name supplier
+    billing_name = db.Column(db.String(150), nullable=True)  # supplier name from purchase when no supplier record
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_date = db.Column(db.Date, nullable=False, default=date.today)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    supplier = db.relationship('Supplier', backref='payments', lazy=True)
+
+    def to_dict(self):
+        if self.supplier:
+            name = self.supplier.name
+        elif self.billing_name:
+            name = self.billing_name
+        else:
+            name = 'Unknown'
+        return {
+            'id': self.id,
+            'supplier_id': self.supplier_id,
+            'billing_name': self.billing_name or '',
+            'supplier_name': name,
+            'amount': float(self.amount),
+            'payment_date': self.payment_date.isoformat(),
+            'notes': self.notes or '',
+            'created_at': self.created_at.isoformat(),
         }

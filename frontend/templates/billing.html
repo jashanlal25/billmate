@@ -192,6 +192,7 @@ input[type=number]{-moz-appearance:textfield}
     <a href="/items"     class="nav-link">💊 Items</a>
     <a href="/customers" class="nav-link">👥 Customers</a>
     <a href="/purchase" class="nav-link">🛒 Purchase</a>
+    <a href="/payments"  class="nav-link">💳 Payments</a>
     <a href="/admin"  class="nav-link">🛡️ Admin</a>
   </div>
   <div class="nav-right">
@@ -210,6 +211,7 @@ input[type=number]{-moz-appearance:textfield}
   <a href="/items"     class="nav-link">💊 Items</a>
   <a href="/customers" class="nav-link">👥 Customers</a>
   <a href="/purchase" class="nav-link">🛒 Purchase</a>
+  <a href="/payments"  class="nav-link">💳 Payments</a>
   <a href="/admin"     class="nav-link">🛡️ Admin</a>
 </div>
 
@@ -321,6 +323,16 @@ input[type=number]{-moz-appearance:textfield}
       <div class="sum-total"><span>Grand Total</span><span id="sumGrandTotal">Rs. 0.00</span></div>
     </div>
 
+    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+      <div class="sum-row">
+        <span class="sum-label" style="color:#10b981;font-weight:600">Cash Received</span>
+        <input class="disc-inp" id="cashReceivedInp" type="number" min="0" step="0.01" value="0" oninput="syncCashReceived(this.value)" style="border-color:#10b981;width:140px">
+      </div>
+      <div id="balanceDueSection" style="display:none">
+        <div class="sum-total" style="color:#ef4444"><span>Balance Due</span><span id="sumBalanceDue">Rs. 0.00</span></div>
+      </div>
+    </div>
+
     <button class="btn btn-green" onclick="saveInvoice()">💾 Save Invoice</button>
     <button class="btn btn-outline" onclick="saveDraft()">📋 Save as Draft</button>
     <button class="btn btn-outline" onclick="newBill()">+ New Bill</button>
@@ -348,6 +360,15 @@ input[type=number]{-moz-appearance:textfield}
   <div id="dPrevBalSection" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
     <div class="sum-row"><span class="sum-label">Previous Balance</span><span id="dSumPrevBal" style="font-weight:600">Rs. 0.00</span></div>
     <div class="sum-total"><span>Grand Total</span><span id="dSumGrandTotal">Rs. 0.00</span></div>
+  </div>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+    <div class="sum-row">
+      <span class="sum-label" style="color:#10b981;font-weight:600">Cash Received</span>
+      <input class="disc-inp" id="dCashReceivedInp" type="number" min="0" step="0.01" value="0" oninput="syncCashReceived(this.value)" style="border-color:#10b981;width:140px">
+    </div>
+    <div id="dBalanceDueSection" style="display:none">
+      <div class="sum-total" style="color:#ef4444"><span>Balance Due</span><span id="dSumBalanceDue">Rs. 0.00</span></div>
+    </div>
   </div>
   <button class="btn btn-green" style="margin-top:16px" onclick="saveInvoice()">💾 Save Invoice</button>
   <button class="btn btn-outline" onclick="saveDraft()">📋 Save as Draft</button>
@@ -725,19 +746,19 @@ function _cacheClear(){
   }catch{}
 }
 
+// Pre-warm item cache in background so first search is instant
+if(!_cacheGet()){
+  fetch('/api/items').then(r=>r.json()).then(d=>{_cacheSet(d);}).catch(()=>{});
+}
+
 // Item search
 let itemTimer, lastQuery='';
 async function _fetchItems(q){
-  let serverItems = _cacheGet();
-  if(!serverItems){
-    serverItems = await fetch('/api/items').then(r=>r.json());
-    _cacheSet(serverItems);
-  }
-  const lq = q.toLowerCase();
-  const filtered = serverItems.filter(i=>i.name.toLowerCase().includes(lq));
-  if(!IS_GUEST) return filtered;
+  // Always fetch from server so stock qty is never stale
+  const serverItems = await fetch('/api/items?q='+encodeURIComponent(q)).then(r=>r.json());
+  if(!IS_GUEST) return serverItems;
   const localItems=GuestStore.searchItems(q);
-  return [...localItems,...filtered.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
+  return [...localItems,...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
 }
 
 function _renderItemDropdown(items, q){
@@ -747,11 +768,15 @@ function _renderItemDropdown(items, q){
     dd.innerHTML='<div class="dd-item" style="color:#888">No items found</div>'+addRow;
     dd.classList.add('open');return;
   }
-  dd.innerHTML=items.map(i=>`
-    <div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
+  dd.innerHTML=items.map(i=>{
+    const qty=+(i.qty||0);
+    const qtyColor=qty<=0?'color:#ef4444;font-weight:700':qty<=5?'color:#f59e0b;font-weight:600':'color:#10b981;font-weight:600';
+    const qtyStr=qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
+    return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''}</div>
-    </div>`).join('')+addRow;
+      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span></div>
+    </div>`;
+  }).join('')+addRow;
   dd.classList.add('open');
 }
 
@@ -847,6 +872,7 @@ function calcLine(l){
   const gross=l.qty*l.tp;
   l.lineNet=Math.round((gross-(gross*l.disc/100))*100)/100;
 }
+
 
 function renderLines(){
   const body=document.getElementById('linesBody');
@@ -944,6 +970,9 @@ function recalc(){
   const tax=lines.reduce((s,l)=>s+l.qty*l.tax,0);
   const disc=parseFloat(document.getElementById('discountInp').value)||0;
   const total=Math.max(0,sub+tax-disc);
+  const grandTotal=currentOutstanding>0?currentOutstanding+total:total;
+  const cashRcvd=parseFloat(document.getElementById('cashReceivedInp').value)||0;
+  const balDue=Math.max(0,grandTotal-cashRcvd);
   // Main summary card
   document.getElementById('sumSub').textContent='Rs.'+sub.toFixed(2);
   document.getElementById('sumTax').textContent='Rs.'+tax.toFixed(2);
@@ -954,6 +983,11 @@ function recalc(){
     document.getElementById('sumGrandTotal').textContent='Rs.'+(currentOutstanding+total).toFixed(2);
     sec.style.display='block';
   } else { sec.style.display='none'; }
+  const bdSec=document.getElementById('balanceDueSection');
+  if(cashRcvd>0){
+    document.getElementById('sumBalanceDue').textContent='Rs.'+balDue.toFixed(2);
+    bdSec.style.display='block';
+  } else { bdSec.style.display='none'; }
   // Quick-view drawer
   document.getElementById('dSumSub').textContent='Rs.'+sub.toFixed(2);
   document.getElementById('dSumTax').textContent='Rs.'+tax.toFixed(2);
@@ -965,12 +999,24 @@ function recalc(){
     document.getElementById('dSumGrandTotal').textContent='Rs.'+(currentOutstanding+total).toFixed(2);
     dsec.style.display='block';
   } else { dsec.style.display='none'; }
+  const dBdSec=document.getElementById('dBalanceDueSection');
+  if(cashRcvd>0){
+    document.getElementById('dSumBalanceDue').textContent='Rs.'+balDue.toFixed(2);
+    dBdSec.style.display='block';
+  } else { dBdSec.style.display='none'; }
 }
 
 // Sync discount between main card and drawer
 function syncDiscount(val){
   document.getElementById('discountInp').value=val;
   document.getElementById('dDiscountInp').value=val;
+  recalc();
+}
+
+// Sync cash received between main card and drawer
+function syncCashReceived(val){
+  document.getElementById('cashReceivedInp').value=val;
+  document.getElementById('dCashReceivedInp').value=val;
   recalc();
 }
 
@@ -1157,7 +1203,8 @@ async function saveInvoice(){
   let inv=await r.json();
   if(r.ok){
     if(inv.status === 'draft'){
-      const pr = await fetch(`/api/invoices/${inv.id}/post`,{method:'POST'});
+      const amtPaid=parseFloat(document.getElementById('cashReceivedInp').value)||0;
+      const pr = await fetch(`/api/invoices/${inv.id}/post`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount_paid:amtPaid})});
       if(pr.ok) inv = await pr.json();
     }
     savedInvoiceId = inv.id;
@@ -1284,6 +1331,8 @@ function newBill(){
   recalc();
   document.getElementById('invNo').textContent='Invoice # —';
   document.getElementById('discountInp').value=0;
+  document.getElementById('cashReceivedInp').value=0;
+  document.getElementById('dCashReceivedInp').value=0;
   document.getElementById('savedInvInfo').textContent='';
   loadHistory();
 }

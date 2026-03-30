@@ -28,7 +28,7 @@
     </div>
     <div class="section-label">Items Purchased</div>
     <table class="modal-table">
-      <thead><tr><th>#</th><th>Item</th><th style="text-align:right">TP</th><th style="text-align:right">Retail</th><th style="text-align:right">Disc%</th><th style="text-align:right">Qty</th><th style="text-align:right">Total</th></tr></thead>
+      <thead><tr><th>#</th><th>Item</th><th style="text-align:right">TP</th><th style="text-align:right">Retail</th><th style="text-align:right">Disc%</th><th style="text-align:right">Purchased Qty</th><th style="text-align:right">Stock Balance</th><th style="text-align:right">Total</th></tr></thead>
       <tbody id="pm_lines"></tbody>
     </table>
     <div class="totals"><div class="total-row grand"><span>Total Cost</span><span id="pm_total"></span></div></div>
@@ -103,7 +103,7 @@ function renderPurchases(list){
       <td data-label="Supplier" style="font-weight:600">${p.supplier_name}</td>
       <td data-label="Date" style="color:var(--sub)">${p.purchase_date}</td>
       <td data-label="Total" class="num" style="font-weight:700">Rs. ${(+p.total_cost).toFixed(2)}</td>
-      <td data-label="Items" style="color:var(--sub);font-size:.85em">${p.lines.map(l=>l.item_name).join(', ')}</td>
+      <td data-label="Items" style="color:var(--sub);font-size:.85em">${p.lines.map(l=>`${l.item_name} <span style="color:var(--accent);font-weight:600">×${(+l.qty)%1===0?(+l.qty).toFixed(0):(+l.qty).toFixed(2)}</span>`).join(', ')}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="act-btn ab-view" onclick="viewPurchase(${p.id})">View</button>
@@ -121,15 +121,20 @@ function viewPurchase(id){
   document.getElementById('pm_no').textContent=p.purchase_number;
   document.getElementById('pm_date').textContent=p.purchase_date;
   document.getElementById('pm_sup').textContent=p.supplier_name;
-  document.getElementById('pm_lines').innerHTML=p.lines.map((l,i)=>`
-    <tr>
+  document.getElementById('pm_lines').innerHTML=p.lines.map((l,i)=>{
+    const stock=l.current_stock;
+    const stockCell=stock==null?'<td style="text-align:right;color:var(--sub)">—</td>'
+      :`<td style="text-align:right;font-weight:700;color:${stock<=0?'#ef4444':stock<=5?'#f59e0b':'#10b981'}">${stock%1===0?stock.toFixed(0):stock.toFixed(2)}</td>`;
+    return`<tr>
       <td>${i+1}</td><td><strong>${l.item_name}</strong></td>
       <td style="text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:right">Rs.${(+l.retail).toFixed(2)}</td>
       <td style="text-align:right">${(+l.disc_pct)>0?(+l.disc_pct).toFixed(1)+'%':'—'}</td>
-      <td style="text-align:right">${(+l.qty).toFixed(0)}</td>
+      <td style="text-align:right">${(+l.qty)%1===0?(+l.qty).toFixed(0):(+l.qty).toFixed(2)}</td>
+      ${stockCell}
       <td style="text-align:right;font-weight:700">Rs.${(+l.line_total).toFixed(2)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   document.getElementById('pm_total').textContent='Rs.'+(+p.total_cost).toFixed(2);
   document.getElementById('purModal').classList.add('open');
 }

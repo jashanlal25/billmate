@@ -98,8 +98,9 @@ input[type=number]{-moz-appearance:textfield}
     <a href="/billing"   class="nav-link">🧾 Billing</a>
     <a href="/items"     class="nav-link active">💊 Items</a>
     <a href="/customers" class="nav-link">👥 Customers</a>
-    <a href="/purchase" class="nav-link">🛒 Purchase</a>
-    <a href="/admin"  class="nav-link">🛡️ Admin</a>
+    <a href="/purchase"  class="nav-link">🛒 Purchase</a>
+    <a href="/payments"  class="nav-link">💳 Payments</a>
+    <a href="/admin"     class="nav-link">🛡️ Admin</a>
   </div>
   <div class="nav-right">
     <button class="theme-btn" onclick="toggleTheme()">🌙</button>
@@ -113,11 +114,12 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </nav>
 <div class="nav-mobile-menu" id="navMenu">
-  <a href="/billing" class="nav-link">🧾 Billing</a>
-  <a href="/items" class="nav-link active">💊 Items</a>
+  <a href="/billing"   class="nav-link">🧾 Billing</a>
+  <a href="/items"     class="nav-link active">💊 Items</a>
   <a href="/customers" class="nav-link">👥 Customers</a>
-  <a href="/purchase" class="nav-link">🛒 Purchase</a>
-  <a href="/admin" class="nav-link">🛡️ Admin</a>
+  <a href="/purchase"  class="nav-link">🛒 Purchase</a>
+  <a href="/payments"  class="nav-link">💳 Payments</a>
+  <a href="/admin"     class="nav-link">🛡️ Admin</a>
 </div>
 
 <div class="container">
@@ -295,7 +297,7 @@ function _parseHtm(htmlText){
       const bonus=_clean(row.dataset.bonus||'');
       const tax_pct=parseFloat(row.dataset.tax||0)||0;
       const retail=tp>0?Math.round(tp/0.85*100)/100:0;
-      if(name&&tp>0) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct});
+      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct});
     });
   } else {
     doc.querySelectorAll('tr.item').forEach(row=>{
@@ -311,7 +313,7 @@ function _parseHtm(htmlText){
         tp=_num(tds[tds.length-1].textContent);
       }
       const retail=tp>0?Math.round(tp/0.85*100)/100:0;
-      if(name&&tp>0) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0});
+      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0});
     });
   }
   return items;
@@ -385,12 +387,10 @@ async function loadCategories(){
 }
 
 async function loadItems(q=''){
-  let serverItems = _cacheGet();
-  if(!serverItems){
-    const r = await fetch('/api/items');
-    serverItems = await r.json();
-    _cacheSet(serverItems);
-  }
+  // Always fetch fresh so qty changes from purchases are immediately visible
+  const r = await fetch('/api/items');
+  const serverItems = await r.json();
+  _cacheSet(serverItems); // keep cache updated for billing pre-warm
   // prune stale date-keys from previous days
   try{
     const prefix=_CK.slice(0,_CK.lastIndexOf('_')+1);

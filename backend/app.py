@@ -53,7 +53,7 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig
+from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -883,8 +883,9 @@ def superadmin_import_items():
     # Load all existing global items once
     existing = Item.query.filter_by(is_global=True, is_active=True).all()
     existing_map = {item.name.lower(): item for item in existing}
-    used_codes = {item.code for item in existing}
-    code_counter = len(existing)
+    # Include soft-deleted global items in used_codes to avoid unique constraint violations
+    used_codes = {r[0] for r in Item.query.filter_by(is_global=True).with_entities(Item.code).all()}
+    code_counter = len(used_codes)
 
     def _next_code():
         nonlocal code_counter
@@ -907,7 +908,7 @@ def superadmin_import_items():
     def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
         nonlocal added, updated, skipped
         name = _clean(name)
-        if not name or tp <= 0:
+        if not name:
             skipped += 1
             return
         key = name.lower()
@@ -932,39 +933,44 @@ def superadmin_import_items():
             existing_map[key] = item
             added += 1
 
-    soup = BeautifulSoup(html, 'html.parser')
-    new_rows = soup.find_all('tr', class_='item-row')
-    if new_rows:
-        for row in new_rows:
-            tds = row.find_all('td')
-            if len(tds) < 2:
-                continue
-            name = _clean(tds[1].get_text())
-            tp = float(row.get('data-tp', 0) or 0)
-            disc_pct = float(row.get('data-disc', 0) or 0)
-            bonus = _clean(row.get('data-bonus', '') or '')
-            tax_pct = float(row.get('data-tax', 0) or 0)
-            retail = round(tp / 0.85, 2) if tp > 0 else 0
-            _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
-    else:
-        for row in soup.find_all('tr', class_='item'):
-            tds = row.find_all('td')
-            if len(tds) < 5:
-                continue
-            if len(tds) >= 8:
-                name     = _clean(tds[2].get_text())
-                disc_pct = _num(tds[3].get_text())
-                tp       = _num(tds[4].get_text())
-                bonus    = ''
-            else:
-                name     = _clean(tds[1].get_text())
-                disc_pct = _num(tds[3].get_text())
-                bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                tp       = _num(tds[-1].get_text())
-            retail = round(tp / 0.85, 2) if tp > 0 else 0
-            _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        new_rows = soup.find_all('tr', class_='item-row')
+        if new_rows:
+            for row in new_rows:
+                tds = row.find_all('td')
+                if len(tds) < 2:
+                    continue
+                name = _clean(tds[1].get_text())
+                tp = float(row.get('data-tp', 0) or 0)
+                disc_pct = float(row.get('data-disc', 0) or 0)
+                bonus = _clean(row.get('data-bonus', '') or '')
+                tax_pct = float(row.get('data-tax', 0) or 0)
+                retail = round(tp / 0.85, 2) if tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+        else:
+            for row in soup.find_all('tr', class_='item'):
+                tds = row.find_all('td')
+                if len(tds) < 4:
+                    continue
+                if len(tds) >= 8:
+                    name     = _clean(tds[2].get_text())
+                    disc_pct = _num(tds[3].get_text())
+                    tp       = _num(tds[4].get_text())
+                    bonus    = ''
+                else:
+                    name     = _clean(tds[1].get_text())
+                    disc_pct = _num(tds[3].get_text())
+                    bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
+                    tp       = _num(tds[-1].get_text())
+                retail = round(tp / 0.85, 2) if tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
 
-    db.session.commit()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
     return jsonify({'added': added, 'updated': updated, 'skipped': skipped})
 
 @app.route('/admin/unlock', methods=['GET', 'POST'])
@@ -1120,6 +1126,10 @@ def customers_page():
 @app.route('/billing')
 def billing_page():
     return render_template('billing.html', is_guest=bool(session.get('is_guest')))
+
+@app.route('/payments')
+def payments_page():
+    return render_template('payments.html')
 
 
 # ── Settings API ──────────────────────────────────────────────────────────────
@@ -1307,6 +1317,9 @@ def update_item(iid):
             ov.tax_pct = float(data['tax_pct'] or 0)
         if 'bonus_text' in data:
             ov.bonus_text = data['bonus_text'].strip()
+        # qty is shared stock — update directly on the global item
+        if 'qty' in data:
+            item.qty = float(data['qty'] or 0)
         # Discount still goes to UserItemDiscount
         if 'discount_pct' in data and uid:
             ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=iid).first()
@@ -1494,6 +1507,11 @@ def save_purchase():
                     db.session.add(UserItemDiscount(user_id=uid, item_id=item.id, discount_pct=disc))
 
     purchase.total_cost = round(total_cost, 2)
+    # Update supplier balance
+    if purchase.supplier_id:
+        sup = Supplier.query.get(purchase.supplier_id)
+        if sup:
+            sup.balance = round(float(sup.balance or 0) + float(purchase.total_cost), 2)
     db.session.commit()
     return jsonify(purchase.to_dict())
 
@@ -1509,6 +1527,11 @@ def delete_purchase(pid):
             item = Item.query.get(line.item_id)
             if item:
                 item.qty = round(float(item.qty or 0) - float(line.qty), 3)
+    # Reverse supplier balance
+    if p.supplier_id:
+        sup = Supplier.query.get(p.supplier_id)
+        if sup:
+            sup.balance = round(float(sup.balance or 0) - float(p.total_cost), 2)
     db.session.delete(p)
     db.session.commit()
     return jsonify({'success': True})
@@ -1666,10 +1689,10 @@ def import_items():
     existing_items = Item.query.filter_by(user_id=uid, is_active=True).all()
     # keyed by lowercase name for O(1) lookup
     existing_map = {item.name.lower(): item for item in existing_items}
-    # collect all existing codes to avoid duplicates during code generation
-    used_codes = {item.code for item in existing_items}
+    # collect ALL codes (including soft-deleted) to avoid unique constraint violations
+    used_codes = {r[0] for r in Item.query.filter_by(user_id=uid).with_entities(Item.code).all()}
     # running counter for new codes
-    code_counter = len(existing_items)
+    code_counter = len(used_codes)
 
     # Global item names — used to detect "kept alongside global" items.
     # When an imported item name matches a global item but the user has no
@@ -1701,7 +1724,7 @@ def import_items():
     def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
         nonlocal added, updated, skipped, alongside_global
         name = _clean(name)
-        if not name or tp <= 0:
+        if not name:
             skipped += 1
             return
         key = name.lower()
@@ -1733,44 +1756,49 @@ def import_items():
             added += 1
 
     # ── Parse HTML ─────────────────────────────────────────────────────────────
-    soup = BeautifulSoup(html, 'html.parser')
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
 
-    new_rows = soup.find_all('tr', class_='item-row')
-    if new_rows:
-        # Format A: new_pattern — data-tp / data-disc / data-tax attributes
-        for row in new_rows:
-            tds = row.find_all('td')
-            if len(tds) < 2:
-                continue
-            name = _clean(tds[1].get_text())
-            tp = float(row.get('data-tp', 0) or 0)
-            disc_pct = float(row.get('data-disc', 0) or 0)
-            bonus = _clean(row.get('data-bonus', '') or '')
-            tax_pct = float(row.get('data-tax', 0) or 0)
-            retail = round(tp / 0.85, 2) if tp > 0 else 0
-            _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
-    else:
-        # Format B/C: classic HTM — <tr class="item">
-        # STOCK (9 cols): SR# | Code | Name | Disc% | TP | Box | Pcs | Cost | Amt
-        # CASH  (6 cols): Code | Name | qty-input | Disc% | Bonus | TP
-        for row in soup.find_all('tr', class_='item'):
-            tds = row.find_all('td')
-            if len(tds) < 5:
-                continue
-            if len(tds) >= 8:
-                name     = _clean(tds[2].get_text())
-                disc_pct = _num(tds[3].get_text())
-                tp       = _num(tds[4].get_text())
-                bonus    = ''
-            else:
-                name     = _clean(tds[1].get_text())
-                disc_pct = _num(tds[3].get_text())
-                bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                tp       = _num(tds[-1].get_text())
-            retail = round(tp / 0.85, 2) if tp > 0 else 0
-            _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+        new_rows = soup.find_all('tr', class_='item-row')
+        if new_rows:
+            # Format A: new_pattern — data-tp / data-disc / data-tax attributes
+            for row in new_rows:
+                tds = row.find_all('td')
+                if len(tds) < 2:
+                    continue
+                name = _clean(tds[1].get_text())
+                tp = float(row.get('data-tp', 0) or 0)
+                disc_pct = float(row.get('data-disc', 0) or 0)
+                bonus = _clean(row.get('data-bonus', '') or '')
+                tax_pct = float(row.get('data-tax', 0) or 0)
+                retail = round(tp / 0.85, 2) if tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+        else:
+            # Format B/C: classic HTM — <tr class="item">
+            # STOCK (9 cols): SR# | Code | Name | Disc% | TP | Box | Pcs | Cost | Amt
+            # CASH  (6 cols): SR# | Name | qty-input | Disc% | Bonus | (empty)
+            for row in soup.find_all('tr', class_='item'):
+                tds = row.find_all('td')
+                if len(tds) < 4:
+                    continue
+                if len(tds) >= 8:
+                    name     = _clean(tds[2].get_text())
+                    disc_pct = _num(tds[3].get_text())
+                    tp       = _num(tds[4].get_text())
+                    bonus    = ''
+                else:
+                    name     = _clean(tds[1].get_text())
+                    disc_pct = _num(tds[3].get_text())
+                    bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
+                    tp       = _num(tds[-1].get_text())
+                retail = round(tp / 0.85, 2) if tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
 
-    db.session.commit()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
     return jsonify({'added': added, 'updated': updated, 'skipped': skipped, 'alongside_global': alongside_global})
 
 
@@ -2131,11 +2159,12 @@ def unpost_invoice(inv_id):
     if inv.status not in ('posted', 'finalised'):
         return jsonify({'error': 'Invoice cannot be unlocked'}), 400
     inv.status = 'draft'
-    # Reverse customer balance
+    # Reverse customer balance (only the net due that was added)
     if inv.customer_id:
         c = Customer.query.get(inv.customer_id)
         if c:
-            c.balance = round(float(c.balance or 0) - float(inv.total), 2)
+            net_due = round(float(inv.total) - float(inv.amount_paid or 0), 2)
+            c.balance = round(float(c.balance or 0) - net_due, 2)
     db.session.commit()
     return jsonify(inv.to_dict())
 
@@ -2152,7 +2181,8 @@ def cancel_invoice(inv_id):
     if was_posted and inv.customer_id:
         c = Customer.query.get(inv.customer_id)
         if c:
-            c.balance = round(float(c.balance or 0) - float(inv.total), 2)
+            net_due = round(float(inv.total) - float(inv.amount_paid or 0), 2)
+            c.balance = round(float(c.balance or 0) - net_due, 2)
     _adjust_stock(inv.lines, +1)
     db.session.commit()
     return jsonify(inv.to_dict())
@@ -2177,14 +2207,378 @@ def post_invoice(inv_id):
         return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('posted', 'finalised', 'cancelled'):
         return jsonify({'error': 'Invoice is already saved or finalised'}), 400
+    data = request.get_json(silent=True) or {}
+    amount_paid = round(float(data.get('amount_paid', 0) or 0), 2)
+    inv.amount_paid = amount_paid
     inv.status = 'posted'
-    # Update customer balance
+    # Update customer balance: only net due (total - amount paid at billing)
     if inv.customer_id:
         c = Customer.query.get(inv.customer_id)
         if c:
-            c.balance = round(float(c.balance or 0) + float(inv.total), 2)
+            net_due = round(float(inv.total) - amount_paid, 2)
+            c.balance = round(float(c.balance or 0) + net_due, 2)
     db.session.commit()
     return jsonify(inv.to_dict())
+
+
+# ── Payments API ─────────────────────────────────────────────────────────────
+
+@app.route('/api/payments/customers', methods=['GET'])
+def get_customers_with_balance():
+    uid = session.get('user_id')
+    q = request.args.get('q', '').strip()
+    query = Customer.query.filter_by(is_active=True)
+    if uid:
+        query = query.filter_by(user_id=uid)
+    if q:
+        query = query.filter(
+            (Customer.name.ilike(f'%{q}%')) | (Customer.phone.ilike(f'%{q}%'))
+        )
+    customers = query.order_by(Customer.name).all()
+    return jsonify([c.to_dict() for c in customers])
+
+
+@app.route('/api/payments/billing-customers', methods=['GET'])
+def get_billing_customers():
+    """Return distinct named walk-in customers from invoices (typed name, no customer record).
+    Balance = sum(invoice.total - invoice.amount_paid) - sum(CustomerPayment.amount for this name)
+    so cash already received at billing is not double-counted."""
+    uid = session.get('user_id')
+    # total_billed = net due after subtracting cash already received at billing time
+    query = db.session.query(
+        Invoice.customer_name_snap,
+        func.sum(func.coalesce(Invoice.total, 0) - func.coalesce(Invoice.amount_paid, 0)).label('total_net')
+    ).filter(
+        Invoice.customer_id.is_(None),
+        Invoice.customer_name_snap.isnot(None),
+        Invoice.customer_name_snap != '',
+        Invoice.customer_name_snap != 'Walk-in',
+        Invoice.status.in_(['posted', 'finalised'])
+    )
+    if uid:
+        query = query.filter(Invoice.user_id == uid)
+    q = request.args.get('q', '').strip()
+    if q:
+        query = query.filter(Invoice.customer_name_snap.ilike(f'%{q}%'))
+    rows = query.group_by(Invoice.customer_name_snap).order_by(Invoice.customer_name_snap).all()
+    result = []
+    for name, total_net in rows:
+        paid_q = db.session.query(func.sum(CustomerPayment.amount)).filter(
+            CustomerPayment.billing_name == name,
+            CustomerPayment.customer_id.is_(None)
+        )
+        if uid:
+            paid_q = paid_q.filter(CustomerPayment.user_id == uid)
+        total_paid = float(paid_q.scalar() or 0)
+        net = round(float(total_net or 0), 2)
+        result.append({
+            'billing_name': name,
+            'total_billed': net,
+            'total_paid': round(total_paid, 2),
+            'balance': round(net - total_paid, 2),
+        })
+    return jsonify(result)
+
+
+@app.route('/api/payments/customer', methods=['POST'])
+def add_customer_payment():
+    uid = session.get('user_id')
+    data = request.get_json()
+    cid = data.get('customer_id')  # may be None for walk-in or billing-name
+    billing_name = data.get('billing_name', '').strip() or None
+    amount = round(float(data.get('amount', 0) or 0), 2)
+    if amount <= 0:
+        return jsonify({'error': 'Positive amount required'}), 400
+    c = None
+    if cid:
+        c = Customer.query.get_or_404(cid)
+        if c.user_id and uid and c.user_id != uid:
+            return jsonify({'error': 'Access denied'}), 403
+    pmt = CustomerPayment(
+        user_id=uid,
+        customer_id=cid if cid else None,
+        billing_name=billing_name,
+        amount=amount,
+        payment_date=date.fromisoformat(data['payment_date']) if data.get('payment_date') else date.today(),
+        notes=data.get('notes', '').strip(),
+    )
+    db.session.add(pmt)
+    if c:
+        c.balance = round(float(c.balance or 0) - amount, 2)
+    db.session.commit()
+    return jsonify(pmt.to_dict()), 201
+
+
+@app.route('/api/payments/customer/<int:pid>', methods=['DELETE'])
+def delete_customer_payment(pid):
+    uid = session.get('user_id')
+    pmt = CustomerPayment.query.get_or_404(pid)
+    if pmt.user_id and uid and pmt.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
+    if pmt.customer_id:
+        c = Customer.query.get(pmt.customer_id)
+        if c:
+            c.balance = round(float(c.balance or 0) + float(pmt.amount), 2)
+    db.session.delete(pmt)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/payments/customer-history', methods=['GET'])
+def get_customer_payment_history():
+    uid = session.get('user_id')
+    cid_raw = request.args.get('customer_id', '')
+    bname = request.args.get('billing_name', '').strip()
+    query = CustomerPayment.query
+    if uid:
+        query = query.filter_by(user_id=uid)
+    if bname:
+        # History for a named billing customer (no customer record)
+        query = query.filter(CustomerPayment.billing_name == bname, CustomerPayment.customer_id.is_(None))
+    elif cid_raw == 'walkin':
+        # True walk-ins: no customer_id and no billing_name
+        query = query.filter(CustomerPayment.customer_id.is_(None), CustomerPayment.billing_name.is_(None))
+    elif cid_raw:
+        query = query.filter_by(customer_id=int(cid_raw))
+    payments = query.order_by(CustomerPayment.payment_date.desc(), CustomerPayment.id.desc()).limit(100).all()
+    return jsonify([p.to_dict() for p in payments])
+
+
+@app.route('/api/payments/suppliers', methods=['GET'])
+def get_suppliers_with_balance():
+    uid = session.get('user_id')
+    q = request.args.get('q', '').strip()
+    query = Supplier.query.filter_by(is_active=True)
+    if uid:
+        query = query.filter_by(user_id=uid)
+    if q:
+        query = query.filter(Supplier.name.ilike(f'%{q}%'))
+    suppliers = query.order_by(Supplier.name).all()
+    return jsonify([s.to_dict() for s in suppliers])
+
+
+@app.route('/api/payments/billing-suppliers', methods=['GET'])
+def get_billing_suppliers():
+    """Return distinct named suppliers from purchases that have no Supplier record."""
+    uid = session.get('user_id')
+    query = db.session.query(
+        Purchase.supplier_name,
+        func.sum(Purchase.total_cost).label('total_purchased')
+    ).filter(
+        Purchase.supplier_id.is_(None),
+        Purchase.supplier_name.isnot(None),
+        Purchase.supplier_name != '',
+        Purchase.supplier_name != 'Counter'
+    )
+    if uid:
+        query = query.filter(Purchase.user_id == uid)
+    q = request.args.get('q', '').strip()
+    if q:
+        query = query.filter(Purchase.supplier_name.ilike(f'%{q}%'))
+    rows = query.group_by(Purchase.supplier_name).order_by(Purchase.supplier_name).all()
+    result = []
+    for name, total_purchased in rows:
+        paid_q = db.session.query(func.sum(SupplierPayment.amount)).filter(
+            SupplierPayment.billing_name == name,
+            SupplierPayment.supplier_id.is_(None)
+        )
+        if uid:
+            paid_q = paid_q.filter(SupplierPayment.user_id == uid)
+        total_paid = float(paid_q.scalar() or 0)
+        net = round(float(total_purchased or 0), 2)
+        result.append({
+            'billing_name': name,
+            'total_purchased': net,
+            'total_paid': round(total_paid, 2),
+            'balance': round(net - total_paid, 2),
+        })
+    return jsonify(result)
+
+
+@app.route('/api/payments/supplier', methods=['POST'])
+def add_supplier_payment():
+    uid = session.get('user_id')
+    data = request.get_json()
+    sid = data.get('supplier_id')
+    billing_name = data.get('billing_name', '').strip() or None
+    amount = round(float(data.get('amount', 0) or 0), 2)
+    if amount <= 0:
+        return jsonify({'error': 'Positive amount required'}), 400
+    s = None
+    if sid:
+        s = Supplier.query.get_or_404(sid)
+        if s.user_id and uid and s.user_id != uid:
+            return jsonify({'error': 'Access denied'}), 403
+    pmt = SupplierPayment(
+        user_id=uid,
+        supplier_id=sid if sid else None,
+        billing_name=billing_name,
+        amount=amount,
+        payment_date=date.fromisoformat(data['payment_date']) if data.get('payment_date') else date.today(),
+        notes=data.get('notes', '').strip(),
+    )
+    db.session.add(pmt)
+    if s:
+        s.balance = round(float(s.balance or 0) - amount, 2)
+    db.session.commit()
+    return jsonify(pmt.to_dict()), 201
+
+
+@app.route('/api/payments/supplier/<int:pid>', methods=['DELETE'])
+def delete_supplier_payment(pid):
+    uid = session.get('user_id')
+    pmt = SupplierPayment.query.get_or_404(pid)
+    if pmt.user_id and uid and pmt.user_id != uid:
+        return jsonify({'error': 'Access denied'}), 403
+    if pmt.supplier_id:
+        s = Supplier.query.get(pmt.supplier_id)
+        if s:
+            s.balance = round(float(s.balance or 0) + float(pmt.amount), 2)
+    db.session.delete(pmt)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/payments/supplier-history', methods=['GET'])
+def get_supplier_payment_history():
+    uid = session.get('user_id')
+    sid_raw = request.args.get('supplier_id', '')
+    bname = request.args.get('billing_name', '').strip()
+    query = SupplierPayment.query
+    if uid:
+        query = query.filter_by(user_id=uid)
+    if bname:
+        query = query.filter(SupplierPayment.billing_name == bname, SupplierPayment.supplier_id.is_(None))
+    elif sid_raw:
+        query = query.filter_by(supplier_id=int(sid_raw))
+    payments = query.order_by(SupplierPayment.payment_date.desc(), SupplierPayment.id.desc()).limit(100).all()
+    return jsonify([p.to_dict() for p in payments])
+
+
+@app.route('/api/payments/customer-invoices', methods=['GET'])
+def get_customer_invoices():
+    """Return all posted invoices for a customer with FIFO payment allocation (oldest first)."""
+    uid = session.get('user_id')
+    cid_raw = request.args.get('customer_id', '').strip()
+    bname = request.args.get('billing_name', '').strip()
+    if not cid_raw and not bname:
+        return jsonify([])
+    q = Invoice.query.filter(Invoice.status.in_(['posted', 'finalised']))
+    if uid:
+        q = q.filter_by(user_id=uid)
+    if bname:
+        q = q.filter(Invoice.customer_id.is_(None), Invoice.customer_name_snap == bname)
+    else:
+        q = q.filter_by(customer_id=int(cid_raw))
+    invoices = q.order_by(Invoice.invoice_date.asc(), Invoice.id.asc()).all()
+    # Total payments received via CustomerPayment records
+    pq = db.session.query(func.sum(CustomerPayment.amount))
+    if uid:
+        pq = pq.filter(CustomerPayment.user_id == uid)
+    if bname:
+        pq = pq.filter(CustomerPayment.billing_name == bname, CustomerPayment.customer_id.is_(None))
+    else:
+        pq = pq.filter(CustomerPayment.customer_id == int(cid_raw))
+    total_paid = float(pq.scalar() or 0)
+    # FIFO: apply payments to oldest invoices first
+    pool = round(total_paid, 2)
+    result = []
+    for inv in invoices:
+        net_due = round(float(inv.total or 0) - float(inv.amount_paid or 0), 2)
+        if net_due <= 0:
+            remaining, pay_status = 0.0, 'paid'
+        elif pool >= net_due:
+            remaining, pay_status = 0.0, 'paid'
+            pool = round(pool - net_due, 2)
+        elif pool > 0:
+            remaining = round(net_due - pool, 2)
+            pay_status = 'partial'
+            pool = 0.0
+        else:
+            remaining, pay_status = net_due, 'unpaid'
+        result.append({
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'invoice_date': inv.invoice_date.isoformat(),
+            'total': float(inv.total or 0),
+            'amount_paid_at_billing': float(inv.amount_paid or 0),
+            'net_due': net_due,
+            'remaining': remaining,
+            'pay_status': pay_status,
+        })
+    return jsonify(result)
+
+
+@app.route('/api/payments/supplier-purchases', methods=['GET'])
+def get_supplier_purchases():
+    """Return all purchases for a supplier with FIFO payment allocation (oldest first)."""
+    uid = session.get('user_id')
+    sid_raw = request.args.get('supplier_id', '').strip()
+    bname = request.args.get('billing_name', '').strip()
+    if not sid_raw and not bname:
+        return jsonify([])
+    q = Purchase.query
+    if uid:
+        q = q.filter_by(user_id=uid)
+    if bname:
+        q = q.filter(Purchase.supplier_id.is_(None), Purchase.supplier_name == bname)
+    else:
+        q = q.filter_by(supplier_id=int(sid_raw))
+    purchases = q.order_by(Purchase.purchase_date.asc(), Purchase.id.asc()).all()
+    # Total payments made via SupplierPayment records
+    pq = db.session.query(func.sum(SupplierPayment.amount))
+    if uid:
+        pq = pq.filter(SupplierPayment.user_id == uid)
+    if bname:
+        pq = pq.filter(SupplierPayment.billing_name == bname, SupplierPayment.supplier_id.is_(None))
+    else:
+        pq = pq.filter(SupplierPayment.supplier_id == int(sid_raw))
+    total_paid = float(pq.scalar() or 0)
+    # FIFO: apply payments to oldest purchases first
+    pool = round(total_paid, 2)
+    result = []
+    for p in purchases:
+        cost = round(float(p.total_cost or 0), 2)
+        if cost <= 0:
+            remaining, pay_status = 0.0, 'paid'
+        elif pool >= cost:
+            remaining, pay_status = 0.0, 'paid'
+            pool = round(pool - cost, 2)
+        elif pool > 0:
+            remaining = round(cost - pool, 2)
+            pay_status = 'partial'
+            pool = 0.0
+        else:
+            remaining, pay_status = cost, 'unpaid'
+        result.append({
+            'id': p.id,
+            'purchase_number': p.purchase_number,
+            'purchase_date': p.purchase_date.isoformat(),
+            'total_cost': cost,
+            'remaining': remaining,
+            'pay_status': pay_status,
+        })
+    return jsonify(result)
+
+
+@app.route('/api/payments/all-customer-payments', methods=['GET'])
+def get_all_customer_payments():
+    uid = session.get('user_id')
+    query = CustomerPayment.query
+    if uid:
+        query = query.filter_by(user_id=uid)
+    payments = query.order_by(CustomerPayment.payment_date.desc(), CustomerPayment.id.desc()).limit(200).all()
+    return jsonify([p.to_dict() for p in payments])
+
+
+@app.route('/api/payments/all-supplier-payments', methods=['GET'])
+def get_all_supplier_payments():
+    uid = session.get('user_id')
+    query = SupplierPayment.query
+    if uid:
+        query = query.filter_by(user_id=uid)
+    payments = query.order_by(SupplierPayment.payment_date.desc(), SupplierPayment.id.desc()).limit(200).all()
+    return jsonify([p.to_dict() for p in payments])
 
 
 import click

@@ -105,6 +105,7 @@ input[type=number]{-moz-appearance:textfield}
     <a href="/items"     class="nav-link">💊 Items</a>
     <a href="/customers" class="nav-link">👥 Customers</a>
     <a href="/purchase"  class="nav-link active">🛒 Purchase</a>
+    <a href="/payments"  class="nav-link">💳 Payments</a>
     <a href="/admin"     class="nav-link">🛡️ Admin</a>
   </div>
   <div class="nav-right">
@@ -119,11 +120,12 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </nav>
 <div class="nav-mobile-menu" id="navMenu">
-  <a href="/billing" class="nav-link">🧾 Billing</a>
-  <a href="/items" class="nav-link">💊 Items</a>
+  <a href="/billing"   class="nav-link">🧾 Billing</a>
+  <a href="/items"     class="nav-link">💊 Items</a>
   <a href="/customers" class="nav-link">👥 Customers</a>
-  <a href="/purchase" class="nav-link active">🛒 Purchase</a>
-  <a href="/admin" class="nav-link">🛡️ Admin</a>
+  <a href="/purchase"  class="nav-link active">🛒 Purchase</a>
+  <a href="/payments"  class="nav-link">💳 Payments</a>
+  <a href="/admin"     class="nav-link">🛡️ Admin</a>
 </div>
 
 <div class="layout">
@@ -478,6 +480,10 @@ async function savePurchase(){
   const res=await r.json();
   if(r.ok){
     toast('Purchase saved from '+supplierName+' — stock updated!');
+    // Bust billing page item cache so updated stock shows immediately
+    for(const k of Object.keys(localStorage)){
+      if(k.startsWith('items_cache_')) localStorage.removeItem(k);
+    }
     sessionPurchases.unshift(res);
     renderSessionHistory();
     clearAll();
