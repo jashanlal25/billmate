@@ -53,6 +53,14 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Serverless-safe pool config: pre-ping drops stale connections, recycle prevents timeouts
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+    'pool_size': 5,
+    'max_overflow': 2,
+    'connect_args': {'connect_timeout': 10},
+}
 from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -251,6 +259,16 @@ def check_auth():
             else:
                 return redirect('/?denied=1')
 
+
+# ── Keep-alive ────────────────────────────────────────────────────────────────
+
+@app.route('/api/keepalive', methods=['GET'])
+def keepalive():
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'detail': str(e)}), 500
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
