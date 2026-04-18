@@ -70,6 +70,49 @@
 </div>
 
 <div style="max-width:640px;margin:24px auto 0">
+  <div class="section-header"><div class="section-title">📷 Scan Bill — AI Keys</div></div>
+  <div class="card" style="padding:28px">
+    <p style="font-size:.84em;color:var(--sub);margin:0 0 18px">Gemini is tried first (better quality). If its limit is hit, Groq is used as backup. Set both keys for uninterrupted scanning.</p>
+
+    <!-- Gemini Key -->
+    <div style="border:1.5px solid rgba(102,126,234,.25);border-radius:12px;padding:16px;margin-bottom:18px">
+      <div style="font-size:.88em;font-weight:700;color:var(--accent);margin-bottom:8px">🔮 Gemini API Key <span style="font-weight:400;color:var(--sub)">(Google — Primary)</span></div>
+      <div style="font-size:.80em;color:var(--sub);margin-bottom:10px;line-height:1.7">
+        Get free key at <strong style="color:var(--text)">aistudio.google.com</strong> → API Keys → Create. Key starts with <code>AIza</code>.
+        <span style="color:#10b981;font-weight:600"> Free: 15 req/min · 1,500 req/day</span>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="s_gemini_key" type="password" placeholder="AIza..." style="width:100%;padding:11px 44px 11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;font-family:monospace">
+        <button type="button" onclick="togglePwdField(this,'s_gemini_key')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--sub)">👁️</button>
+      </div>
+      <div id="geminiKeyStatus" style="font-size:.78em;margin-bottom:10px;font-weight:600"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="saveGeminiKey()" style="flex:1;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">Save Gemini Key</button>
+        <button onclick="clearGeminiKey()" style="padding:10px 16px;border:1.5px solid #ef4444;border-radius:10px;background:none;color:#ef4444;font-size:.85em;font-weight:600;cursor:pointer">Remove</button>
+      </div>
+    </div>
+
+    <!-- Groq Key -->
+    <div style="border:1.5px solid rgba(102,126,234,.25);border-radius:12px;padding:16px">
+      <div style="font-size:.88em;font-weight:700;color:var(--accent);margin-bottom:8px">⚡ Groq API Key <span style="font-weight:400;color:var(--sub)">(Backup)</span></div>
+      <div style="font-size:.80em;color:var(--sub);margin-bottom:10px;line-height:1.7">
+        Get free key at <strong style="color:var(--text)">console.groq.com</strong> → API Keys → Create. Key starts with <code>gsk_</code>.
+        <span style="color:#10b981;font-weight:600"> Free: 30 req/min · 14,400 req/day</span>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="s_groq_key" type="password" placeholder="gsk_..." style="width:100%;padding:11px 44px 11px 14px;border:1.5px solid var(--border);border-radius:11px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;font-family:monospace">
+        <button type="button" onclick="togglePwdField(this,'s_groq_key')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:var(--sub)">👁️</button>
+      </div>
+      <div id="groqKeyStatus" style="font-size:.78em;margin-bottom:10px;font-weight:600"></div>
+      <div style="display:flex;gap:10px">
+        <button onclick="saveGroqKey()" style="flex:1;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer">Save Groq Key</button>
+        <button onclick="clearGroqKey()" style="padding:10px 16px;border:1.5px solid #ef4444;border-radius:10px;background:none;color:#ef4444;font-size:.85em;font-weight:600;cursor:pointer">Remove</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="max-width:640px;margin:24px auto 0">
   <div class="section-header"><div class="section-title">🔑 Change Login Password</div></div>
   <div class="card" style="padding:28px">
     <div style="margin-bottom:18px">
@@ -222,7 +265,61 @@ async function changeLoginPwd(){
   }
 }
 
+async function loadKeyStatuses(){
+  const r=await fetch('/api/settings');
+  const s=await r.json();
+  const gEl=document.getElementById('geminiKeyStatus');
+  if(s.gemini_key_set){
+    gEl.textContent='✅ Key saved: '+s.gemini_key_masked;
+    gEl.style.color='#10b981';
+  } else {
+    gEl.textContent='⚠️ No Gemini key saved.';
+    gEl.style.color='#f59e0b';
+  }
+  const qEl=document.getElementById('groqKeyStatus');
+  if(s.groq_key_set){
+    qEl.textContent='✅ Key saved: '+s.groq_key_masked;
+    qEl.style.color='#10b981';
+  } else {
+    qEl.textContent='⚠️ No Groq key saved.';
+    qEl.style.color='#f59e0b';
+  }
+}
+
+async function saveGeminiKey(){
+  const key=document.getElementById('s_gemini_key').value.trim();
+  if(!key){toast('Please paste your Gemini API key first',true);return;}
+  if(!key.startsWith('AIza')){toast('Invalid key — should start with AIza',true);return;}
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gemini_api_key:key})});
+  const d=await r.json();
+  if(d.success){toast('Gemini API key saved!');document.getElementById('s_gemini_key').value='';loadKeyStatuses();}
+  else toast(d.error||'Error saving key',true);
+}
+async function clearGeminiKey(){
+  if(!confirm('Remove saved Gemini API key?')) return;
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gemini_api_key:''})});
+  const d=await r.json();
+  if(d.success){toast('Gemini key removed');loadKeyStatuses();}
+}
+
+async function saveGroqKey(){
+  const key=document.getElementById('s_groq_key').value.trim();
+  if(!key){toast('Please paste your Groq API key first',true);return;}
+  if(!key.startsWith('gsk_')){toast('Invalid key — should start with gsk_',true);return;}
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groq_api_key:key})});
+  const d=await r.json();
+  if(d.success){toast('Groq API key saved!');document.getElementById('s_groq_key').value='';loadKeyStatuses();}
+  else toast(d.error||'Error saving key',true);
+}
+async function clearGroqKey(){
+  if(!confirm('Remove saved Groq API key?')) return;
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groq_api_key:''})});
+  const d=await r.json();
+  if(d.success){toast('Groq key removed');loadKeyStatuses();}
+}
+
 loadSetup();
 checkAdminPwdSet();
+loadKeyStatuses();
 </script>
 {% endblock %}

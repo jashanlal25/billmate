@@ -41,7 +41,7 @@ if not _secret:
 app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
 app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutes (frontend enforces 5-min idle logout)
 
 # Database — must be set via DATABASE_URL environment variable
@@ -149,7 +149,11 @@ def seed_defaults():
         for key in ('registration_open', 'invoicing_open'):
             if not SystemConfig.query.get(key):
                 db.session.add(SystemConfig(key=key, value='1'))
+        # Auto-add API key columns if missing (no manual migration needed)
         try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS groq_api_key VARCHAR(200)"))
+            db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS gemini_api_key VARCHAR(200)"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -1174,6 +1178,16 @@ def save_settings():
     admin_pwd = (data.get('admin_password') or '').strip()
     if admin_pwd:
         s.admin_password_hash = generate_password_hash(admin_pwd)
+    groq_key = (data.get('groq_api_key') or '').strip()
+    if groq_key:
+        s.groq_api_key = groq_key
+    elif data.get('groq_api_key') == '':
+        s.groq_api_key = None
+    gemini_key_val = (data.get('gemini_api_key') or '').strip()
+    if gemini_key_val:
+        s.gemini_api_key = gemini_key_val
+    elif data.get('gemini_api_key') == '':
+        s.gemini_api_key = None
     db.session.commit()
     return jsonify({'success': True, 'settings': s.to_dict()})
 
@@ -2597,6 +2611,307 @@ def get_all_supplier_payments():
         query = query.filter_by(user_id=uid)
     payments = query.order_by(SupplierPayment.payment_date.desc(), SupplierPayment.id.desc()).limit(200).all()
     return jsonify([p.to_dict() for p in payments])
+
+
+_scan_usage = {}  # {user_id_or_ip: [timestamps]}
+
+@app.route('/api/scan-bill', methods=['POST'])
+def scan_bill():
+    import base64 as _b64, json as _json, time as _time
+
+    uid = session.get('user_id') or get_client_ip()
+    s = get_user_settings()
+
+    # Resolve Gemini key: user's dedicated field → .env fallback
+    gemini_key = (s.gemini_api_key or '').strip() if s else ''
+    if not gemini_key:
+        gemini_key = os.environ.get('GEMINI_API_KEY', '').strip()
+
+    # Resolve Groq key: user's dedicated field → .env fallback
+    groq_key = (s.groq_api_key or '').strip() if s else ''
+    if not groq_key:
+        groq_key = os.environ.get('GROQ_API_KEY', '').strip()
+
+    if not gemini_key and not groq_key:
+        return jsonify({'error': 'No scan API key configured. Add a Gemini (AIza...) or Groq (gsk_...) key in Admin → Setup.'}), 503
+
+    # Rate limit on shared keys
+    using_shared = (gemini_key == os.environ.get('GEMINI_API_KEY','').strip()) or \
+                   (groq_key == os.environ.get('GROQ_API_KEY','').strip())
+    if using_shared:
+        now = _time.time()
+        hits = [t for t in _scan_usage.get(uid, []) if now - t < 3600]
+        if len(hits) >= 20:
+            return jsonify({'error': 'Hourly scan limit reached (20/hr). Add your own free key in Admin → Setup.'}), 429
+        hits.append(now)
+        _scan_usage[uid] = hits
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    f = request.files['file']
+    if not f.filename:
+        return jsonify({'error': 'No file selected'}), 400
+
+    raw = f.read()
+    if len(raw) > 10 * 1024 * 1024:
+        return jsonify({'error': 'Image too large (max 10 MB)'}), 400
+
+    # Preprocess image: auto-rotate (EXIF), enhance contrast & sharpness
+    try:
+        from PIL import Image as _PILImage, ImageEnhance as _PILEnhance, ImageOps as _PILOps
+        import io as _io
+        pil_img = _PILImage.open(_io.BytesIO(raw))
+        pil_img = _PILOps.exif_transpose(pil_img)          # fix rotation from phone camera
+        pil_img = pil_img.convert('RGB')
+        pil_img = _PILEnhance.Contrast(pil_img).enhance(1.6)
+        pil_img = _PILEnhance.Sharpness(pil_img).enhance(2.0)
+        buf = _io.BytesIO()
+        pil_img.save(buf, format='JPEG', quality=92)
+        raw = buf.getvalue()
+    except Exception:
+        pass  # if preprocessing fails, send original
+
+    media_type = 'image/jpeg'
+    img_b64 = _b64.standard_b64encode(raw).decode('utf-8')
+
+    system_msg = (
+        'You are an expert Pakistani pharmacy and medical supplier bill parser. '
+        'Your job is to read supplier estimate/invoice images and extract structured data with 100% accuracy. '
+        'Bills are printed thermal receipts with columns: Quantity | Item Description | Packing | S.# | Tax | Retail | Rate | Disc% | Net Amount. '
+        'Always return valid JSON only — no explanation, no markdown, no extra text. '
+        'Read the bill correctly even if it is rotated, sideways, or partially blurry.'
+    )
+
+    prompt = (
+        'Extract ALL data from this pharmacy supplier bill image.\n'
+        'Return ONLY this exact JSON structure with no extra text:\n'
+        '{\n'
+        '  "supplier_name": "name printed on bill or null",\n'
+        '  "invoice_number": "invoice/estimate number or null",\n'
+        '  "date": "date as printed or null",\n'
+        '  "items": [\n'
+        '    {\n'
+        '      "item_name": "medicine name EXACTLY as printed",\n'
+        '      "qty": <integer>,\n'
+        '      "retail": <retail price number or null>,\n'
+        '      "rate": <rate/TP number or null>,\n'
+        '      "disc_pct": <discount percentage number or null>,\n'
+        '      "amount": <net amount number or null>\n'
+        '    }\n'
+        '  ],\n'
+        '  "total": <total amount or null>,\n'
+        '  "previous_balance": <previous balance or null>\n'
+        '}\n\n'
+        'RULES:\n'
+        '- Include EVERY single item row visible — never skip any\n'
+        '- qty=1 only if truly unreadable\n'
+        '- item_name must be the exact medicine name, clean and complete\n'
+        '- Numbers must be actual numbers, not strings\n'
+        '- null for any field not visible in the bill'
+    )
+
+    raw_text = None
+
+    # Try Gemini first (better vision quality)
+    if gemini_key:
+        try:
+            from google import genai as _genai
+            from google.genai import types as _gtypes
+            _gc = _genai.Client(api_key=gemini_key)
+            full_prompt = system_msg + '\n\n' + prompt
+            _gr = _gc.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=[
+                    _gtypes.Part.from_bytes(data=raw, mime_type=media_type),
+                    full_prompt
+                ]
+            )
+            raw_text = _gr.text.strip()
+            print('[ScanBill] Used Gemini')
+        except Exception as e:
+            print(f'[ScanBill] Gemini failed: {e}, trying Groq...')
+            raw_text = None
+
+    # Fallback to Groq
+    if not raw_text and groq_key:
+        try:
+            from groq import Groq as _Groq
+            client = _Groq(api_key=groq_key)
+            resp = client.chat.completions.create(
+                model='meta-llama/llama-4-scout-17b-16e-instruct',
+                messages=[
+                    {'role': 'system', 'content': system_msg},
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'image_url', 'image_url': {'url': f'data:{media_type};base64,{img_b64}'}},
+                            {'type': 'text', 'text': prompt}
+                        ]
+                    }
+                ],
+                max_tokens=2048,
+                temperature=0.1
+            )
+            raw_text = resp.choices[0].message.content.strip()
+            print('[ScanBill] Used Groq')
+        except Exception as e:
+            err_str = str(e)
+            if '429' in err_str:
+                return jsonify({'error': 'Rate limit hit. Please wait 30 seconds and try again.'}), 429
+            return jsonify({'error': f'AI service error: {err_str[:200]}'}), 502
+
+    if not raw_text:
+        return jsonify({'error': 'All scan engines failed. Check your API keys.'}), 502
+
+    # Strip markdown code fences if present
+    if '```' in raw_text:
+        parts = raw_text.split('```')
+        for p in parts:
+            p = p.strip()
+            if p.startswith('json'):
+                p = p[4:].strip()
+            if p.startswith('{'):
+                raw_text = p
+                break
+
+    try:
+        data = _json.loads(raw_text)
+    except Exception:
+        return jsonify({'error': 'Could not read bill data from image. Try a clearer photo.'}), 422
+
+    uid = session.get('user_id')
+
+    # Match customer
+    matched_customer = None
+    cname = (data.get('customer_name') or '').strip()
+    if cname:
+        # Try customers table first
+        cust = Customer.query.filter(
+            Customer.name.ilike(f'%{cname}%'),
+            db.or_(Customer.user_id == uid, Customer.user_id == None)
+        ).first()
+        if cust:
+            matched_customer = cust.to_dict()
+
+    # Load per-user item customisations for matching
+    user_discounts = {}
+    user_overrides = {}
+    if uid:
+        for ud in UserItemDiscount.query.filter_by(user_id=uid).all():
+            user_discounts[ud.item_id] = float(ud.discount_pct or 0)
+        for ov in UserItemOverride.query.filter_by(user_id=uid).all():
+            user_overrides[ov.item_id] = ov
+
+    def _item_dict(item):
+        d = item.to_dict()
+        if item.is_global and uid:
+            d['discount_pct'] = user_discounts.get(item.id, 0)
+            ov = user_overrides.get(item.id)
+            if ov:
+                if ov.tp is not None:           d['tp']           = float(ov.tp)
+                if ov.retail_price is not None: d['retail_price'] = float(ov.retail_price)
+                if ov.tax_pct is not None:      d['tax_pct']      = float(ov.tax_pct)
+                if ov.bonus_text is not None:   d['bonus_text']   = ov.bonus_text
+        return d
+
+    matched_items = []
+    unmatched = []
+
+    # Also match supplier name (new schema uses supplier_name)
+    if not matched_customer:
+        sname = (data.get('supplier_name') or '').strip()
+        if sname:
+            cust = Customer.query.filter(
+                Customer.name.ilike(f'%{sname}%'),
+                db.or_(Customer.user_id == uid, Customer.user_id == None)
+            ).first()
+            if cust:
+                matched_customer = cust.to_dict()
+
+    for bill_item in data.get('items', []):
+        # Support both new schema (item_name) and old (name)
+        iname = (bill_item.get('item_name') or bill_item.get('name') or '').strip()
+        if not iname:
+            continue
+        try:
+            qty = max(1, int(float(bill_item.get('qty') or bill_item.get('quantity') or 1)))
+        except (ValueError, TypeError):
+            qty = 1
+        bill_retail = bill_item.get('retail') or bill_item.get('rate') or None
+        bill_rate   = bill_item.get('rate')   or bill_item.get('retail') or None
+        try:
+            bill_retail = round(float(bill_retail), 2) if bill_retail else None
+            bill_rate   = round(float(bill_rate),   2) if bill_rate   else None
+        except (ValueError, TypeError):
+            bill_retail = bill_rate = None
+
+        if session.get('is_superadmin') or session.get('is_guest') or not uid:
+            base_q = Item.query.filter_by(is_active=True, is_global=True)
+        else:
+            base_q = Item.query.filter_by(is_active=True).filter(
+                db.or_(Item.user_id == uid, Item.is_global == True)
+            )
+
+        import re as _re
+        def _clean(s):
+            return _re.sub(r'[^a-z0-9 ]', '', s.lower().strip())
+
+        clean_name = _clean(iname)
+
+        # 1. Full cleaned name substring match
+        item = base_q.filter(Item.name.ilike(f'%{iname}%')).first()
+
+        # 2. Try each consecutive pair of significant words
+        if not item:
+            words = [w for w in clean_name.split() if len(w) > 2]
+            for i in range(len(words) - 1):
+                item = base_q.filter(
+                    Item.name.ilike(f'%{words[i]}%'),
+                    Item.name.ilike(f'%{words[i+1]}%')
+                ).first()
+                if item:
+                    break
+
+        # 3. Best single-word match (longest word first for precision)
+        if not item:
+            for w in sorted(words, key=len, reverse=True):
+                if len(w) > 3:
+                    item = base_q.filter(Item.name.ilike(f'%{w}%')).first()
+                    if item:
+                        break
+
+        if item:
+            d = _item_dict(item)
+            d['qty'] = qty
+            # Override catalog values with bill values where available
+            if bill_retail:
+                d['retail_price'] = bill_retail
+            if bill_rate:
+                d['tp'] = bill_rate
+            try:
+                bill_disc = float(bill_item.get('disc_pct') or 0)
+                if bill_disc:
+                    d['discount_pct'] = bill_disc
+            except (ValueError, TypeError):
+                pass
+            matched_items.append(d)
+        else:
+            try:
+                bill_disc = float(bill_item.get('disc_pct') or 0)
+            except (ValueError, TypeError):
+                bill_disc = 0
+            unmatched.append({
+                'name': iname, 'qty': qty,
+                'retail': bill_retail,
+                'rate': bill_rate,
+                'disc_pct': bill_disc
+            })
+
+    return jsonify({
+        'customer': matched_customer,
+        'items': matched_items,
+        'unmatched': unmatched
+    })
 
 
 import click

@@ -182,6 +182,14 @@ input[type=number]{-moz-appearance:textfield}
 .swipe-inner{display:flex;transition:transform .22s ease}
 .swipe-del{position:absolute;right:0;top:0;bottom:0;width:72px;background:#ef4444;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.82em;font-weight:700;cursor:pointer;border-radius:0 0 0 0}
 @media(min-width:641px){.swipe-del{display:none}}
+/* Scan bill modal */
+.scan-drop{border:2px dashed var(--border);border-radius:14px;padding:32px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;color:var(--sub)}
+.scan-drop:hover,.scan-drop.drag-over{border-color:var(--accent);background:var(--row-hover)}
+.scan-preview{max-width:100%;max-height:220px;border-radius:10px;margin-top:12px;display:none;object-fit:contain}
+.scan-result-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:.88em;color:var(--text);background:var(--inp)}
+.scan-result-item.unmatched{opacity:.55;border-style:dashed}
+.scan-spinner{display:inline-block;width:22px;height:22px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -220,7 +228,10 @@ input[type=number]{-moz-appearance:textfield}
   <!-- LEFT: Bill Builder -->
   <div>
     <div class="panel">
-      <div class="panel-title">New Invoice</div>
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>New Invoice</span>
+        <span id="itemCountBadge" style="display:none;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.75em;padding:3px 10px;border-radius:20px;font-weight:700;letter-spacing:.3px">0 items</span>
+      </div>
 
       <!-- Customer -->
       <div id="custSection" style="position:relative">
@@ -239,6 +250,7 @@ input[type=number]{-moz-appearance:textfield}
           <div class="dropdown" id="itemDropdown"></div>
         </div>
         <button id="addOrderBtn" onclick="toggleAddOrder()" title="New items added at bottom" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:1.1em;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">⬇</button>
+        <button onclick="openScanModal()" title="Scan bill image to auto-fill items" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;padding:0 12px;border:1.5px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#667eea22,#764ba222);color:var(--accent);cursor:pointer;font-size:.82em;font-weight:700;white-space:nowrap;transition:all .18s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.96)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">📷 Scan Bill</button>
       </div>
 
       <!-- Custom item modal (item not in catalog) -->
@@ -310,6 +322,7 @@ input[type=number]{-moz-appearance:textfield}
     <div class="shop-meta" id="shopMeta"></div>
     <div class="inv-no" id="invNo">Invoice # —</div>
 
+    <div class="sum-row"><span class="sum-label">Items</span><span id="sumItemCount" style="font-weight:700;color:var(--accent)">0</span></div>
     <div class="sum-row"><span class="sum-label">Subtotal</span><span id="sumSub">Rs. 0.00</span></div>
     <div class="sum-row">
       <span class="sum-label">Discount</span>
@@ -350,6 +363,7 @@ input[type=number]{-moz-appearance:textfield}
     <button onclick="closeSummary()" style="width:32px;height:32px;border:none;border-radius:50%;background:rgba(128,128,128,.15);color:var(--text);font-size:1em;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">✕</button>
   </div>
   <div style="font-size:.78em;color:var(--sub);margin-bottom:16px;font-family:monospace;padding:6px 10px;background:var(--inp);border-radius:8px" id="dInvNo">Invoice # —</div>
+  <div class="sum-row"><span class="sum-label">Items</span><span id="dSumItemCount" style="font-weight:700;color:var(--accent)">0</span></div>
   <div class="sum-row"><span class="sum-label">Subtotal</span><span id="dSumSub">Rs. 0.00</span></div>
   <div class="sum-row">
     <span class="sum-label">Discount</span>
@@ -512,6 +526,60 @@ input[type=number]{-moz-appearance:textfield}
     <div style="font-size:1.1em;font-weight:800;color:#f87171;margin-bottom:10px">Access Restricted</div>
     <div style="font-size:.9em;color:rgba(255,255,255,.7);line-height:1.6;margin-bottom:20px">You have been locked for this action due to a violation.<br>Please contact your <strong style="color:#fff">Admin</strong> to restore access.</div>
     <button onclick="document.getElementById('_lockedOverlay').style.display='none'" style="padding:11px 32px;background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:.95em;cursor:pointer">OK</button>
+  </div>
+</div>
+
+<!-- Scan Bill Modal -->
+<div class="overlay" id="scanModal" onclick="if(event.target===this)closeScanModal()">
+  <div class="modal" style="max-width:500px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:1.1em;font-weight:700;color:var(--text)">📷 Scan Bill</div>
+      <button onclick="closeScanModal()" style="background:none;border:none;font-size:1.3em;color:var(--sub);cursor:pointer">✕</button>
+    </div>
+
+    <!-- Upload area -->
+    <div id="scanUploadArea">
+      <div class="scan-drop" id="scanDrop" ondragover="scanDragOver(event)" ondragleave="scanDragLeave(event)" ondrop="scanDrop(event)" onclick="document.getElementById('scanGalleryInput').click()">
+        <div style="font-size:2em;margin-bottom:8px">📄</div>
+        <div style="font-weight:600;font-size:.95em;color:var(--text)">Drag bill image here</div>
+        <div style="font-size:.8em;margin-top:4px">or choose below</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button onclick="document.getElementById('scanCameraInput').click()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.88em;font-weight:600;cursor:pointer">📷 Camera</button>
+        <button onclick="document.getElementById('scanGalleryInput').click()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.88em;font-weight:600;cursor:pointer">🖼️ Gallery</button>
+      </div>
+      <input type="file" id="scanCameraInput" accept="image/*" capture="environment" style="display:none" onchange="scanFileChosen(this)">
+      <input type="file" id="scanGalleryInput" accept="image/*" style="display:none" onchange="scanFileChosen(this)">
+      <img id="scanPreview" class="scan-preview" alt="Preview">
+      <div id="scanFileName" style="font-size:.8em;color:var(--sub);margin-top:6px;text-align:center"></div>
+    </div>
+
+    <!-- Analyze button -->
+    <button id="scanAnalyzeBtn" onclick="analyzeBill()" style="display:none;width:100%;margin-top:14px;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.95em;font-weight:700;cursor:pointer">🔍 Analyze Bill</button>
+
+    <!-- Error box -->
+    <div id="scanErrorBox" style="display:none;margin-top:12px;padding:12px 14px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;color:#dc2626;font-size:.88em;font-weight:600;line-height:1.5"></div>
+
+    <!-- Loading state -->
+    <div id="scanLoading" style="display:none;text-align:center;padding:24px 0">
+      <div class="scan-spinner"></div>
+      <div style="margin-top:10px;font-size:.88em;color:var(--sub)">Reading bill with AI...</div>
+    </div>
+
+    <!-- Results -->
+    <div id="scanResults" style="display:none">
+      <div style="font-size:.82em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Matched Items</div>
+      <div id="scanMatchedList"></div>
+      <div id="scanUnmatchedSection" style="display:none;margin-top:10px">
+        <div style="font-size:.8em;font-weight:700;color:#f59e0b;margin-bottom:6px">Not in catalog — will be added as custom items</div>
+        <div id="scanUnmatchedList"></div>
+      </div>
+      <div id="scanNoMatches" style="display:none;text-align:center;padding:16px;font-size:.9em;color:var(--sub)">No items could be extracted from this bill. Try a clearer photo.</div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button onclick="closeScanModal()" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:none;color:var(--text);font-size:.9em;cursor:pointer">Cancel</button>
+        <button id="scanApplyBtn" onclick="applyScanResults()" style="flex:2;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:700;cursor:pointer">Add to Bill</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -970,6 +1038,11 @@ function recalc(){
   const tax=lines.reduce((s,l)=>s+l.qty*l.tax,0);
   const disc=parseFloat(document.getElementById('discountInp').value)||0;
   const total=Math.max(0,sub+tax-disc);
+  // Item count
+  const countEl=document.getElementById('itemCountBadge');
+  if(lines.length>0){countEl.style.display='inline-block';countEl.textContent=lines.length+' item'+(lines.length>1?'s':'');}else{countEl.style.display='none';}
+  document.getElementById('sumItemCount').textContent=lines.length;
+  document.getElementById('dSumItemCount').textContent=lines.length;
   const grandTotal=currentOutstanding>0?currentOutstanding+total:total;
   const cashRcvd=parseFloat(document.getElementById('cashReceivedInp').value)||0;
   const balDue=Math.max(0,grandTotal-cashRcvd);
@@ -1829,6 +1902,188 @@ document.addEventListener('focusout',e=>{
     }
   }, 5000);
 })();
+
+// ── Scan Bill ──────────────────────────────────────────────────────────────────
+let _scanFile = null;
+let _scanData = null;
+
+function openScanModal(){
+  _scanFile = null;
+  _scanData = null;
+  document.getElementById('scanCameraInput').value = '';
+  document.getElementById('scanGalleryInput').value = '';
+  document.getElementById('scanPreview').style.display = 'none';
+  document.getElementById('scanFileName').textContent = '';
+  document.getElementById('scanAnalyzeBtn').style.display = 'none';
+  document.getElementById('scanLoading').style.display = 'none';
+  document.getElementById('scanResults').style.display = 'none';
+  document.getElementById('scanErrorBox').style.display = 'none';
+  document.getElementById('scanUploadArea').style.display = 'block';
+  document.getElementById('scanModal').classList.add('open');
+}
+
+function closeScanModal(){
+  document.getElementById('scanModal').classList.remove('open');
+}
+
+function scanDragOver(e){
+  e.preventDefault();
+  document.getElementById('scanDrop').classList.add('drag-over');
+}
+function scanDragLeave(e){
+  document.getElementById('scanDrop').classList.remove('drag-over');
+}
+function scanDrop(e){
+  e.preventDefault();
+  document.getElementById('scanDrop').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if(file) _setScanFile(file);
+}
+
+function scanFileChosen(input){
+  if(input.files[0]) _setScanFile(input.files[0]);
+}
+
+function _setScanFile(file){
+  _scanFile = file;
+  const url = URL.createObjectURL(file);
+  const prev = document.getElementById('scanPreview');
+  prev.src = url;
+  prev.style.display = 'block';
+  document.getElementById('scanFileName').textContent = file.name;
+  document.getElementById('scanAnalyzeBtn').style.display = 'block';
+  document.getElementById('scanResults').style.display = 'none';
+}
+
+async function analyzeBill(){
+  if(!_scanFile){ showToast('Please select an image first','error'); return; }
+  document.getElementById('scanAnalyzeBtn').style.display = 'none';
+  document.getElementById('scanUploadArea').style.display = 'none';
+  document.getElementById('scanLoading').style.display = 'block';
+  document.getElementById('scanResults').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', _scanFile);
+  document.getElementById('scanErrorBox').style.display = 'none';
+  console.log('[ScanBill] Sending image to /api/scan-bill ...');
+
+  try{
+    const r = await fetch('/api/scan-bill', {method:'POST', body:fd});
+    const data = await r.json();
+    document.getElementById('scanLoading').style.display = 'none';
+    if(!r.ok){
+      const msg = r.status === 429
+        ? 'Rate limit reached. Please wait 30 seconds and try again.'
+        : (data.error || 'Scan failed');
+      console.error('[ScanBill] Server error', r.status, msg);
+      document.getElementById('scanUploadArea').style.display = 'block';
+      document.getElementById('scanAnalyzeBtn').style.display = 'block';
+      document.getElementById('scanErrorBox').innerHTML = '⚠️ ' + msg + (r.status===429 ? '<br><small style="font-weight:400">Gemini free tier allows 15 scans/minute.</small>' : '');
+      document.getElementById('scanErrorBox').style.display = 'block';
+      return;
+    }
+    console.log('[ScanBill] Success — matched:', data.items?.length, 'unmatched:', data.unmatched?.length);
+    _scanData = data;
+    _renderScanResults(data);
+  }catch(e){
+    document.getElementById('scanLoading').style.display = 'none';
+    document.getElementById('scanUploadArea').style.display = 'block';
+    document.getElementById('scanAnalyzeBtn').style.display = 'block';
+    const msg = 'Network error — could not reach server. Try again.';
+    console.error('[ScanBill] Fetch error:', e);
+    document.getElementById('scanErrorBox').textContent = '⚠️ ' + msg;
+    document.getElementById('scanErrorBox').style.display = 'block';
+  }
+}
+
+function _renderScanResults(data){
+  const matched = data.items||[];
+  const unmatched = data.unmatched||[];
+
+  const mList = document.getElementById('scanMatchedList');
+  mList.innerHTML = '';
+
+  if(matched.length===0 && unmatched.length===0){
+    document.getElementById('scanNoMatches').style.display = 'block';
+    document.getElementById('scanApplyBtn').style.display = 'none';
+  } else {
+    document.getElementById('scanNoMatches').style.display = 'none';
+    document.getElementById('scanApplyBtn').style.display = 'block';
+    matched.forEach(item=>{
+      const div = document.createElement('div');
+      div.className = 'scan-result-item';
+      div.innerHTML = `<div><div style="font-weight:700">${esc(item.name)}</div><div style="font-size:.78em;color:var(--sub)">Rs.${(+item.retail_price).toFixed(2)} &nbsp;·&nbsp; TP: Rs.${(+item.tp).toFixed(2)}</div></div><div style="font-weight:800;color:var(--accent)">×${item.qty}</div>`;
+      mList.appendChild(div);
+    });
+  }
+
+  if(unmatched.length>0){
+    document.getElementById('scanUnmatchedSection').style.display = 'block';
+    const uList = document.getElementById('scanUnmatchedList');
+    uList.innerHTML = '';
+    unmatched.forEach(u=>{
+      const div = document.createElement('div');
+      div.className = 'scan-result-item unmatched';
+      div.innerHTML = `<div style="font-weight:600">${esc(u.name)}</div><div style="font-size:.8em;color:var(--sub)">×${u.qty}</div>`;
+      uList.appendChild(div);
+    });
+  } else {
+    document.getElementById('scanUnmatchedSection').style.display = 'none';
+  }
+
+  document.getElementById('scanResults').style.display = 'block';
+
+  // Auto-fill customer if matched and no customer selected yet
+  if(data.customer && !customer){
+    customers = [data.customer];
+    selectCustomer(data.customer.id);
+  }
+}
+
+function applyScanResults(){
+  if(!_scanData) return;
+  const matched   = _scanData.items||[];
+  const unmatched = _scanData.unmatched||[];
+  if(!matched.length && !unmatched.length){ closeScanModal(); return; }
+
+  // Add catalog-matched items
+  matched.forEach(item=>{
+    const qty = item.qty||1;
+    const existIdx = lines.findIndex(l=>l.item_id===item.id);
+    if(existIdx!==-1){
+      lines[existIdx].qty += qty;
+      calcLine(lines[existIdx]);
+    } else {
+      const line = {
+        item_id: item.id, item_name: item.name, item_code: item.code,
+        qty: qty, retail: +item.retail_price, tp: +item.tp,
+        disc: +item.discount_pct, bonus: item.bonus_text||'', tax: +item.tax_pct,
+        is_global: !!item.is_global, lineNet: 0
+      };
+      calcLine(line);
+      lines.push(line);
+    }
+  });
+
+  // Add unmatched items as custom lines (not in catalog)
+  unmatched.forEach(u=>{
+    const retail = u.retail || u.rate || 0;
+    const tp     = u.rate   || (retail ? +(retail*0.85).toFixed(2) : 0);
+    const line   = {
+      item_id: null, item_name: u.name, item_code: '',
+      qty: u.qty||1, retail: retail, tp: tp,
+      disc: u.disc_pct||0, bonus: '', tax: 0, lineNet: 0
+    };
+    calcLine(line);
+    lines.push(line);
+  });
+
+  renderLines();
+  recalc();
+  closeScanModal();
+  const total = matched.length + unmatched.length;
+  showToast(`Added ${total} item${total>1?'s':''} from bill (${matched.length} from catalog, ${unmatched.length} custom)`);
+}
 </script>
 </body>
 </html>

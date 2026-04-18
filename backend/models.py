@@ -73,10 +73,15 @@ class Settings(db.Model):
     admin_password_is_temp = db.Column(db.Boolean, default=False)
     admin_failed_attempts = db.Column(db.Integer, default=0)
     admin_locked_until = db.Column(db.DateTime, nullable=True)
+    groq_api_key = db.Column(db.String(200), nullable=True)
+    gemini_api_key = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
+        def _mask(k):
+            k = k or ''
+            return (k[:8] + '...' + k[-4:]) if len(k) > 12 else ('*' * len(k) if k else '')
         return {
             'id': self.id,
             'shop_name': self.shop_name,
@@ -88,6 +93,10 @@ class Settings(db.Model):
             'invoice_prefix': self.invoice_prefix,
             'admin_password_set': bool(self.admin_password_hash),
             'setup_completed': bool(self.shop_name and self.address and self.phone and self.whatsapp),
+            'groq_key_set': bool(self.groq_api_key),
+            'groq_key_masked': _mask(self.groq_api_key),
+            'gemini_key_set': bool(self.gemini_api_key),
+            'gemini_key_masked': _mask(self.gemini_api_key),
         }
 
 
