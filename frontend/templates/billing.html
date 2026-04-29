@@ -514,7 +514,11 @@ input[type=number]{-moz-appearance:textfield}
       <span style="font-size:1em;font-weight:700;color:var(--text)">Grand Total</span>
       <span style="font-size:1em;font-weight:700;color:#ef4444" id="mGrandTotal"></span>
     </div>
-    <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap" id="mActions"></div>
+    <label id="mShowSourceRow" style="display:none;align-items:center;gap:7px;margin-top:14px;padding:8px 12px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
+      <input type="checkbox" id="mShowSourceChk" style="margin:0;cursor:pointer">
+      <span>Show rate source on print/PDF</span>
+    </label>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap" id="mActions"></div>
   </div>
 </div>
 
@@ -842,7 +846,7 @@ function _renderItemDropdown(items, q){
     const qtyStr=qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
     return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span></div>
+      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}</div>
     </div>`;
   }).join('')+addRow;
   dd.classList.add('open');
@@ -927,6 +931,7 @@ function addLine(item){
     item_id:item.id, item_name:item.name, item_code:item.code,
     qty:1, retail:+item.retail_price, tp:+item.tp,
     disc:+item.discount_pct, bonus:item.bonus_text||'', tax:+item.tax_pct,
+    rate_source:item.rate_source||'',
     is_global:!!item.is_global,
     lineNet:0
   };
@@ -956,6 +961,7 @@ function renderLines(){
       <td>
         <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
         ${l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:''}
+        ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
       </td>
       <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
       <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
@@ -1232,7 +1238,7 @@ async function _guestSave(isDraft){
     customer_phone:'',customer_address:'',
     lines:lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus||'',
-      tax_pct:l.tax,line_net:l.lineNet})),
+      tax_pct:l.tax,rate_source:l.rate_source||'',line_net:l.lineNet})),
     subtotal:sub,tax_amount:tax,discount_amount:discAmt,total,
     previous_balance:0,status:isDraft?'draft':'posted'
   };
@@ -1266,7 +1272,8 @@ async function saveInvoice(){
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
     lines: lines.map(l=>({
       item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
-      qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax
+      qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
+      rate_source:l.rate_source||''
     }))
   };
   const isEdit = !!savedInvoiceId;
@@ -1306,7 +1313,7 @@ async function saveDraft(){
       customer_id: customer?customer.id:null,
       customer_name: typedName||'Walk-in',
       discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax}))
+      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||''}))
     };
     const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
     const method = savedInvoiceId ? 'PUT' : 'POST';
@@ -1492,6 +1499,7 @@ function _guestViewInvoice(id){
   const printPdfBtns=`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>`;
   acts.innerHTML=printPdfBtns+`<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+  _initShowSourceToggle(inv);
   document.getElementById('invModal').classList.add('open');
 }
 
@@ -1503,7 +1511,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('custSearch').value=inv.customer_name==='Walk-in'?'':inv.customer_name;
   lines=inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
     qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,
-    bonus:l.bonus_text||'',tax:+l.tax_pct,lineNet:+l.line_net}));
+    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',lineNet:+l.line_net}));
   document.getElementById('discountInp').value=(+inv.discount_amount).toFixed(2);
   document.getElementById('invNo').textContent='Invoice # '+inv.invoice_number;
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
@@ -1585,22 +1593,24 @@ async function viewInvoice(id){
     acts.innerHTML = `${sc?printPdfBtns:''}<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
   }
 
+  _initShowSourceToggle(inv);
   document.getElementById('invModal').classList.add('open');
 }
 
 function closeInvModal(){ document.getElementById('invModal').classList.remove('open'); }
 function closeInvModalBg(e){ if(e.target===document.getElementById('invModal')) closeInvModal(); }
 
-function buildInvoicePrintHtml(inv, forPdf){
+function buildInvoicePrintHtml(inv, forPdf, showRateSource){
   const s = settings;
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
   const accent = '#4f46e5';
   const rows = inv.lines.map((l,i)=>{
     const lineTotal = ((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
+    const srcHtml = (showRateSource && l.rate_source) ? `<br><span style="font-size:.72em;color:#888;font-weight:500">by ${esc(l.rate_source)}</span>` : '';
     return `<tr style="${i%2===1?'background:#f8f8ff':''}">
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
-      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}</td>
+      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}${srcHtml}</td>
       <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
@@ -1710,14 +1720,36 @@ function buildInvoicePrintHtml(inv, forPdf){
   </body></html>`;
 }
 
+function _showRateSourcePref(){
+  const c = document.getElementById('mShowSourceChk');
+  if(c){ try{ localStorage.setItem('billing_show_rate_source', c.checked ? '1' : '0'); }catch(e){} return c.checked; }
+  return false;
+}
+
+function _initShowSourceToggle(inv){
+  const row = document.getElementById('mShowSourceRow');
+  const chk = document.getElementById('mShowSourceChk');
+  if(!row || !chk) return;
+  const hasSrc = (inv.lines||[]).some(l => (l.rate_source||'').trim());
+  if(hasSrc){
+    let pref = '0';
+    try{ pref = localStorage.getItem('billing_show_rate_source') || '0'; }catch(e){}
+    chk.checked = (pref === '1');
+    row.style.display = 'flex';
+  } else {
+    chk.checked = false;
+    row.style.display = 'none';
+  }
+}
+
 function printInvoiceModal(){
   if(!currentInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false));
+  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false, _showRateSourcePref()));
 }
 
 function pdfInvoiceModal(){
   if(!currentInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true));
+  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref()));
 }
 
 async function postInvoice(id){
@@ -1766,6 +1798,7 @@ function loadIntoBuilder(id){
     disc: +l.discount_pct,
     bonus: l.bonus_text||'',
     tax: +l.tax_pct,
+    rate_source: l.rate_source||'',
     lineNet: +l.line_net
   }));
   document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
@@ -1885,7 +1918,8 @@ document.addEventListener('focusout',e=>{
               customer_name: (document.getElementById('custSearch').value.trim()) || 'Walk-in',
               discount_amount: parseFloat(document.getElementById('discountInp').value) || 0,
               lines: lines.map(l=>({item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
-                qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax}))
+                qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
+                rate_source:l.rate_source||''}))
             };
             const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
             await fetch(url, {method: savedInvoiceId ? 'PUT' : 'POST',

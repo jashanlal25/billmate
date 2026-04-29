@@ -265,7 +265,7 @@ function renderItems(items){
       <td data-label="Retail" class="num">Rs. ${(+i.retail_price).toFixed(2)}</td>
       <td data-label="TP" class="num">Rs. ${(+i.tp).toFixed(2)}</td>
       <td data-label="Tax" class="num" style="color:rgba(255,255,255,.5)">${(+i.tax_pct)>0?'Rs. '+(+i.tax_pct).toFixed(2):'—'}</td>
-      <td data-label="Bonus" style="color:rgba(255,255,255,.5)">${esc(i.bonus_text)||'—'}</td>
+      <td data-label="Bonus" style="color:rgba(255,255,255,.5)">${esc(i.bonus_text)||'—'}${i.rate_source?`<div style="font-size:.72em;color:rgba(255,255,255,.35);margin-top:2px">by ${esc(i.rate_source)}</div>`:''}</td>
       <td data-label="Actions">
         <button class="act-btn ab-edit" onclick="openEdit(${i.id})">Edit</button>
         <button class="act-btn ab-del" onclick="delItem(${i.id},'${esc(i.name)}')">Delete</button>

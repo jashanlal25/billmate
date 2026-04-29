@@ -438,6 +438,7 @@ function render(items){
         ${i.discount_pct>0?`<span class="badge badge-disc">${(+i.discount_pct).toFixed(1)}%</span> `:''}
         ${i.bonus_text?`<span class="badge badge-bonus">${esc(i.bonus_text)}</span>`:''}
         ${!i.discount_pct&&!i.bonus_text?'<span style="color:#ccc">—</span>':''}
+        ${i.rate_source?`<div style="font-size:.72em;color:var(--sub);margin-top:2px">by ${esc(i.rate_source)}</div>`:''}
       </td>
       <td><div><button class="btn btn-sm btn-edit" onclick="editItem('${sid}')">Edit</button>${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${sid}','${safeName}')">Del</button>` : ''}</div></td>
     </tr>`;

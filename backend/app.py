@@ -888,6 +888,57 @@ def superadmin_bulk_delete_items():
     db.session.commit()
     return jsonify({'deleted': count})
 
+def _parse_offer_cell(cell_text):
+    """
+    Parse a discount/price cell from supplier offer HTML.
+
+    Supplier files put either a discount percentage (e.g. "6.00%(waqas)") or a
+    flat trade price (e.g. "19000 NET(waqas)") in the same column, optionally
+    followed by an internal tag identifying who quoted the rate.
+
+    Returns: {disc_pct, tp_override, rate_source}
+      - disc_pct:    discount percent (None = leave existing values untouched)
+      - tp_override: flat trade price (None = no override)
+      - rate_source: trailing tag (e.g. 'waqas', ',', '.') or '' if absent
+    """
+    text = re.sub(r'\s+', ' ', cell_text or '').strip()
+    if not text:
+        return {'disc_pct': 0.0, 'tp_override': None, 'rate_source': ''}
+
+    rate_source = ''
+    m = re.search(r'\(([^)]*)\)\s*$', text)
+    if m:
+        rate_source = m.group(1).strip()
+        text = text[:m.start()].strip()
+    else:
+        m = re.search(r'''(["'`])(.+?)\1\s*$''', text)
+        if m:
+            rate_source = m.group(2).strip()
+            text = text[:m.start()].strip()
+
+    text_upper = text.upper()
+    nums = [float(x) for x in re.findall(r'[-+]?\d+(?:\.\d+)?', text)]
+
+    if 'NET' in text_upper:
+        return {'disc_pct': 0.0,
+                'tp_override': nums[0] if nums else 0.0,
+                'rate_source': rate_source}
+
+    if not nums:
+        if 'TP' in text_upper:
+            return {'disc_pct': None, 'tp_override': None, 'rate_source': rate_source}
+        return {'disc_pct': 0.0, 'tp_override': None, 'rate_source': rate_source}
+
+    if len(nums) >= 2 and '%' in text and nums[1] >= 100:
+        return {'disc_pct': nums[0], 'tp_override': nums[1], 'rate_source': rate_source}
+
+    val = nums[0]
+    if val >= 100 and '%' not in text:
+        return {'disc_pct': 0.0, 'tp_override': val, 'rate_source': rate_source}
+
+    return {'disc_pct': val, 'tp_override': None, 'rate_source': rate_source}
+
+
 @app.route('/api/superadmin/items/import', methods=['POST'])
 def superadmin_import_items():
     if not session.get('is_superadmin'):
@@ -927,7 +978,7 @@ def superadmin_import_items():
 
     added = updated = skipped = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source=''):
         nonlocal added, updated, skipped
         name = _clean(name)
         if not name:
@@ -936,20 +987,23 @@ def superadmin_import_items():
         key = name.lower()
         if key in existing_map:
             item = existing_map[key]
-            item.tp = tp
-            item.retail_price = retail
-            item.discount_pct = disc_pct
+            if disc_pct is not None:
+                item.tp = tp
+                item.retail_price = retail
+                item.discount_pct = disc_pct
+                item.tax_pct = tax_pct
             if bonus:
                 item.bonus_text = bonus
-            item.tax_pct = tax_pct
+            item.rate_source = rate_source or None
             updated += 1
         else:
             item = Item(
                 user_id=None, is_global=True,
                 code=_next_code(), name=name,
-                retail_price=retail, tp=tp,
-                discount_pct=disc_pct, bonus_text=bonus,
+                retail_price=retail or 0, tp=tp or 0,
+                discount_pct=disc_pct or 0, bonus_text=bonus,
                 tax_pct=tax_pct, qty=0,
+                rate_source=rate_source or None,
             )
             db.session.add(item)
             existing_map[key] = item
@@ -968,8 +1022,9 @@ def superadmin_import_items():
                 disc_pct = float(row.get('data-disc', 0) or 0)
                 bonus = _clean(row.get('data-bonus', '') or '')
                 tax_pct = float(row.get('data-tax', 0) or 0)
+                rate_source = _clean(row.get('data-source', '') or '')
                 retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source)
         else:
             for row in soup.find_all('tr', class_='item'):
                 tds = row.find_all('td')
@@ -977,16 +1032,22 @@ def superadmin_import_items():
                     continue
                 if len(tds) >= 8:
                     name     = _clean(tds[2].get_text())
-                    disc_pct = _num(tds[3].get_text())
-                    tp       = _num(tds[4].get_text())
+                    parsed   = _parse_offer_cell(tds[3].get_text())
+                    fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
                 else:
                     name     = _clean(tds[1].get_text())
-                    disc_pct = _num(tds[3].get_text())
+                    parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                    tp       = _num(tds[-1].get_text())
-                retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+                    fallback_tp = _num(tds[-1].get_text())
+
+                disc_pct     = parsed['disc_pct']
+                tp_override  = parsed['tp_override']
+                rate_source  = parsed['rate_source']
+                tp = tp_override if tp_override is not None else fallback_tp
+                retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
+                        rate_source=rate_source)
 
         db.session.commit()
     except Exception as e:
@@ -1753,7 +1814,7 @@ def import_items():
 
     added = updated = skipped = alongside_global = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct):
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source=''):
         nonlocal added, updated, skipped, alongside_global
         name = _clean(name)
         if not name:
@@ -1763,12 +1824,14 @@ def import_items():
         if key in existing_map:
             # Update the user's existing private item
             item = existing_map[key]
-            item.tp = tp
-            item.retail_price = retail
-            item.discount_pct = disc_pct
+            if disc_pct is not None:
+                item.tp = tp
+                item.retail_price = retail
+                item.discount_pct = disc_pct
+                item.tax_pct = tax_pct
             if bonus:
                 item.bonus_text = bonus
-            item.tax_pct = tax_pct
+            item.rate_source = rate_source or None
             updated += 1
         else:
             # Create a new private item for this user.
@@ -1777,9 +1840,10 @@ def import_items():
             item = Item(
                 user_id=uid, is_global=False,
                 code=_next_code(), name=name,
-                retail_price=retail, tp=tp,
-                discount_pct=disc_pct, bonus_text=bonus,
+                retail_price=retail or 0, tp=tp or 0,
+                discount_pct=disc_pct or 0, bonus_text=bonus,
                 tax_pct=tax_pct, qty=0,
+                rate_source=rate_source or None,
             )
             db.session.add(item)
             existing_map[key] = item  # prevent dupes within same file
@@ -1803,8 +1867,9 @@ def import_items():
                 disc_pct = float(row.get('data-disc', 0) or 0)
                 bonus = _clean(row.get('data-bonus', '') or '')
                 tax_pct = float(row.get('data-tax', 0) or 0)
+                rate_source = _clean(row.get('data-source', '') or '')
                 retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct)
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source)
         else:
             # Format B/C: classic HTM — <tr class="item">
             # STOCK (9 cols): SR# | Code | Name | Disc% | TP | Box | Pcs | Cost | Amt
@@ -1815,16 +1880,22 @@ def import_items():
                     continue
                 if len(tds) >= 8:
                     name     = _clean(tds[2].get_text())
-                    disc_pct = _num(tds[3].get_text())
-                    tp       = _num(tds[4].get_text())
+                    parsed   = _parse_offer_cell(tds[3].get_text())
+                    fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
                 else:
                     name     = _clean(tds[1].get_text())
-                    disc_pct = _num(tds[3].get_text())
+                    parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                    tp       = _num(tds[-1].get_text())
-                retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0)
+                    fallback_tp = _num(tds[-1].get_text())
+
+                disc_pct     = parsed['disc_pct']
+                tp_override  = parsed['tp_override']
+                rate_source  = parsed['rate_source']
+                tp = tp_override if tp_override is not None else fallback_tp
+                retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
+                        rate_source=rate_source)
 
         db.session.commit()
     except Exception as e:
@@ -2064,6 +2135,7 @@ def create_invoice():
             discount_pct=float(line_data.get('discount_pct', item.discount_pct if item else 0) or 0),
             bonus_text=line_data.get('bonus_text', item.bonus_text if item else '') or '',
             tax_pct=float(line_data.get('tax_pct', item.tax_pct if item else 0) or 0),
+            rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
         )
         line.calculate_line_net()
         db.session.add(line)
@@ -2133,6 +2205,7 @@ def update_invoice(inv_id):
             discount_pct=float(line_data.get('discount_pct', 0) or 0),
             bonus_text=line_data.get('bonus_text', '') or '',
             tax_pct=float(line_data.get('tax_pct', 0) or 0),
+            rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
         )
         line.calculate_line_net()
         db.session.add(line)
