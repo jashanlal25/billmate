@@ -128,6 +128,7 @@ class Item(db.Model):
     bonus_text = db.Column(db.String(100))                     # e.g. "5+5", "1 free on 10"
     tax_pct = db.Column(db.Numeric(5, 2), default=0)
     rate_source = db.Column(db.String(50))                     # internal note about who quoted the rate (e.g. "waqas")
+    vendor = db.Column(db.String(50))                          # business/vendor the item came from (e.g. "dosani")
     qty = db.Column(db.Numeric(10, 3), default=0)   # Stock quantity
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -150,6 +151,7 @@ class Item(db.Model):
             'bonus_text': self.bonus_text or '',
             'tax_pct': float(self.tax_pct or 0),
             'rate_source': self.rate_source or '',
+            'vendor': self.vendor or '',
             'qty': float(self.qty or 0),
             'is_active': self.is_active,
         }
@@ -384,6 +386,7 @@ class InvoiceLine(db.Model):
     bonus_text = db.Column(db.String(100))
     tax_pct = db.Column(db.Numeric(5, 2), default=0)
     rate_source = db.Column(db.String(50))   # snapshot of who quoted the rate
+    vendor = db.Column(db.String(50))        # snapshot of the vendor the item came from
     line_net = db.Column(db.Numeric(10, 2), nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -406,6 +409,7 @@ class InvoiceLine(db.Model):
             'bonus_text': self.bonus_text or '',
             'tax_pct': float(self.tax_pct or 0),
             'rate_source': self.rate_source or '',
+            'vendor': self.vendor or '',
             'line_net': float(self.line_net),
         }
 

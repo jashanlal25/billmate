@@ -196,9 +196,16 @@ input[type=number]{-moz-appearance:textfield}
         <input id="f_tax" type="number" step="0.01" min="0" placeholder="0.00">
       </div>
     </div>
-    <div class="form-group">
-      <label>Qty in Stock</label>
-      <input id="f_qty" type="number" step="0.001" min="0" placeholder="0">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Qty in Stock</label>
+        <input id="f_qty" type="number" step="0.001" min="0" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Vendor / Supplier</label>
+        <input id="f_vendor" placeholder="Pick existing or type new" maxlength="50" list="supplierList" autocomplete="off">
+        <datalist id="supplierList"></datalist>
+      </div>
     </div>
     {% if session.get('is_superadmin') %}
     <div class="form-group" id="globalToggleRow" style="background:rgba(124,58,237,.08);border:1.5px solid rgba(124,58,237,.25);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="document.getElementById('f_is_global').click()">
@@ -248,6 +255,11 @@ input[type=number]{-moz-appearance:textfield}
       <div id="importFileName" style="margin-top:10px;font-size:.85em;color:var(--accent);font-weight:600"></div>
     </div>
     <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
+    <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
+      <label>Vendor for these items</label>
+      <input id="importVendor" placeholder="e.g. dosani" maxlength="50">
+      <div style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename — edit if needed. Stamped on every item from this file.</div>
+    </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
     <div class="modal-footer" style="margin-top:16px">
       <button class="btn btn-cancel" onclick="closeImportModal()">Cancel</button>
@@ -281,9 +293,10 @@ function _importQuotaUsed(){ return parseInt(localStorage.getItem(_IQ_KEY)||'0')
 function _importQuotaIncrement(){ localStorage.setItem(_IQ_KEY, _importQuotaUsed()+1); }
 
 // ── Client-side HTM parser (mirrors server-side import logic) ─────────────────
-function _parseHtm(htmlText){
+function _parseHtm(htmlText, vendor){
   const doc = new DOMParser().parseFromString(htmlText,'text/html');
   const items=[];
+  vendor = (vendor||'').trim();
   function _clean(s){ return s ? s.replace(/\s+/g,' ').trim() : ''; }
   function _num(s){ const m=_clean(s).match(/[-+]?\d+\.?\d*/); return m?parseFloat(m[0]):0; }
   const itemRows=doc.querySelectorAll('tr.item-row');
@@ -297,7 +310,7 @@ function _parseHtm(htmlText){
       const bonus=_clean(row.dataset.bonus||'');
       const tax_pct=parseFloat(row.dataset.tax||0)||0;
       const retail=tp>0?Math.round(tp/0.85*100)/100:0;
-      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct});
+      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct,vendor});
     });
   } else {
     doc.querySelectorAll('tr.item').forEach(row=>{
@@ -313,7 +326,7 @@ function _parseHtm(htmlText){
         tp=_num(tds[tds.length-1].textContent);
       }
       const retail=tp>0?Math.round(tp/0.85*100)/100:0;
-      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0});
+      if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0,vendor});
     });
   }
   return items;
@@ -439,6 +452,7 @@ function render(items){
         ${i.bonus_text?`<span class="badge badge-bonus">${esc(i.bonus_text)}</span>`:''}
         ${!i.discount_pct&&!i.bonus_text?'<span style="color:#ccc">—</span>':''}
         ${i.rate_source?`<div style="font-size:.72em;color:var(--sub);margin-top:2px">by ${esc(i.rate_source)}</div>`:''}
+        ${i.vendor?`<div style="font-size:.72em;color:var(--accent);margin-top:2px">🏷 ${esc(i.vendor)}</div>`:''}
       </td>
       <td><div><button class="btn btn-sm btn-edit" onclick="editItem('${sid}')">Edit</button>${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${sid}','${safeName}')">Del</button>` : ''}</div></td>
     </tr>`;
@@ -462,6 +476,7 @@ function openModal(reset=true){
     document.getElementById('f_bonus').value = '';
     document.getElementById('f_tax').value = '';
     document.getElementById('f_qty').value = '';
+    document.getElementById('f_vendor').value = '';
     document.getElementById('f_category').value = '';
     const g=document.getElementById('f_is_global'); if(g) g.checked=false;
   }
@@ -484,6 +499,7 @@ function editItem(id){
   document.getElementById('f_bonus').value = i.bonus_text || '';
   document.getElementById('f_tax').value = i.tax_pct ? (+i.tax_pct).toFixed(2) : '';
   document.getElementById('f_qty').value = i.qty ? (+i.qty).toFixed(2) : '';
+  document.getElementById('f_vendor').value = i.vendor || '';
   document.getElementById('f_category').value = i.category_id || '';
   const g=document.getElementById('f_is_global'); if(g) g.checked=!!i.is_global;
   openModal(false);
@@ -500,16 +516,17 @@ async function saveItem(){
   const bonus = document.getElementById('f_bonus').value.trim();
   const tax = parseFloat(document.getElementById('f_tax').value)||0;
   const qty = parseFloat(document.getElementById('f_qty').value)||0;
+  const vendor = document.getElementById('f_vendor').value.trim();
 
   // Guest: save to localStorage only
   if(IS_GUEST || String(id).startsWith('li_')){
     const list = _guestItems();
     if(id){
       const idx = list.findIndex(x=>String(x.id)===String(id));
-      if(idx>=0){ list[idx].name=name; list[idx].retail_price=retail; list[idx].tp=tp; list[idx].discount_pct=disc; list[idx].bonus_text=bonus; list[idx].tax_pct=tax; list[idx].qty=qty; }
+      if(idx>=0){ list[idx].name=name; list[idx].retail_price=retail; list[idx].tp=tp; list[idx].discount_pct=disc; list[idx].bonus_text=bonus; list[idx].tax_pct=tax; list[idx].qty=qty; list[idx].vendor=vendor; }
     } else {
       list.push({id:'li_'+Date.now(), code:'LITEM'+String(list.length+1).padStart(4,'0'),
-        name, tp, retail_price:retail, discount_pct:disc, bonus_text:bonus, tax_pct:tax, qty, is_global:false});
+        name, tp, retail_price:retail, discount_pct:disc, bonus_text:bonus, tax_pct:tax, qty, vendor, is_global:false});
     }
     _guestSaveItems(list);
     toast(id?'Item updated!':'Item added!'); closeModal(); loadItems(document.getElementById('searchBox').value);
@@ -522,6 +539,7 @@ async function saveItem(){
     code: document.getElementById('f_code').value.trim(),
     name, retail_price: retail, tp,
     discount_pct: disc, bonus_text: bonus, tax_pct: tax, qty,
+    vendor,
     category_id: document.getElementById('f_category').value||null,
     is_global: globalChk ? globalChk.checked : false,
   };
@@ -529,7 +547,7 @@ async function saveItem(){
   const method = id ? 'PUT' : 'POST';
   const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const res = await r.json();
-  if(r.ok){ toast(id?'Item updated!':'Item added!'); _cacheClear(); closeModal(); loadItems(document.getElementById('searchBox').value); }
+  if(r.ok){ toast(id?'Item updated!':'Item added!'); _cacheClear(); closeModal(); loadItems(document.getElementById('searchBox').value); loadSupplierList(); }
   else{if(!_checkLocked(res))toast(res.error||'Error',true);}
 }
 
@@ -557,29 +575,51 @@ function toggleNav(){document.getElementById('navMenu').classList.toggle('open')
 function openBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.add('open'); }
 function closeBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.remove('open'); }
 
+let _bulkDeleting = false;
 async function doBulkDelete(scope){
+  if(_bulkDeleting) return;
   closeBulkDeleteModal();
   const label = scope === 'recent' ? 'items from the last 24 hours' : 'ALL your private items';
   if(!confirm(`Delete ${label}? This cannot be undone.`)) return;
-  const r = await fetch('/api/items/bulk-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
-  const res = await r.json();
-  if(r.ok){
-    toast(`Deleted ${res.deleted} item${res.deleted!==1?'s':''}`);
-    _cacheClear();
-    loadItems(document.getElementById('searchBox').value);
-  } else {
-    toast(res.error||'Error deleting', true);
+  _bulkDeleting = true;
+  toast('Deleting… please wait');
+  try{
+    const r = await fetch('/api/items/bulk-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
+    const res = await r.json();
+    if(r.ok){
+      toast(`Deleted ${res.deleted} item${res.deleted!==1?'s':''}`);
+      _cacheClear();
+      loadItems(document.getElementById('searchBox').value);
+    } else {
+      toast(res.error||'Error deleting', true);
+    }
+  }catch(e){
+    toast('Network error — items may not have been cleared. Refresh to check.', true);
+  }finally{
+    _bulkDeleting = false;
   }
 }
 
 // ── Import Modal ─────────────────────────────────────────────────────────────
 let _importFile = null;
 
+// Vendor = first word of the filename (e.g. "dosani OfferList.html" → "dosani")
+function _vendorFromFilename(fn){
+  return (fn || '').replace(/\.[^.]+$/,'').trim().split(/\s+/)[0].slice(0,50);
+}
+function _setImportVendor(fn){
+  const row = document.getElementById('importVendorRow');
+  const inp = document.getElementById('importVendor');
+  if(fn){ inp.value = _vendorFromFilename(fn); row.style.display = 'block'; }
+  else  { inp.value = ''; row.style.display = 'none'; }
+}
+
 function openImportModal(){
   _importFile = null;
   document.getElementById('importFileName').textContent = '';
   document.getElementById('importResult').style.display = 'none';
   document.getElementById('importFileInput').value = '';
+  _setImportVendor('');
   const btn = document.getElementById('importBtn');
   if(IS_GUEST){
     const used = _importQuotaUsed();
@@ -602,6 +642,7 @@ function closeImportOnBg(e){ if(e.target === document.getElementById('importModa
 function importFileChosen(input){
   _importFile = input.files[0] || null;
   document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
+  _setImportVendor(_importFile ? _importFile.name : '');
   const btn = document.getElementById('importBtn');
   btn.disabled = !_importFile;
   btn.style.opacity = _importFile ? '1' : '.5';
@@ -621,6 +662,7 @@ function importDrop(e){
   if(!file) return;
   _importFile = file;
   document.getElementById('importFileName').textContent = file.name;
+  _setImportVendor(file.name);
   const btn = document.getElementById('importBtn');
   btn.disabled = false; btn.style.opacity = '1';
   document.getElementById('importResult').style.display = 'none';
@@ -638,6 +680,7 @@ function _showImportResult(ok, msg){
 async function doImport(){
   if(!_importFile) return;
   const btn = document.getElementById('importBtn');
+  const vendor = (document.getElementById('importVendor').value || '').trim() || _vendorFromFilename(_importFile.name);
 
   // ── Guest: parse client-side, save to localStorage ──────────────────────────
   if(IS_GUEST){
@@ -646,7 +689,7 @@ async function doImport(){
     btn.disabled = true; btn.textContent = 'Importing…';
     try{
       const text = await _importFile.text();
-      const parsed = _parseHtm(text);
+      const parsed = _parseHtm(text, vendor);
       if(!parsed.length){ _showImportResult(false, 'No items found in file. Check file format.'); btn.disabled=false; btn.textContent='Import'; return; }
       const list = _guestItems();
       const map = {}; list.forEach(i=>{ map[i.name.toLowerCase()]=i; });
@@ -656,11 +699,12 @@ async function doImport(){
         if(map[key]){
           map[key].tp=p.tp; map[key].retail_price=p.retail_price; map[key].discount_pct=p.discount_pct;
           if(p.bonus_text) map[key].bonus_text=p.bonus_text; map[key].tax_pct=p.tax_pct;
+          if(p.vendor) map[key].vendor=p.vendor;
           updated++;
         } else {
           map[key]={id:'li_'+Date.now()+'_'+added, code:'LITEM'+String(list.length+added+1).padStart(4,'0'),
             name:p.name, tp:p.tp, retail_price:p.retail_price, discount_pct:p.discount_pct,
-            bonus_text:p.bonus_text, tax_pct:p.tax_pct, qty:0, is_global:false};
+            bonus_text:p.bonus_text, tax_pct:p.tax_pct, qty:0, vendor:p.vendor||'', is_global:false};
           added++;
         }
       });
@@ -680,6 +724,7 @@ async function doImport(){
   btn.disabled = true; btn.textContent = 'Importing…';
   const fd = new FormData();
   fd.append('file', _importFile);
+  fd.append('vendor', vendor);
   try{
     const r = await fetch('/api/items/import', {method:'POST', body: fd});
     const res = await r.json();
@@ -693,8 +738,19 @@ async function doImport(){
   btn.disabled = false; btn.textContent = 'Import';
 }
 
+// Populate the vendor/supplier autocomplete from existing suppliers
+function loadSupplierList(){
+  if(IS_GUEST) return;
+  fetch('/api/suppliers').then(r=>r.ok?r.json():[]).then(list=>{
+    const dl = document.getElementById('supplierList');
+    if(!dl) return;
+    dl.innerHTML = (list||[]).map(s=>`<option value="${esc(s.name)}">`).join('');
+  }).catch(()=>{});
+}
+
 loadCategories();
 loadItems();
+loadSupplierList();
 (function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});

@@ -154,6 +154,8 @@ def seed_defaults():
             from sqlalchemy import text
             db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS groq_api_key VARCHAR(200)"))
             db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS gemini_api_key VARCHAR(200)"))
+            db.session.execute(text("ALTER TABLE items ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
+            db.session.execute(text("ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -881,10 +883,8 @@ def superadmin_bulk_delete_items():
     if scope == 'recent':
         cutoff = datetime.utcnow() - timedelta(hours=24)
         query = query.filter(Item.created_at >= cutoff)
-    items = query.all()
-    count = len(items)
-    for item in items:
-        item.is_active = False
+    # Single bulk UPDATE — one round-trip instead of one per row (was timing out)
+    count = query.update({Item.is_active: False}, synchronize_session=False)
     db.session.commit()
     return jsonify({'deleted': count})
 
@@ -953,6 +953,12 @@ def superadmin_import_items():
     except Exception:
         return jsonify({'error': 'Could not read file'}), 400
 
+    # Vendor (business the file came from) — sent by the import dialog,
+    # defaults to the first word of the filename if not provided.
+    vendor = (request.form.get('vendor', '') or '').strip()[:50]
+    if not vendor:
+        vendor = os.path.splitext(f.filename)[0].strip().split(' ')[0][:50]
+
     # Load all existing global items once
     existing = Item.query.filter_by(is_global=True, is_active=True).all()
     existing_map = {item.name.lower(): item for item in existing}
@@ -995,6 +1001,8 @@ def superadmin_import_items():
             if bonus:
                 item.bonus_text = bonus
             item.rate_source = rate_source or None
+            if vendor:
+                item.vendor = vendor
             updated += 1
         else:
             item = Item(
@@ -1004,6 +1012,7 @@ def superadmin_import_items():
                 discount_pct=disc_pct or 0, bonus_text=bonus,
                 tax_pct=tax_pct, qty=0,
                 rate_source=rate_source or None,
+                vendor=vendor or None,
             )
             db.session.add(item)
             existing_map[key] = item
@@ -1377,8 +1386,12 @@ def add_item():
         tax_pct=float(data.get('tax_pct', 0) or 0),
         qty=float(data.get('qty', 0) or 0),
         category_id=data.get('category_id') or None,
+        vendor=(data.get('vendor', '') or '').strip()[:50] or None,
     )
     db.session.add(item)
+    # Auto-create a supplier record for the vendor (private items only)
+    if item.vendor and not is_global:
+        _ensure_supplier(item.vendor, uid)
     db.session.flush()
     # Per-user discount on global items stored separately
     if is_global and uid and disc_pct:
@@ -1456,6 +1469,10 @@ def update_item(iid):
         item.category_id = data['category_id'] or None
     if 'qty' in data:
         item.qty = float(data['qty'] or 0)
+    if 'vendor' in data:
+        item.vendor = (data['vendor'] or '').strip()[:50] or None
+        if item.vendor and not item.is_global:
+            _ensure_supplier(item.vendor, uid)
     db.session.commit()
     d = item.to_dict()
     if uid:
@@ -1744,10 +1761,9 @@ def bulk_delete_items():
         cutoff = datetime.utcnow() - timedelta(hours=24)
         query = query.filter(Item.created_at >= cutoff)
 
-    items = query.all()
-    count = len(items)
-    for item in items:
-        item.is_active = False
+    # Single bulk UPDATE — one round-trip to the DB instead of one per row.
+    # Row-by-row updates over a remote DB were slow enough to time out.
+    count = query.update({Item.is_active: False}, synchronize_session=False)
     db.session.commit()
     return jsonify({'deleted': count})
 
@@ -1777,6 +1793,14 @@ def import_items():
         return jsonify({'error': 'Could not read file'}), 400
 
     uid = session.get('user_id')
+    # Vendor (business the file came from) — sent by the import dialog,
+    # defaults to the first word of the filename if not provided.
+    vendor = (request.form.get('vendor', '') or '').strip()[:50]
+    if not vendor:
+        vendor = os.path.splitext(f.filename)[0].strip().split(' ')[0][:50]
+    # Make sure a supplier record exists for this vendor so it can be messaged later
+    if vendor:
+        _ensure_supplier(vendor, uid)
 
     # ── Load all existing user items once (single query) ──────────────────────
     existing_items = Item.query.filter_by(user_id=uid, is_active=True).all()
@@ -1832,6 +1856,8 @@ def import_items():
             if bonus:
                 item.bonus_text = bonus
             item.rate_source = rate_source or None
+            if vendor:
+                item.vendor = vendor
             updated += 1
         else:
             # Create a new private item for this user.
@@ -1844,6 +1870,7 @@ def import_items():
                 discount_pct=disc_pct or 0, bonus_text=bonus,
                 tax_pct=tax_pct, qty=0,
                 rate_source=rate_source or None,
+                vendor=vendor or None,
             )
             db.session.add(item)
             existing_map[key] = item  # prevent dupes within same file
@@ -2034,6 +2061,24 @@ def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_t
     db.session.flush()
     return item
 
+def _ensure_supplier(name, user_id):
+    """Find (case-insensitive) or create a per-user supplier by name. Returns the
+    Supplier, or None when name/user is missing. Used so every vendor on an item
+    has a real supplier record (with a phone slot) to message later."""
+    name = (name or '').strip()
+    if not name or not user_id:
+        return None
+    existing = Supplier.query.filter(
+        Supplier.user_id == user_id, Supplier.is_active == True,
+        Supplier.name.ilike(name)
+    ).first()
+    if existing:
+        return existing
+    s = Supplier(user_id=user_id, name=name)
+    db.session.add(s)
+    db.session.flush()
+    return s
+
 def _adjust_stock(lines, delta):
     """delta = -1 to deduct (on create/update), +1 to restore (on delete/cancel)."""
     for line in lines:
@@ -2136,6 +2181,7 @@ def create_invoice():
             bonus_text=line_data.get('bonus_text', item.bonus_text if item else '') or '',
             tax_pct=float(line_data.get('tax_pct', item.tax_pct if item else 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
+            vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
         )
         line.calculate_line_net()
         db.session.add(line)
@@ -2206,6 +2252,7 @@ def update_invoice(inv_id):
             bonus_text=line_data.get('bonus_text', '') or '',
             tax_pct=float(line_data.get('tax_pct', 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
+            vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
         )
         line.calculate_line_net()
         db.session.add(line)

@@ -400,11 +400,26 @@ input[type=number]{-moz-appearance:textfield}
     <div style="font-size:1.1em;font-weight:700;color:var(--text);margin-bottom:4px" id="psmTitle">Invoice Saved!</div>
     <div style="font-size:.85em;color:var(--sub);margin-bottom:20px" id="psmSub"></div>
     <div id="postSaveBtns" style="display:flex;flex-direction:column;gap:10px">
+      <label id="psShowVendorRow" style="display:none;align-items:center;gap:7px;padding:8px 12px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
+        <input type="checkbox" id="psShowVendorChk" style="margin:0;cursor:pointer">
+        <span>🏷 Show vendor on bill (print / PDF / WhatsApp)</span>
+      </label>
       <button class="mbtn mbtn-load setup-req" style="width:100%;padding:12px;font-size:.95em" onclick="printSavedBill()">🖨️ Print Bill</button>
       <button class="setup-req" onclick="shareWhatsApp()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#25d366;color:#fff;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s">📲 Share on WhatsApp</button>
       <button class="mbtn setup-req" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfSavedBill()">📄 PDF</button>
+      <button class="setup-req" id="psMsgVendorBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="openVendorMessage()">📦 Send items to suppliers (reorder)</button>
       <button class="mbtn mbtn-close" style="width:100%;padding:12px;font-size:.95em" onclick="closePostSave()">✕ Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Vendor reorder message modal -->
+<div class="overlay" id="vendorMsgModal" onclick="if(event.target===this)closeVendorMessage()">
+  <div class="modal" style="max-width:380px">
+    <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:4px">📦 Message a Vendor</div>
+    <div style="font-size:.83em;color:var(--sub);margin-bottom:16px">Pick a vendor to WhatsApp the items on this invoice that came from them — handy for restocking.</div>
+    <div id="vendorMsgList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <button class="mbtn mbtn-close" style="width:100%;padding:11px;font-size:.92em;margin-top:16px" onclick="closeVendorMessage()">✕ Cancel</button>
   </div>
 </div>
 
@@ -517,6 +532,10 @@ input[type=number]{-moz-appearance:textfield}
     <label id="mShowSourceRow" style="display:none;align-items:center;gap:7px;margin-top:14px;padding:8px 12px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
       <input type="checkbox" id="mShowSourceChk" style="margin:0;cursor:pointer">
       <span>Show rate source on print/PDF</span>
+    </label>
+    <label id="mShowVendorRow" style="display:none;align-items:center;gap:7px;margin-top:10px;padding:8px 12px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
+      <input type="checkbox" id="mShowVendorChk" style="margin:0;cursor:pointer">
+      <span>🏷 Show vendor on print/PDF</span>
     </label>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap" id="mActions"></div>
   </div>
@@ -846,7 +865,7 @@ function _renderItemDropdown(items, q){
     const qtyStr=qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
     return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}</div>
+      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}</span>`:''}</div>
     </div>`;
   }).join('')+addRow;
   dd.classList.add('open');
@@ -932,6 +951,7 @@ function addLine(item){
     qty:1, retail:+item.retail_price, tp:+item.tp,
     disc:+item.discount_pct, bonus:item.bonus_text||'', tax:+item.tax_pct,
     rate_source:item.rate_source||'',
+    vendor:item.vendor||'',
     is_global:!!item.is_global,
     lineNet:0
   };
@@ -962,6 +982,7 @@ function renderLines(){
         <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
         ${l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:''}
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
+        ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}</div>`:''}
       </td>
       <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
       <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
@@ -1238,7 +1259,7 @@ async function _guestSave(isDraft){
     customer_phone:'',customer_address:'',
     lines:lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus||'',
-      tax_pct:l.tax,rate_source:l.rate_source||'',line_net:l.lineNet})),
+      tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',line_net:l.lineNet})),
     subtotal:sub,tax_amount:tax,discount_amount:discAmt,total,
     previous_balance:0,status:isDraft?'draft':'posted'
   };
@@ -1253,6 +1274,7 @@ async function _guestSave(isDraft){
   } else {
     document.getElementById('psmTitle').textContent=isEdit?'Invoice Updated!':'Invoice Saved!';
     document.getElementById('psmSub').textContent=inv.invoice_number+(inv.customer_name&&inv.customer_name!=='Walk-in'?' · '+inv.customer_name:'');
+    _initPostSaveVendorUI(inv);
     document.getElementById('postSaveModal').classList.add('open');
     closeSummary();
   }
@@ -1273,7 +1295,7 @@ async function saveInvoice(){
     lines: lines.map(l=>({
       item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
       qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-      rate_source:l.rate_source||''
+      rate_source:l.rate_source||'', vendor:l.vendor||''
     }))
   };
   const isEdit = !!savedInvoiceId;
@@ -1292,6 +1314,7 @@ async function saveInvoice(){
     lastSavedIsEdit = isEdit;
     document.getElementById('psmTitle').textContent = isEdit ? 'Invoice Updated!' : 'Invoice Saved!';
     document.getElementById('psmSub').textContent = inv.invoice_number + (inv.customer_name && inv.customer_name!=='Walk-in' ? ' · ' + inv.customer_name : '');
+    _initPostSaveVendorUI(inv);
     document.getElementById('postSaveModal').classList.add('open');
     closeSummary();
   } else{if(!_checkLocked(inv))toast(inv.error||'Error saving',true);}
@@ -1313,7 +1336,7 @@ async function saveDraft(){
       customer_id: customer?customer.id:null,
       customer_name: typedName||'Walk-in',
       discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||''}))
+      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||''}))
     };
     const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
     const method = savedInvoiceId ? 'PUT' : 'POST';
@@ -1361,14 +1384,31 @@ function _openInvoiceWindow(html){
   ifr.src = URL.createObjectURL(blob);
 }
 
+function _psShowVendor(){
+  const c = document.getElementById('psShowVendorChk');
+  return !!(c && c.checked);
+}
+
 function printSavedBill(){
   if(!lastSavedInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), false));
+  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), false, false, _psShowVendor()));
 }
 
 function pdfSavedBill(){
   if(!lastSavedInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true));
+  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true, false, _psShowVendor()));
+}
+
+// Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
+function _initPostSaveVendorUI(inv){
+  const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
+  const row = document.getElementById('psShowVendorRow');
+  const chk = document.getElementById('psShowVendorChk');
+  const btn = document.getElementById('psMsgVendorBtn');
+  if(chk) chk.checked = false;
+  if(row) row.style.display = hasVendor ? 'flex' : 'none';
+  if(btn) btn.style.display = hasVendor ? 'block' : 'none';
+  if(hasVendor) _prefetchVendorSuppliers();
 }
 
 function shareWhatsApp(){
@@ -1382,11 +1422,14 @@ function shareWhatsApp(){
   msg += `Invoice: ${inv.invoice_number}  |  ${inv.invoice_date||''}\n`;
   if(inv.customer_name && inv.customer_name!=='Walk-in') msg += `Customer: ${inv.customer_name}\n`;
   msg += `\n`;
+  const showVendor = _psShowVendor();
   lines.forEach(l=>{
     const lineTotal = (l.lineNet+l.qty*l.tax).toFixed(2);
     msg += `• ${l.item_name}`;
     if(l.qty>1) msg += ` ×${l.qty}`;
-    msg += `  Rs.${lineTotal}\n`;
+    msg += `  Rs.${lineTotal}`;
+    if(showVendor && l.vendor) msg += `  🏷${l.vendor}`;
+    msg += `\n`;
   });
   msg += `\nSubtotal: Rs.${sub.toFixed(2)}`;
   if(tax>0) msg += `\nTax: Rs.${tax.toFixed(2)}`;
@@ -1398,6 +1441,88 @@ function shareWhatsApp(){
   }
   if(settings.phone) msg += `\n\n${settings.shop_name||''} · ${settings.phone}`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ── Message vendors/suppliers with their items on this invoice (reorder) ──────
+let _vendorSuppliers = [];
+function _vendorGroups(){
+  const inv = lastSavedInv;
+  const groups = {};
+  ((inv&&inv.lines)||lines).forEach(l=>{
+    const v = (l.vendor||'').trim();
+    if(!v) return;
+    (groups[v] = groups[v] || []).push(l);
+  });
+  return groups;
+}
+function _vendorPhone(vendor){
+  const match = (_vendorSuppliers||[]).find(s => (s.name||'').trim().toLowerCase() === vendor.toLowerCase());
+  return (match && match.phone) ? (match.phone||'').replace(/[^\d]/g,'') : '';
+}
+function _vendorReorderUrl(vendor, items){
+  const inv = lastSavedInv;
+  let msg = `*Reorder from ${vendor}*\n`;
+  if(settings.shop_name) msg += `${settings.shop_name}\n`;
+  if(inv && inv.invoice_number) msg += `Ref: ${inv.invoice_number}\n`;
+  msg += `\n`;
+  items.forEach(l=>{
+    const q = (+l.qty)%1 ? (+l.qty).toFixed(2) : (+l.qty).toFixed(0);
+    msg += `• ${l.item_name} ×${q}\n`;
+  });
+  if(settings.phone) msg += `\n${settings.shop_name||''} · ${settings.phone}`;
+  const phone = _vendorPhone(vendor);
+  return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
+}
+
+function _prefetchVendorSuppliers(){
+  if(IS_GUEST) return;
+  fetch('/api/suppliers').then(r=>r.ok?r.json():[]).then(d=>{_vendorSuppliers=d||[];
+    if(document.getElementById('vendorMsgModal').classList.contains('open')) _renderVendorMsgList();
+  }).catch(()=>{});
+}
+function _renderVendorMsgList(){
+  const groups = _vendorGroups();
+  const vendors = Object.keys(groups);
+  const box = document.getElementById('vendorMsgList');
+  const allBtn = vendors.length>1
+    ? `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:700" onclick="sendAllVendorMessages()">📨 Send to ALL ${vendors.length} suppliers</button>
+       <div style="font-size:.75em;color:var(--sub);text-align:center;margin:2px 0 6px">Opens one chat per supplier — tap send in each. Allow pop-ups for this site.</div>`
+    : '';
+  box.innerHTML = allBtn + vendors.map(v=>{
+    const n = groups[v].length;
+    const hasPhone = !!_vendorPhone(v);
+    return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${JSON.stringify(v).replace(/"/g,'&quot;')})">🏷 ${esc(v)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${hasPhone?'':' · ⚠ no phone'}</span></button>`;
+  }).join('');
+}
+function openVendorMessage(){
+  if(!lastSavedInv) return;
+  if(!Object.keys(_vendorGroups()).length){ toast('No vendor on these items',true); return; }
+  _renderVendorMsgList();
+  document.getElementById('vendorMsgModal').classList.add('open');
+  _prefetchVendorSuppliers();
+}
+function closeVendorMessage(){ document.getElementById('vendorMsgModal').classList.remove('open'); }
+
+function sendVendorMessage(vendor){
+  if(!lastSavedInv) return;
+  const items = _vendorGroups()[vendor]||[];
+  if(!items.length) return;
+  window.open(_vendorReorderUrl(vendor, items),'_blank');
+}
+
+function sendAllVendorMessages(){
+  if(!lastSavedInv) return;
+  const groups = _vendorGroups();
+  const vendors = Object.keys(groups);
+  let opened = 0;
+  // Open synchronously inside the click gesture for the best chance vs pop-up blockers
+  vendors.forEach(v=>{ if(window.open(_vendorReorderUrl(v, groups[v]),'_blank')) opened++; });
+  if(opened < vendors.length){
+    toast(`Opened ${opened}/${vendors.length}. Allow pop-ups, or tap each supplier below.`,true);
+  } else {
+    toast(`Opened ${vendors.length} supplier chats — tap send in each`);
+    closeVendorMessage();
+  }
 }
 
 function printBill(){window.print();}
@@ -1511,7 +1636,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('custSearch').value=inv.customer_name==='Walk-in'?'':inv.customer_name;
   lines=inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
     qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,
-    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',lineNet:+l.line_net}));
+    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',lineNet:+l.line_net}));
   document.getElementById('discountInp').value=(+inv.discount_amount).toFixed(2);
   document.getElementById('invNo').textContent='Invoice # '+inv.invoice_number;
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
@@ -1600,7 +1725,7 @@ async function viewInvoice(id){
 function closeInvModal(){ document.getElementById('invModal').classList.remove('open'); }
 function closeInvModalBg(e){ if(e.target===document.getElementById('invModal')) closeInvModal(); }
 
-function buildInvoicePrintHtml(inv, forPdf, showRateSource){
+function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor){
   const s = settings;
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
@@ -1608,9 +1733,10 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource){
   const rows = inv.lines.map((l,i)=>{
     const lineTotal = ((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
     const srcHtml = (showRateSource && l.rate_source) ? `<br><span style="font-size:.72em;color:#888;font-weight:500">by ${esc(l.rate_source)}</span>` : '';
+    const venHtml = (showVendor && l.vendor) ? `<br><span style="font-size:.72em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}</span>` : '';
     return `<tr style="${i%2===1?'background:#f8f8ff':''}">
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
-      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}${srcHtml}</td>
+      <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}${srcHtml}${venHtml}</td>
       <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
@@ -1726,30 +1852,51 @@ function _showRateSourcePref(){
   return false;
 }
 
+function _showVendorPref(){
+  const c = document.getElementById('mShowVendorChk');
+  if(c){ try{ localStorage.setItem('billing_show_vendor', c.checked ? '1' : '0'); }catch(e){} return c.checked; }
+  return false;
+}
+
 function _initShowSourceToggle(inv){
   const row = document.getElementById('mShowSourceRow');
   const chk = document.getElementById('mShowSourceChk');
-  if(!row || !chk) return;
-  const hasSrc = (inv.lines||[]).some(l => (l.rate_source||'').trim());
-  if(hasSrc){
-    let pref = '0';
-    try{ pref = localStorage.getItem('billing_show_rate_source') || '0'; }catch(e){}
-    chk.checked = (pref === '1');
-    row.style.display = 'flex';
-  } else {
-    chk.checked = false;
-    row.style.display = 'none';
+  if(row && chk){
+    const hasSrc = (inv.lines||[]).some(l => (l.rate_source||'').trim());
+    if(hasSrc){
+      let pref = '0';
+      try{ pref = localStorage.getItem('billing_show_rate_source') || '0'; }catch(e){}
+      chk.checked = (pref === '1');
+      row.style.display = 'flex';
+    } else {
+      chk.checked = false;
+      row.style.display = 'none';
+    }
+  }
+  const vrow = document.getElementById('mShowVendorRow');
+  const vchk = document.getElementById('mShowVendorChk');
+  if(vrow && vchk){
+    const hasVen = (inv.lines||[]).some(l => (l.vendor||'').trim());
+    if(hasVen){
+      let pref = '0';
+      try{ pref = localStorage.getItem('billing_show_vendor') || '0'; }catch(e){}
+      vchk.checked = (pref === '1');
+      vrow.style.display = 'flex';
+    } else {
+      vchk.checked = false;
+      vrow.style.display = 'none';
+    }
   }
 }
 
 function printInvoiceModal(){
   if(!currentInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false, _showRateSourcePref()));
+  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false, _showRateSourcePref(), _showVendorPref()));
 }
 
 function pdfInvoiceModal(){
   if(!currentInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref()));
+  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref()));
 }
 
 async function postInvoice(id){
@@ -1799,6 +1946,7 @@ function loadIntoBuilder(id){
     bonus: l.bonus_text||'',
     tax: +l.tax_pct,
     rate_source: l.rate_source||'',
+    vendor: l.vendor||'',
     lineNet: +l.line_net
   }));
   document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
@@ -1919,7 +2067,7 @@ document.addEventListener('focusout',e=>{
               discount_amount: parseFloat(document.getElementById('discountInp').value) || 0,
               lines: lines.map(l=>({item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
                 qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-                rate_source:l.rate_source||''}))
+                rate_source:l.rate_source||'', vendor:l.vendor||''}))
             };
             const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
             await fetch(url, {method: savedInvoiceId ? 'PUT' : 'POST',
