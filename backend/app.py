@@ -973,9 +973,10 @@ def superadmin_import_items():
     if not vendor:
         vendor = os.path.splitext(f.filename)[0].strip().split(' ')[0][:50]
 
-    # Load all existing global items once
+    # Load all existing global items once — keyed by (name, vendor) so that
+    # importing the same item from a different vendor creates a new row.
     existing = Item.query.filter_by(is_global=True, is_active=True).all()
-    existing_map = {item.name.lower(): item for item in existing}
+    existing_map = {(item.name.lower(), (item.vendor or '').lower()): item for item in existing}
     # Include soft-deleted global items in used_codes to avoid unique constraint violations
     used_codes = {r[0] for r in Item.query.filter_by(is_global=True).with_entities(Item.code).all()}
     code_counter = len(used_codes)
@@ -998,13 +999,13 @@ def superadmin_import_items():
 
     added = updated = skipped = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source=''):
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0):
         nonlocal added, updated, skipped
         name = _clean(name)
         if not name:
             skipped += 1
             return
-        key = name.lower()
+        key = (name.lower(), (vendor or '').lower())
         if key in existing_map:
             item = existing_map[key]
             if disc_pct is not None:
@@ -1017,6 +1018,8 @@ def superadmin_import_items():
             item.rate_source = rate_source or None
             if vendor:
                 item.vendor = vendor
+            if stock_qty > 0:
+                item.qty = stock_qty
             updated += 1
         else:
             item = Item(
@@ -1024,7 +1027,7 @@ def superadmin_import_items():
                 code=_next_code(), name=name,
                 retail_price=retail or 0, tp=tp or 0,
                 discount_pct=disc_pct or 0, bonus_text=bonus,
-                tax_pct=tax_pct, qty=0,
+                tax_pct=tax_pct, qty=stock_qty or 0,
                 rate_source=rate_source or None,
                 vendor=vendor or None,
             )
@@ -1058,11 +1061,13 @@ def superadmin_import_items():
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
+                    stock_qty = _num(tds[5].get_text()) if len(tds) >= 9 else 0
                 else:
                     name     = _clean(tds[1].get_text())
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
                     fallback_tp = _num(tds[-1].get_text())
+                    stock_qty = 0
 
                 disc_pct     = parsed['disc_pct']
                 tp_override  = parsed['tp_override']
@@ -1070,7 +1075,7 @@ def superadmin_import_items():
                 tp = tp_override if tp_override is not None else fallback_tp
                 retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
-                        rate_source=rate_source)
+                        rate_source=rate_source, stock_qty=stock_qty)
 
         db.session.commit()
     except Exception as e:
@@ -1828,8 +1833,9 @@ def import_items():
 
     # ── Load all existing user items once (single query) ──────────────────────
     existing_items = Item.query.filter_by(user_id=uid, is_active=True).all()
-    # keyed by lowercase name for O(1) lookup
-    existing_map = {item.name.lower(): item for item in existing_items}
+    # keyed by (name, vendor) so importing the same item from a different
+    # vendor creates a new row instead of overwriting the existing one.
+    existing_map = {(item.name.lower(), (item.vendor or '').lower()): item for item in existing_items}
     # collect ALL codes (including soft-deleted) to avoid unique constraint violations
     used_codes = {r[0] for r in Item.query.filter_by(user_id=uid).with_entities(Item.code).all()}
     # running counter for new codes
@@ -1862,13 +1868,13 @@ def import_items():
 
     added = updated = skipped = alongside_global = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source=''):
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0):
         nonlocal added, updated, skipped, alongside_global
         name = _clean(name)
         if not name:
             skipped += 1
             return
-        key = name.lower()
+        key = (name.lower(), (vendor or '').lower())
         if key in existing_map:
             # Update the user's existing private item
             item = existing_map[key]
@@ -1882,6 +1888,8 @@ def import_items():
             item.rate_source = rate_source or None
             if vendor:
                 item.vendor = vendor
+            if stock_qty > 0:
+                item.qty = stock_qty
             updated += 1
         else:
             # Create a new private item for this user.
@@ -1892,13 +1900,13 @@ def import_items():
                 code=_next_code(), name=name,
                 retail_price=retail or 0, tp=tp or 0,
                 discount_pct=disc_pct or 0, bonus_text=bonus,
-                tax_pct=tax_pct, qty=0,
+                tax_pct=tax_pct, qty=stock_qty or 0,
                 rate_source=rate_source or None,
                 vendor=vendor or None,
             )
             db.session.add(item)
             existing_map[key] = item  # prevent dupes within same file
-            if key in global_names:
+            if name.lower() in global_names:
                 alongside_global += 1
             added += 1
 
@@ -1934,11 +1942,13 @@ def import_items():
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
+                    stock_qty = _num(tds[5].get_text()) if len(tds) >= 9 else 0
                 else:
                     name     = _clean(tds[1].get_text())
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
                     fallback_tp = _num(tds[-1].get_text())
+                    stock_qty = 0
 
                 disc_pct     = parsed['disc_pct']
                 tp_override  = parsed['tp_override']
@@ -1946,7 +1956,7 @@ def import_items():
                 tp = tp_override if tp_override is not None else fallback_tp
                 retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
-                        rate_source=rate_source)
+                        rate_source=rate_source, stock_qty=stock_qty)
 
         db.session.commit()
     except Exception as e:
