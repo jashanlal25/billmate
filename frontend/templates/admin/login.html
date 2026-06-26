@@ -26,7 +26,8 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
 <div class="card">
   <div class="icon">🛡️</div>
   <div class="title">Admin Login</div>
-  <div class="sub">Enter your admin password</div>
+  {% if username %}<div class="sub">Logged in as <strong style="color:#667eea">{{ username }}</strong> · enter your admin password</div>
+  {% else %}<div class="sub">Enter your admin password</div>{% endif %}
   <form id="loginForm">
     <div class="field">
       <label for="password">Admin Password</label>

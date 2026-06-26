@@ -115,7 +115,7 @@ textarea{resize:vertical;min-height:70px}
 <div class="container">
   <div class="top-bar">
     <h1>👥 Customers</h1>
-    <input class="search-box" id="searchBox" placeholder="Search by name or phone..." oninput="search(this.value)">
+    <input class="search-box" id="searchBox" placeholder="Search by name, code or phone..." oninput="search(this.value)">
     <button class="btn" onclick="openModal()">+ Add Customer</button>
   </div>
   <div class="card">
@@ -142,6 +142,10 @@ textarea{resize:vertical;min-height:70px}
   <div class="modal">
     <h2 id="modalTitle">Add Customer</h2>
     <input type="hidden" id="editId">
+    <div class="form-group" id="f_code_row" style="display:none">
+      <label>Customer Code</label>
+      <input id="f_code" readonly style="background:var(--inp);color:var(--accent);font-weight:700;font-family:monospace">
+    </div>
     <div class="form-group">
       <label>Full Name *</label>
       <input id="f_name" placeholder="Customer or shop name" oninput="this.value=toTitleCase(this.value)">
@@ -160,9 +164,15 @@ textarea{resize:vertical;min-height:70px}
       <label>Address</label>
       <textarea id="f_addr" placeholder="Shop / delivery address"></textarea>
     </div>
-    <div class="form-group">
-      <label>Credit Limit (Rs.)</label>
-      <input id="f_credit" type="number" step="0.01" min="0" placeholder="0 = cash only">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Credit Limit (Rs.)</label>
+        <input id="f_credit" type="number" step="0.01" min="0" placeholder="0 = cash only">
+      </div>
+      <div class="form-group">
+        <label>Opening Balance (Rs.)</label>
+        <input id="f_opening" type="number" step="0.01" placeholder="0" title="What they already owed you before using this app">
+      </div>
     </div>
     <div class="form-group">
       <label>Notes</label>
@@ -241,7 +251,7 @@ function render(list){
   }
   body.innerHTML = list.map(c=>`
     <tr>
-      <td data-label="Name" style="font-weight:600">${esc(c.name)}</td>
+      <td data-label="Name" style="font-weight:600">${esc(c.name)}${c.code?`<div style="font-size:.72em;color:var(--accent);font-family:monospace;font-weight:700">${esc(c.code)}</div>`:''}</td>
       <td data-label="Phone">${esc(c.phone)||'—'}</td>
       <td data-label="WhatsApp">${c.whatsapp?`<a href="https://wa.me/${encodeURIComponent(c.whatsapp)}" target="_blank" style="color:#25d366">${esc(c.whatsapp)}</a>`:'—'}</td>
       <td data-label="Address" style="font-size:.85em;color:#888;max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.address)||'—'}</td>
@@ -259,7 +269,8 @@ function openModal(reset=true){
   if(reset){
     document.getElementById('modalTitle').textContent = 'Add Customer';
     document.getElementById('editId').value='';
-    ['f_name','f_phone','f_wa','f_addr','f_credit','f_notes'].forEach(id=>document.getElementById(id).value='');
+    ['f_name','f_phone','f_wa','f_addr','f_credit','f_opening','f_notes','f_code'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f_code_row').style.display='none';
   }
   document.getElementById('modal').classList.add('open');
 }
@@ -276,7 +287,9 @@ function editCustomer(id){
   document.getElementById('f_wa').value=c.whatsapp||'';
   document.getElementById('f_addr').value=c.address||'';
   document.getElementById('f_credit').value=c.credit_limit||'';
+  document.getElementById('f_opening').value=c.opening_balance||'';
   document.getElementById('f_notes').value=c.notes||'';
+  if(c.code){ document.getElementById('f_code').value=c.code; document.getElementById('f_code_row').style.display='block'; }
   openModal(false);
 }
 
@@ -290,6 +303,7 @@ async function saveCustomer(){
     whatsapp:document.getElementById('f_wa').value.trim(),
     address:document.getElementById('f_addr').value.trim(),
     credit_limit:parseFloat(document.getElementById('f_credit').value)||0,
+    opening_balance:parseFloat(document.getElementById('f_opening').value)||0,
     notes:document.getElementById('f_notes').value.trim(),
   };
   const url=id?`/api/customers/${id}`:'/api/customers';
@@ -310,7 +324,7 @@ async function deleteCustomer(id,name){
 function viewCustomer(id){
   const c = allCustomers.find(x=>x.id===id);
   if(!c) return;
-  document.getElementById('vm_name').textContent = c.name;
+  document.getElementById('vm_name').innerHTML = esc(c.name) + (c.code?` <span style="font-size:.6em;color:var(--accent);font-family:monospace">${esc(c.code)}</span>`:'');
   document.getElementById('vm_phone').textContent = c.phone||'—';
   document.getElementById('vm_wa').textContent = c.whatsapp||'—';
   document.getElementById('vm_addr').textContent = c.address||'—';

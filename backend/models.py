@@ -214,11 +214,13 @@ class Customer(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    code = db.Column(db.String(20), index=True)          # unique per user, e.g. CUST-0001
     name = db.Column(db.String(150), nullable=False)
     phone = db.Column(db.String(30))
     whatsapp = db.Column(db.String(30))
     address = db.Column(db.Text)
     credit_limit = db.Column(db.Numeric(10, 2), default=0)
+    opening_balance = db.Column(db.Numeric(10, 2), default=0)  # starting balance before any invoices
     balance = db.Column(db.Numeric(10, 2), default=0)   # positive = customer owes you
     notes = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
@@ -230,11 +232,13 @@ class Customer(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'code': self.code or '',
             'name': self.name,
             'phone': self.phone or '',
             'whatsapp': self.whatsapp or '',
             'address': self.address or '',
             'credit_limit': float(self.credit_limit or 0),
+            'opening_balance': float(self.opening_balance or 0),
             'balance': float(self.balance or 0),
             'notes': self.notes or '',
             'is_active': self.is_active,
@@ -246,10 +250,12 @@ class Supplier(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    code = db.Column(db.String(20), index=True)          # unique per user, e.g. SUPP-0001
     name = db.Column(db.String(150), nullable=False)
     phone = db.Column(db.String(30))
     address = db.Column(db.Text)
     notes = db.Column(db.Text)
+    opening_balance = db.Column(db.Numeric(10, 2), default=0)  # starting balance before any purchases
     balance = db.Column(db.Numeric(10, 2), default=0)  # positive = you owe supplier
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -257,10 +263,12 @@ class Supplier(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'code': self.code or '',
             'name': self.name,
             'phone': self.phone or '',
             'address': self.address or '',
             'notes': self.notes or '',
+            'opening_balance': float(self.opening_balance or 0),
             'balance': float(self.balance or 0),
         }
 

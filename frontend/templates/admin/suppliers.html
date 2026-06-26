@@ -5,7 +5,7 @@
 {% block content_main %}
 <div class="section-header">
   <div class="section-title">🏭 Suppliers</div>
-  <input class="search-box" id="supSearch" placeholder="Search by name or phone..." oninput="supFilter(this.value)">
+  <input class="search-box" id="supSearch" placeholder="Search by name, code or phone..." oninput="supFilter(this.value)">
   <button onclick="openSupAdd()" style="padding:9px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">+ Add Supplier</button>
 </div>
 <div class="card">
@@ -24,9 +24,17 @@
   <div class="modal">
     <h2 id="supModalTitle" style="color:var(--text);margin-bottom:20px">Add Supplier</h2>
     <input type="hidden" id="sEditId">
+    <div style="margin-bottom:14px;display:none" id="s_code_row">
+      <label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Supplier Code</label>
+      <input id="s_code" readonly style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--accent);font-weight:700;font-family:monospace;font-size:.9em;outline:none">
+    </div>
     <div style="margin-bottom:14px">
       <label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Full Name *</label>
       <input id="s_name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none" oninput="this.value=toTitleCase(this.value)">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Opening Balance (Rs.)</label>
+      <input id="s_opening" type="number" step="0.01" placeholder="0" title="What you already owed this supplier before using the app" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none">
     </div>
     <div style="margin-bottom:14px">
       <label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Phone</label>
@@ -79,7 +87,7 @@ async function loadSuppliers(){
 
 function supFilter(q){
   const s=q.toLowerCase();
-  renderSuppliers(allSuppliers.filter(c=>c.name.toLowerCase().includes(s)||(c.phone||'').includes(s)));
+  renderSuppliers(allSuppliers.filter(c=>c.name.toLowerCase().includes(s)||(c.phone||'').includes(s)||(c.code||'').toLowerCase().includes(s)));
 }
 
 function renderSuppliers(list){
@@ -87,10 +95,10 @@ function renderSuppliers(list){
   if(!list.length){body.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">🏭</div>No suppliers found.</div></td></tr>`;return;}
   body.innerHTML=list.map(s=>`
     <tr>
-      <td data-label="Name" style="font-weight:600">${esc(s.name)}</td>
+      <td data-label="Name" style="font-weight:600">${esc(s.name)}${s.code?`<div style="font-size:.72em;color:var(--accent);font-family:monospace;font-weight:700">${esc(s.code)}</div>`:''}</td>
       <td data-label="Phone">${esc(s.phone)||'—'}</td>
       <td data-label="Address" style="font-size:.85em;color:var(--sub)">${esc(s.address)||'—'}</td>
-      <td data-label="Notes" style="font-size:.85em;color:var(--sub)">${esc(s.notes)||'—'}</td>
+      <td data-label="Notes" style="font-size:.85em;color:var(--sub)">${esc(s.notes)||'—'}${(+s.balance)?`<div style="font-size:.78em;color:${(+s.balance)>0?'#ef4444':'#888'};font-weight:600">Bal: Rs.${(+s.balance).toFixed(2)}</div>`:''}</td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap">
           <button class="act-btn ab-view" onclick="viewSup(${s.id})">View</button>
@@ -104,7 +112,7 @@ function renderSuppliers(list){
 function viewSup(id){
   const s=allSuppliers.find(x=>x.id===id);
   if(!s) return;
-  document.getElementById('sv_name').textContent=s.name;
+  document.getElementById('sv_name').innerHTML=esc(s.name)+(s.code?` <span style="font-size:.6em;color:var(--accent);font-family:monospace">${esc(s.code)}</span>`:'');
   document.getElementById('sv_phone').textContent=s.phone||'—';
   document.getElementById('sv_address').textContent=s.address||'—';
   document.getElementById('sv_notes').textContent=s.notes||'—';
@@ -120,6 +128,9 @@ function openSupAdd(){
   document.getElementById('s_phone').value='';
   document.getElementById('s_address').value='';
   document.getElementById('s_notes').value='';
+  document.getElementById('s_opening').value='';
+  document.getElementById('s_code').value='';
+  document.getElementById('s_code_row').style.display='none';
   document.getElementById('supModal').classList.add('open');
 }
 
@@ -133,6 +144,9 @@ function openSupEdit(id){
   document.getElementById('s_phone').value=s.phone||'';
   document.getElementById('s_address').value=s.address||'';
   document.getElementById('s_notes').value=s.notes||'';
+  document.getElementById('s_opening').value=s.opening_balance||'';
+  if(s.code){ document.getElementById('s_code').value=s.code; document.getElementById('s_code_row').style.display='block'; }
+  else { document.getElementById('s_code_row').style.display='none'; }
   document.getElementById('supModal').classList.add('open');
 }
 function closeSupModal(){document.getElementById('supModal').classList.remove('open');}
@@ -140,7 +154,7 @@ function closeSupModal(){document.getElementById('supModal').classList.remove('o
 async function saveSupplier(){
   const name=document.getElementById('s_name').value.trim();
   if(!name){toast('Name required',true);return;}
-  const payload={name,phone:document.getElementById('s_phone').value.trim(),address:document.getElementById('s_address').value.trim(),notes:document.getElementById('s_notes').value.trim()};
+  const payload={name,phone:document.getElementById('s_phone').value.trim(),address:document.getElementById('s_address').value.trim(),notes:document.getElementById('s_notes').value.trim(),opening_balance:parseFloat(document.getElementById('s_opening').value)||0};
   const id=document.getElementById('sEditId').value;
   const r=editMode
     ? await fetch(`/api/suppliers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})

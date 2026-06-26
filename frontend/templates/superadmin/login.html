@@ -69,7 +69,8 @@
   <div class="step" id="stepCode">
     <div class="hint-box">
       A 4-digit code has been sent to the registered recovery email.
-      <span style="display:block;font-size:.75em;color:rgba(255,255,255,.4);margin-top:4px">Code is valid for 24 hours</span>
+      <span class="hint-email" id="sentToLine" style="font-size:.8em"></span>
+      <span style="display:block;font-size:.75em;color:rgba(255,255,255,.4);margin-top:4px">Code is valid for 24 hours · check spam folder</span>
     </div>
     <label class="label">Enter the 4-Digit Code</label>
     <input class="inp code-inp" id="resetCode" type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="0000" onkeydown="if(event.key==='Enter')doVerifyCode()">
@@ -145,8 +146,15 @@ async function doSendCode(){
     err.textContent='Nice try, but limited chances!'+left;
     return;
   }
+  // Email correct, but the message may have failed to actually send.
+  if(d.email_failed){
+    err.textContent='⚠ Email not sent: '+(d.reason||'mail server error')+' Contact the server admin.';
+    ok.textContent='';
+    return;
+  }
   document.getElementById('codeErr').textContent='';
   document.getElementById('resetCode').value='';
+  document.getElementById('sentToLine').textContent='Sent to '+(_maskedEmail||'your recovery email');
   goStep('stepCode');
   setTimeout(()=>document.getElementById('resetCode').focus(),80);
 }

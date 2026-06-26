@@ -236,7 +236,7 @@ input[type=number]{-moz-appearance:textfield}
       <!-- Customer -->
       <div id="custSection" style="position:relative">
         <div class="cust-row">
-          <input class="cust-search" id="custSearch" placeholder="Customer name (or leave empty for Walk-in)..." oninput="searchCustomer(this.value);this.value=toTitleCase(this.value)" onkeydown="custSearchKey(event)" autocomplete="new-password">
+          <input class="cust-search" id="custSearch" placeholder="Customer name or code (empty = Walk-in)..." oninput="searchCustomer(this.value);this.value=toTitleCase(this.value)" onkeydown="custSearchKey(event)" autocomplete="new-password">
           <button id="custInvBtn" style="display:none;padding:7px 13px;border:none;border-radius:10px;background:rgba(102,126,234,.25);color:#a5b4fc;font-size:.8em;font-weight:600;cursor:pointer;white-space:nowrap" onclick="toggleCustInvoices()">📋 Invoices</button>
         </div>
         <div id="custDropdown" class="dropdown"></div>
@@ -332,7 +332,23 @@ input[type=number]{-moz-appearance:textfield}
     <div class="sum-total"><span>This Bill</span><span id="sumTotal">Rs. 0.00</span></div>
 
     <div id="prevBalSection" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
-      <div class="sum-row"><span class="sum-label">Previous Balance</span><span id="sumPrevBal" style="font-weight:600">Rs. 0.00</span></div>
+      <label style="display:flex;align-items:center;gap:7px;font-size:.82em;color:var(--sub);cursor:pointer;margin-bottom:4px;user-select:none">
+        <input type="checkbox" id="pbShowChk" checked onchange="recalc()" style="margin:0;cursor:pointer">
+        <span>Show previous balance</span>
+      </label>
+      <div id="pbRow" class="sum-row"><span class="sum-label">Previous Balance</span><span id="sumPrevBal" style="font-weight:600">Rs. 0.00</span></div>
+      <label style="display:flex;align-items:center;gap:7px;font-size:.82em;color:var(--sub);cursor:pointer;margin:4px 0;user-select:none">
+        <input type="checkbox" id="pbIncludeChk" checked onchange="recalc()" style="margin:0;cursor:pointer">
+        <span>Include in final bill (grand total)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:.82em;color:var(--sub);cursor:pointer;margin:4px 0;user-select:none">
+        <input type="checkbox" id="pbEditChk" onchange="togglePbEdit()" style="margin:0;cursor:pointer">
+        <span>Add / edit previous balance</span>
+      </label>
+      <div id="pbEditRow" class="sum-row" style="display:none">
+        <span class="sum-label">Opening Balance</span>
+        <input class="disc-inp" id="pbEditInp" type="number" step="0.01" value="0" onchange="savePbEdit(this.value)" style="width:140px">
+      </div>
       <div class="sum-total"><span>Grand Total</span><span id="sumGrandTotal">Rs. 0.00</span></div>
     </div>
 
@@ -414,7 +430,7 @@ input[type=number]{-moz-appearance:textfield}
 </div>
 
 <!-- Vendor reorder message modal -->
-<div class="overlay" id="vendorMsgModal" onclick="if(event.target===this)closeVendorMessage()">
+<div class="overlay" id="vendorMsgModal" style="z-index:1100" onclick="if(event.target===this)closeVendorMessage()">
   <div class="modal" style="max-width:380px">
     <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:4px">📦 Message a Vendor</div>
     <div style="font-size:.83em;color:var(--sub);margin-bottom:16px">Pick a vendor to WhatsApp the items on this invoice that came from them — handy for restocking.</div>
@@ -677,6 +693,11 @@ let currentOutstanding = 0;
 let _billSaving = false;
 let lastSavedInv = null, lastSavedIsEdit = false;
 let addOnTop = false;  // false = new items at bottom, true = new items at top
+// Auto-draft: persist an in-progress bill to the server so a refresh never loses it
+let _autoDraftId = null;       // server id of the draft we keep updating
+let _autoDraftTimer = null;    // debounce timer
+let _autoDraftSaving = false;  // guard against overlapping auto-saves
+let _billFinalised = false;    // true once user clicks Save/Draft → stop auto-drafting
 
 function toggleAddOrder(){
   addOnTop = !addOnTop;
@@ -732,8 +753,8 @@ async function searchCustomer(q){
     if(!customers.length){dd.innerHTML='<div class="dd-item" style="color:#888">No customers found</div>';dd.classList.add('open');setTimeout(()=>dd.classList.remove('open'),3000);return;}
     dd.innerHTML=customers.map(c=>`
       <div class="dd-item" onclick="selectCustomer(${c.id})">
-        <div class="dd-name">${esc(c.name)}</div>
-        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}</div>
+        <div class="dd-name">${esc(c.name)}${c.code?` <span style="color:var(--accent);font-size:.8em;font-family:monospace">${esc(c.code)}</span>`:''}</div>
+        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}${(+c.outstanding)?` · <span style="color:#ef4444">Bal: Rs.${(+c.outstanding).toFixed(0)}</span>`:''}</div>
       </div>`).join('');
     dd.classList.add('open');
   },250);
@@ -777,8 +798,8 @@ async function custSearchKey(e){
     if(!customers.length){ dd.classList.remove('open'); return; }
     dd.innerHTML = customers.map(c=>`
       <div class="dd-item" onclick="selectCustomer(${c.id})">
-        <div class="dd-name">${esc(c.name)}</div>
-        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}</div>
+        <div class="dd-name">${esc(c.name)}${c.code?` <span style="color:var(--accent);font-size:.8em;font-family:monospace">${esc(c.code)}</span>`:''}</div>
+        <div class="dd-meta">${esc(c.phone)||''} ${c.address?'· '+esc(c.address):''}${(+c.outstanding)?` · <span style="color:#ef4444">Bal: Rs.${(+c.outstanding).toFixed(0)}</span>`:''}</div>
       </div>`).join('');
     dd.classList.add('open');
   }
@@ -790,8 +811,40 @@ function selectCustomer(id){
   document.getElementById('custDropdown').classList.remove('open');
   const outstanding = parseFloat(customer.outstanding||0);
   currentOutstanding = outstanding;
+  // Reset balance toggles: show ON, include ON when a balance exists, edit OFF
+  const showChk=document.getElementById('pbShowChk');
+  const incChk=document.getElementById('pbIncludeChk');
+  const editChk=document.getElementById('pbEditChk');
+  if(showChk) showChk.checked=true;
+  if(incChk) incChk.checked = (outstanding!==0);
+  if(editChk) editChk.checked=false;
+  document.getElementById('pbEditRow').style.display='none';
+  document.getElementById('pbEditInp').value=(+(customer.opening_balance||0)).toFixed(2);
   recalc();
   document.getElementById('custInvBtn').style.display = 'block';
+}
+
+// Toggle the inline opening-balance editor
+function togglePbEdit(){
+  const on=document.getElementById('pbEditChk').checked;
+  document.getElementById('pbEditRow').style.display=on?'flex':'none';
+  if(on && customer){ document.getElementById('pbEditInp').value=(+(customer.opening_balance||0)).toFixed(2); }
+}
+
+// Save an edited opening balance back to the customer; running balance shifts by the delta
+async function savePbEdit(val){
+  if(!customer) return;
+  const newOpening=parseFloat(val)||0;
+  const oldOpening=parseFloat(customer.opening_balance||0);
+  const delta=newOpening-oldOpening;
+  currentOutstanding=Math.round((currentOutstanding+delta)*100)/100;
+  customer.opening_balance=newOpening;
+  recalc();
+  try{
+    await fetch(`/api/customers/${customer.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({opening_balance:newOpening})});
+    toast('Opening balance updated');
+  }catch(e){ toast('Could not save balance',true); }
 }
 
 function clearCustomer(){
@@ -819,6 +872,10 @@ if(preselEdit){
     currentInv=inv;
     loadIntoBuilder(inv.id);
   });
+} else if(!preselCust){
+  // No specific invoice/customer requested → restore an unsaved auto-draft if any.
+  // Deferred so the const declarations further down have initialised (avoids TDZ).
+  window.addEventListener('load', ()=>{ try{ restoreAutoDraft(); }catch(e){} });
 }
 
 function toTitleCase(str){
@@ -844,8 +901,20 @@ if(!_cacheGet()){
 
 // Item search
 let itemTimer, lastQuery='';
+// Instant local filter over the cached catalog (no network).
+function _searchCache(q){
+  const all = _cacheGet();
+  if(!all || !all.length) return null;     // no cache yet → caller falls back to server
+  const ql = q.toLowerCase();
+  const hits = all.filter(i => (i.name||'').toLowerCase().includes(ql)).slice(0, 50);
+  if(IS_GUEST){
+    const localItems = GuestStore.searchItems(q);
+    return [...localItems, ...hits.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
+  }
+  return hits;
+}
 async function _fetchItems(q){
-  // Always fetch from server so stock qty is never stale
+  // Fetch from server (authoritative for stock qty)
   const serverItems = await fetch('/api/items?q='+encodeURIComponent(q)).then(r=>r.json());
   if(!IS_GUEST) return serverItems;
   const localItems=GuestStore.searchItems(q);
@@ -876,10 +945,28 @@ async function searchItem(q){
   lastQuery=q;
   const dd=document.getElementById('itemDropdown');
   if(!q.trim()){dd.classList.remove('open');return;}
+  // 1) Instant: render from the local cache right away (no waiting on the network)
+  const cached=_searchCache(q);
+  if(cached){ _renderItemDropdown(cached,q); }
+  // 2) Background: refresh from server for live stock, debounced. Only repaint if
+  //    this is still the latest query (avoids stale results overwriting newer ones).
   itemTimer=setTimeout(async()=>{
-    const items=await _fetchItems(q);
-    _renderItemDropdown(items,q);
-  },250);
+    try{
+      const items=await _fetchItems(q);
+      if(q===lastQuery){
+        _renderItemDropdown(items,q);
+        if(items.length && !IS_GUEST) _cacheSet(_mergeCache(items));
+      }
+    }catch(e){ /* offline — cached results already shown */ }
+  },300);
+}
+// Merge fresh server rows into the cached catalog (update by id) so future
+// instant searches reflect the latest stock without a full reload.
+function _mergeCache(fresh){
+  const all=_cacheGet()||[];
+  const byId={}; all.forEach(i=>{ byId[i.id]=i; });
+  fresh.forEach(i=>{ byId[i.id]=i; });
+  return Object.values(byId);
 }
 
 async function itemSearchKey(e){
@@ -968,6 +1055,7 @@ function calcLine(l){
 
 
 function renderLines(){
+  scheduleAutoDraft();
   const body=document.getElementById('linesBody');
   if(!lines.length){
     body.innerHTML='<tr><td colspan="9"><div class="empty-lines">Search above to add items to this invoice</div></td></tr>';
@@ -1070,7 +1158,14 @@ function recalc(){
   if(lines.length>0){countEl.style.display='inline-block';countEl.textContent=lines.length+' item'+(lines.length>1?'s':'');}else{countEl.style.display='none';}
   document.getElementById('sumItemCount').textContent=lines.length;
   document.getElementById('dSumItemCount').textContent=lines.length;
-  const grandTotal=currentOutstanding>0?currentOutstanding+total:total;
+  // Balance toggles (only meaningful when a customer is selected)
+  const hasCust=!!customer;
+  const incChk=document.getElementById('pbIncludeChk');
+  const showChk=document.getElementById('pbShowChk');
+  const includeBal=hasCust && incChk && incChk.checked;
+  const showBal=hasCust && showChk && showChk.checked;
+  const effBal=includeBal?currentOutstanding:0;
+  const grandTotal=total+effBal;
   const cashRcvd=parseFloat(document.getElementById('cashReceivedInp').value)||0;
   const balDue=Math.max(0,grandTotal-cashRcvd);
   // Main summary card
@@ -1078,9 +1173,10 @@ function recalc(){
   document.getElementById('sumTax').textContent='Rs.'+tax.toFixed(2);
   document.getElementById('sumTotal').textContent='Rs.'+total.toFixed(2);
   const sec=document.getElementById('prevBalSection');
-  if(currentOutstanding>0){
+  if(hasCust){
+    document.getElementById('pbRow').style.display=showBal?'flex':'none';
     document.getElementById('sumPrevBal').textContent='Rs.'+currentOutstanding.toFixed(2);
-    document.getElementById('sumGrandTotal').textContent='Rs.'+(currentOutstanding+total).toFixed(2);
+    document.getElementById('sumGrandTotal').textContent='Rs.'+grandTotal.toFixed(2);
     sec.style.display='block';
   } else { sec.style.display='none'; }
   const bdSec=document.getElementById('balanceDueSection');
@@ -1094,9 +1190,9 @@ function recalc(){
   document.getElementById('dSumTotal').textContent='Rs.'+total.toFixed(2);
   document.getElementById('dDiscountInp').value=disc||0;
   const dsec=document.getElementById('dPrevBalSection');
-  if(currentOutstanding>0){
+  if(hasCust && showBal && currentOutstanding!==0){
     document.getElementById('dSumPrevBal').textContent='Rs.'+currentOutstanding.toFixed(2);
-    document.getElementById('dSumGrandTotal').textContent='Rs.'+(currentOutstanding+total).toFixed(2);
+    document.getElementById('dSumGrandTotal').textContent='Rs.'+grandTotal.toFixed(2);
     dsec.style.display='block';
   } else { dsec.style.display='none'; }
   const dBdSec=document.getElementById('dBalanceDueSection');
@@ -1284,6 +1380,9 @@ async function saveInvoice(){
   if(IS_GUEST){_guestSave(false);return;}
   if(_billSaving){return;}
   if(!lines.length){toast('Add at least one item',true);return;}
+  // Capture "real edit" BEFORE promoting any auto-draft (which sets savedInvoiceId)
+  const _wasRealEdit = !!savedInvoiceId;
+  _billFinalised = true; _consumeAutoDraft();
   _billSaving=true;
   document.querySelectorAll('[onclick="saveInvoice()"]').forEach(b=>{b.disabled=true;b.style.opacity='.5';});
   try{
@@ -1298,9 +1397,10 @@ async function saveInvoice(){
       rate_source:l.rate_source||'', vendor:l.vendor||''
     }))
   };
-  const isEdit = !!savedInvoiceId;
-  const url = isEdit ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
-  const method = isEdit ? 'PUT' : 'POST';
+  const isEdit = _wasRealEdit;            // for the "Saved" vs "Updated" message
+  const hasRecord = !!savedInvoiceId;     // true if we have a draft/edit row to PUT
+  const url = hasRecord ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
+  const method = hasRecord ? 'PUT' : 'POST';
   const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   let inv=await r.json();
   if(r.ok){
@@ -1324,10 +1424,91 @@ async function saveInvoice(){
   }
 }
 
+// ── Auto-draft: never lose an in-progress bill on refresh ────────────────────
+function _autoDraftPayload(){
+  const typedName = document.getElementById('custSearch').value.trim();
+  return {
+    customer_id: customer?customer.id:null,
+    customer_name: typedName||'Walk-in',
+    discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
+    lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||''}))
+  };
+}
+// Schedule a debounced auto-save (called from renderLines on every cart change)
+function scheduleAutoDraft(){
+  if(IS_GUEST || _billFinalised) return;
+  // Only auto-draft a brand-new bill in progress, not one already saved/loaded for edit
+  if(savedInvoiceId) return;
+  clearTimeout(_autoDraftTimer);
+  _autoDraftTimer = setTimeout(_autoDraftSave, 2500);
+}
+const _AUTODRAFT_KEY = 'billing_autodraft_id_{{ session.username or "guest" }}';
+function _rememberAutoDraft(id){ try{ id?localStorage.setItem(_AUTODRAFT_KEY,String(id)):localStorage.removeItem(_AUTODRAFT_KEY); }catch(e){} }
+async function _autoDraftSave(){
+  if(IS_GUEST || _billFinalised || savedInvoiceId) return;
+  if(!lines.length || _autoDraftSaving || _billSaving) return;
+  _autoDraftSaving = true;
+  try{
+    const url = _autoDraftId ? `/api/invoices/${_autoDraftId}` : '/api/invoices';
+    const method = _autoDraftId ? 'PUT' : 'POST';
+    const r = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(_autoDraftPayload())});
+    if(r.ok){
+      const inv = await r.json();
+      _autoDraftId = inv.id;
+      _rememberAutoDraft(_autoDraftId);
+      const info = document.getElementById('savedInvInfo');
+      if(info) info.textContent = 'Auto-saved draft · '+inv.invoice_number;
+    }
+  }catch(e){ /* offline / transient — will retry on next change */ }
+  finally{ _autoDraftSaving = false; }
+}
+// On page load, pull back an unsaved auto-draft into the cart (survives refresh)
+async function restoreAutoDraft(){
+  if(IS_GUEST) return;
+  let id; try{ id = localStorage.getItem(_AUTODRAFT_KEY); }catch(e){}
+  if(!id) return;
+  try{
+    const r = await fetch(`/api/invoices/${id}`);
+    if(!r.ok){ _rememberAutoDraft(null); return; }
+    const inv = await r.json();
+    // Only restore if it's still an unsaved draft and not empty
+    if(inv.status !== 'draft' || !inv.lines || !inv.lines.length){ _rememberAutoDraft(null); return; }
+    _autoDraftId = inv.id;            // keep it as a LIVE auto-draft (not savedInvoiceId)
+    customer = inv.customer_id ? {id:inv.customer_id, name:inv.customer_name} : null;
+    document.getElementById('custSearch').value = inv.customer_name==='Walk-in' ? '' : inv.customer_name;
+    document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
+    lines = inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
+      qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,bonus:l.bonus_text||'',
+      tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',lineNet:+l.line_net}));
+    document.getElementById('invNo').textContent = 'Invoice # ' + inv.invoice_number;
+    document.getElementById('savedInvInfo').textContent = 'Restored unsaved bill · '+inv.invoice_number;
+    renderLines(); recalc();
+    toast('Restored your unsaved bill');
+  }catch(e){ /* ignore */ }
+}
+// Promote the live auto-draft into the invoice the user is explicitly saving,
+// so Save/Draft updates that same record instead of creating a duplicate.
+function _consumeAutoDraft(){
+  clearTimeout(_autoDraftTimer);
+  if(_autoDraftId && !savedInvoiceId){ savedInvoiceId = _autoDraftId; }
+  _autoDraftId = null;
+  _rememberAutoDraft(null);
+}
+// Flush on tab close/refresh as a best-effort safety net (keepalive lets it complete)
+window.addEventListener('beforeunload', function(){
+  if(IS_GUEST || _billFinalised || savedInvoiceId || !lines.length) return;
+  try{
+    const url = _autoDraftId ? `/api/invoices/${_autoDraftId}` : '/api/invoices';
+    fetch(url,{method:_autoDraftId?'PUT':'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(_autoDraftPayload()),keepalive:true});
+  }catch(e){}
+});
+
 async function saveDraft(){
   if(IS_GUEST){_guestSave(true);return;}
   if(_billSaving){return;}
   if(!lines.length){toast('Add at least one item',true);return;}
+  _billFinalised = true; _consumeAutoDraft();
   _billSaving=true;
   document.querySelectorAll('[onclick="saveDraft()"]').forEach(b=>{b.disabled=true;b.style.opacity='.5';});
   try{
@@ -1443,10 +1624,43 @@ function shareWhatsApp(){
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
+// Share a saved/viewed invoice as a WhatsApp text bill (works from an invoice object).
+function shareInvoiceWhatsApp(inv){
+  inv = inv || currentInv;
+  if(!inv || !inv.lines) return;
+  let msg = `*${settings.shop_name||'Invoice'}*\n`;
+  msg += `Invoice: ${inv.invoice_number}  |  ${inv.invoice_date||''}\n`;
+  if(inv.customer_name && inv.customer_name!=='Walk-in') msg += `Customer: ${inv.customer_name}\n`;
+  msg += `\n`;
+  inv.lines.forEach(l=>{
+    const lineTotal = ((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
+    const q = (+l.qty);
+    msg += `• ${l.item_name}`;
+    if(q>1) msg += ` ×${q%1?q.toFixed(2):q.toFixed(0)}`;
+    msg += `  Rs.${lineTotal}\n`;
+  });
+  msg += `\nSubtotal: Rs.${(+inv.subtotal).toFixed(2)}`;
+  if((+inv.tax_amount)>0) msg += `\nTax: Rs.${(+inv.tax_amount).toFixed(2)}`;
+  if((+inv.discount_amount)>0) msg += `\nDiscount: -Rs.${(+inv.discount_amount).toFixed(2)}`;
+  msg += `\n*Total: Rs.${(+inv.total).toFixed(2)}*`;
+  const prevBal = +inv.previous_balance || 0;
+  if(prevBal>0 && inv.customer_id){
+    msg += `\nPrev Balance: Rs.${prevBal.toFixed(2)}`;
+    msg += `\n*Grand Total: Rs.${(prevBal+(+inv.total)).toFixed(2)}*`;
+  }
+  if(settings.phone) msg += `\n\n${settings.shop_name||''} · ${settings.phone}`;
+  // If the customer has a saved WhatsApp/phone, address it straight to them
+  const cphone = (inv.customer_whatsapp||inv.customer_phone||'').replace(/[^\d]/g,'');
+  const url = cphone ? `https://wa.me/${cphone}?text=` : 'https://wa.me/?text=';
+  window.open(url+encodeURIComponent(msg),'_blank');
+}
+
 // ── Message vendors/suppliers with their items on this invoice (reorder) ──────
 let _vendorSuppliers = [];
+let _activeVendorInv = null;   // invoice the vendor flow currently targets
+function _vendorInv(){ return _activeVendorInv || lastSavedInv; }
 function _vendorGroups(){
-  const inv = lastSavedInv;
+  const inv = _vendorInv();
   const groups = {};
   ((inv&&inv.lines)||lines).forEach(l=>{
     const v = (l.vendor||'').trim();
@@ -1460,7 +1674,7 @@ function _vendorPhone(vendor){
   return (match && match.phone) ? (match.phone||'').replace(/[^\d]/g,'') : '';
 }
 function _vendorReorderUrl(vendor, items){
-  const inv = lastSavedInv;
+  const inv = _vendorInv();
   let msg = `*Reorder from ${vendor}*\n`;
   if(settings.shop_name) msg += `${settings.shop_name}\n`;
   if(inv && inv.invoice_number) msg += `Ref: ${inv.invoice_number}\n`;
@@ -1494,8 +1708,9 @@ function _renderVendorMsgList(){
     return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${JSON.stringify(v).replace(/"/g,'&quot;')})">🏷 ${esc(v)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${hasPhone?'':' · ⚠ no phone'}</span></button>`;
   }).join('');
 }
-function openVendorMessage(){
-  if(!lastSavedInv) return;
+function openVendorMessage(inv){
+  _activeVendorInv = (inv && inv.lines) ? inv : lastSavedInv;
+  if(!_vendorInv()) return;
   if(!Object.keys(_vendorGroups()).length){ toast('No vendor on these items',true); return; }
   _renderVendorMsgList();
   document.getElementById('vendorMsgModal').classList.add('open');
@@ -1504,14 +1719,14 @@ function openVendorMessage(){
 function closeVendorMessage(){ document.getElementById('vendorMsgModal').classList.remove('open'); }
 
 function sendVendorMessage(vendor){
-  if(!lastSavedInv) return;
+  if(!_vendorInv()) return;
   const items = _vendorGroups()[vendor]||[];
   if(!items.length) return;
   window.open(_vendorReorderUrl(vendor, items),'_blank');
 }
 
 function sendAllVendorMessages(){
-  if(!lastSavedInv) return;
+  if(!_vendorInv()) return;
   const groups = _vendorGroups();
   const vendors = Object.keys(groups);
   let opened = 0;
@@ -1528,6 +1743,9 @@ function sendAllVendorMessages(){
 function printBill(){window.print();}
 
 function newBill(){
+  clearTimeout(_autoDraftTimer);
+  _autoDraftId=null; _autoDraftSaving=false; _billFinalised=false;
+  _rememberAutoDraft(null);
   lines=[];customer=null;savedInvoiceId=null;currentOutstanding=0;showingCustInv=false;
   document.getElementById('custSearch').value='';
   document.getElementById('prevBalSection').style.display='none';
@@ -1621,8 +1839,11 @@ function _guestViewInvoice(id){
   document.getElementById('mPrevBalRow').style.display='none';
   document.getElementById('mGrandTotalRow').style.display='none';
   const acts=document.getElementById('mActions');
+  const gHasVendor=(inv.lines||[]).some(l=>(l.vendor||'').trim());
   const printPdfBtns=`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
-    <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>`;
+    <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
+    <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
+    ${gHasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   acts.innerHTML=printPdfBtns+`<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
   _initShowSourceToggle(inv);
   document.getElementById('invModal').classList.add('open');
@@ -1699,9 +1920,12 @@ async function viewInvoice(id){
 
   // Action buttons based on status
   const acts = document.getElementById('mActions');
+  const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
   const printPdfBtns = `
     <button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
-    <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>`;
+    <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
+    <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
+    ${hasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   const sc=setupCompleted;
   if(inv.status === 'draft'){
     acts.innerHTML = `
@@ -1854,8 +2078,7 @@ function _showRateSourcePref(){
 
 function _showVendorPref(){
   const c = document.getElementById('mShowVendorChk');
-  if(c){ try{ localStorage.setItem('billing_show_vendor', c.checked ? '1' : '0'); }catch(e){} return c.checked; }
-  return false;
+  return !!(c && c.checked);
 }
 
 function _initShowSourceToggle(inv){
@@ -1877,15 +2100,9 @@ function _initShowSourceToggle(inv){
   const vchk = document.getElementById('mShowVendorChk');
   if(vrow && vchk){
     const hasVen = (inv.lines||[]).some(l => (l.vendor||'').trim());
-    if(hasVen){
-      let pref = '0';
-      try{ pref = localStorage.getItem('billing_show_vendor') || '0'; }catch(e){}
-      vchk.checked = (pref === '1');
-      vrow.style.display = 'flex';
-    } else {
-      vchk.checked = false;
-      vrow.style.display = 'none';
-    }
+    // Vendor is a private detail — always default OFF; user ticks it per print.
+    vchk.checked = false;
+    vrow.style.display = hasVen ? 'flex' : 'none';
   }
 }
 

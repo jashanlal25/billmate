@@ -156,6 +156,10 @@ def seed_defaults():
             db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS gemini_api_key VARCHAR(200)"))
             db.session.execute(text("ALTER TABLE items ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
             db.session.execute(text("ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
+            db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
+            db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10,2) DEFAULT 0"))
+            db.session.execute(text("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
+            db.session.execute(text("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10,2) DEFAULT 0"))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -291,7 +295,7 @@ def admin_login_page():
     # If already logged in as admin, redirect to admin dashboard
     if session.get('is_admin'):
         return redirect('/admin/sales')
-    return render_template('admin/login.html')
+    return render_template('admin/login.html', username=session.get('username', ''))
 
 # ── Auth routes ────────────────────────────────────────────────────────────────
 
@@ -752,7 +756,17 @@ def superadmin_forgot_password():
         _send_reset_email(user.recovery_email, code)
     except Exception as e:
         app.logger.error(f'Reset email failed: {e}')
-    return jsonify({'match': True})
+        # Be honest with the UI: the email did NOT go out. Surface a short reason
+        # so the admin isn't told "code sent" when it silently failed.
+        reason = str(e)
+        if 'BadCredentials' in reason or '535' in reason:
+            hint = 'Email service login was rejected (check Gmail app password).'
+        elif 'not configured' in reason:
+            hint = 'Email service is not configured on the server.'
+        else:
+            hint = 'The mail server could not be reached.'
+        return jsonify({'match': True, 'email_failed': True, 'reason': hint})
+    return jsonify({'match': True, 'email_failed': False})
 
 @app.route('/api/superadmin/verify-reset-code', methods=['POST'])
 def superadmin_verify_reset_code():
@@ -1102,7 +1116,8 @@ def admin_unlock():
     if request.method == 'POST':
         if locked:
             return render_template('admin/unlock.html', error=f'Account locked. Try again in {lock_minutes_left} min',
-                                   locked=True, lock_minutes_left=lock_minutes_left)
+                                   locked=True, lock_minutes_left=lock_minutes_left,
+                                   username=session.get('username', ''))
         pwd = (request.form.get('password') or '').strip()
         if check_password_hash(s.admin_password_hash, pwd):
             # Success — clear failed attempts, cancel any pending reset
@@ -1122,10 +1137,12 @@ def admin_unlock():
             s.admin_locked_until = datetime.utcnow() + timedelta(hours=1)
             db.session.commit()
             return render_template('admin/unlock.html', error='Too many failed attempts. Locked for 1 hour.',
-                                   locked=True, lock_minutes_left=60)
+                                   locked=True, lock_minutes_left=60,
+                                   username=session.get('username', ''))
         db.session.commit()
         attempts_left = 3 - s.admin_failed_attempts
-        return render_template('admin/unlock.html', error=f'Wrong password. {attempts_left} attempt(s) left before lockout.')
+        return render_template('admin/unlock.html', error=f'Wrong password. {attempts_left} attempt(s) left before lockout.',
+                               username=session.get('username', ''))
     # Check if reset is pending
     reset_pending = False
     reset_hours_left = 0
@@ -1136,7 +1153,8 @@ def admin_unlock():
             reset_pending = True
             reset_hours_left = max(1, int(remaining.total_seconds() // 3600))
     return render_template('admin/unlock.html', reset_pending=reset_pending, reset_hours_left=reset_hours_left,
-                           locked=locked, lock_minutes_left=lock_minutes_left)
+                           locked=locked, lock_minutes_left=lock_minutes_left,
+                           username=session.get('username', ''))
 
 @app.route('/admin/forgot-password', methods=['POST'])
 def admin_forgot_password():
@@ -1488,7 +1506,7 @@ def get_suppliers():
     if uid:
         query = query.filter_by(user_id=uid)
     if q:
-        query = query.filter(Supplier.name.ilike(f'%{q}%'))
+        query = query.filter(Supplier.name.ilike(f'%{q}%') | Supplier.code.ilike(f'%{q}%'))
     return jsonify([s.to_dict() for s in query.order_by(Supplier.name).all()])
 
 @app.route('/api/suppliers', methods=['POST'])
@@ -1500,7 +1518,10 @@ def add_supplier():
     name = data.get('name', '').strip()
     if not name:
         return jsonify({'error': 'Name required'}), 400
-    s = Supplier(user_id=session.get('user_id'), name=name, phone=data.get('phone','').strip(), address=data.get('address','').strip(), notes=data.get('notes','').strip())
+    s = Supplier(user_id=session.get('user_id'), code=_next_entity_code(Supplier, 'SUPP', uid),
+                 name=name, phone=data.get('phone','').strip(), address=data.get('address','').strip(),
+                 notes=data.get('notes','').strip(),
+                 opening_balance=float(data.get('opening_balance', 0) or 0))
     db.session.add(s)
     db.session.commit()
     return jsonify(s.to_dict()), 201
@@ -1516,6 +1537,9 @@ def update_supplier(sid):
     if 'phone' in data: s.phone = data['phone'].strip()
     if 'address' in data: s.address = data['address'].strip()
     if 'notes' in data: s.notes = data['notes'].strip()
+    if 'opening_balance' in data: s.opening_balance = float(data['opening_balance'] or 0)
+    if not s.code:
+        s.code = _next_entity_code(Supplier, 'SUPP', s.user_id)
     db.session.commit()
     return jsonify(s.to_dict())
 
@@ -1944,16 +1968,14 @@ def get_customers():
     if q:
         query = query.filter(
             (Customer.name.ilike(f'{q}%')) | (Customer.phone.ilike(f'%{q}%'))
+            | (Customer.code.ilike(f'%{q}%'))
         )
     customers = query.order_by(Customer.name).all()
     result = []
     for c in customers:
         d = c.to_dict()
-        outstanding = db.session.query(func.sum(Invoice.total)).filter(
-            Invoice.customer_id == c.id,
-            Invoice.status != 'cancelled'
-        ).scalar() or 0
-        d['outstanding'] = round(float(outstanding), 2)
+        # Unified balance: opening + unpaid invoices - payments
+        d['outstanding'] = customer_balance(c.id, uid)
         result.append(d)
     return jsonify(result)
 
@@ -1968,11 +1990,13 @@ def add_customer():
         return jsonify({'error': 'Name required'}), 400
     c = Customer(
         user_id=session.get('user_id'),
+        code=_next_entity_code(Customer, 'CUST', uid),
         name=name,
         phone=data.get('phone', '').strip(),
         whatsapp=data.get('whatsapp', '').strip(),
         address=data.get('address', '').strip(),
         credit_limit=float(data.get('credit_limit', 0) or 0),
+        opening_balance=float(data.get('opening_balance', 0) or 0),
         notes=data.get('notes', '').strip(),
     )
     db.session.add(c)
@@ -1991,7 +2015,11 @@ def update_customer(cid):
     if 'whatsapp' in data:   c.whatsapp     = data['whatsapp'].strip()
     if 'address' in data:    c.address      = data['address'].strip()
     if 'credit_limit' in data: c.credit_limit = float(data['credit_limit'] or 0)
+    if 'opening_balance' in data: c.opening_balance = float(data['opening_balance'] or 0)
     if 'notes' in data:      c.notes        = data['notes'].strip()
+    # Backfill a code for legacy customers that don't have one yet
+    if not c.code:
+        c.code = _next_entity_code(Customer, 'CUST', c.user_id)
     db.session.commit()
     return jsonify(c.to_dict())
 
@@ -2081,28 +2109,88 @@ def _ensure_supplier(name, user_id):
 
 def _adjust_stock(lines, delta):
     """delta = -1 to deduct (on create/update), +1 to restore (on delete/cancel)."""
+    # Fetch all referenced items in ONE query instead of one round-trip per line.
+    item_ids = {line.item_id for line in lines if line.item_id}
+    if not item_ids:
+        return
+    items = {i.id: i for i in Item.query.filter(Item.id.in_(item_ids)).all()}
     for line in lines:
-        if line.item_id:
-            item = Item.query.get(line.item_id)
-            if item:
-                item.qty = round(float(item.qty or 0) + delta * float(line.qty), 3)
+        item = items.get(line.item_id) if line.item_id else None
+        if item:
+            item.qty = round(float(item.qty or 0) + delta * float(line.qty), 3)
 
 def next_invoice_number():
     s = get_user_settings()
     prefix = s.invoice_prefix if s and s.invoice_prefix else 'INV'
-    # Always use the highest ever-issued number (including cancelled) — numbers are never reused
-    all_invs = Invoice.query.filter(
-        Invoice.invoice_number.like(f'{prefix}-%')
-    ).all()
-    num = 1
-    for inv in all_invs:
+    # Highest ever-issued number (including cancelled) — numbers are never reused.
+    # Use a single indexed MAX query instead of loading every invoice and looping
+    # in Python (which got slower as the table grew). Postgres can cast the numeric
+    # suffix and take the max in one round-trip.
+    pat = f'{prefix}-%'
+    try:
+        max_num = db.session.query(
+            func.max(func.cast(func.split_part(Invoice.invoice_number, '-', 2),
+                               db.Integer))
+        ).filter(Invoice.invoice_number.like(pat)).scalar()
+    except Exception:
+        # Fallback (e.g. SQLite locally) — scan only the numbers column
+        max_num = 0
+        for (numstr,) in Invoice.query.filter(
+                Invoice.invoice_number.like(pat)
+        ).with_entities(Invoice.invoice_number).all():
+            try:
+                n = int(str(numstr).split('-')[-1])
+                if n > max_num:
+                    max_num = n
+            except (ValueError, IndexError):
+                continue
+    return f'{prefix}-{(max_num or 0) + 1:04d}'
+
+def _next_entity_code(model, prefix, uid):
+    """Generate the next sequential, never-reused code (e.g. CUST-0001) for the
+    given model, scoped to the user. Gap-safe: takes max existing + 1."""
+    pat = f'{prefix}-%'
+    q = model.query
+    if uid:
+        q = q.filter_by(user_id=uid)
+    max_num = 0
+    for (codestr,) in q.filter(model.code.like(pat)).with_entities(model.code).all():
         try:
-            n = int(inv.invoice_number.split('-')[-1])
-            if n >= num:
-                num = n + 1
+            n = int(str(codestr).split('-')[-1])
+            if n > max_num:
+                max_num = n
         except (ValueError, IndexError):
             continue
-    return f'{prefix}-{num:04d}'
+    return f'{prefix}-{max_num + 1:04d}'
+
+def customer_balance(cust_id, uid=None):
+    """Unified customer balance: opening_balance + unpaid invoice amounts - payments.
+    'Unpaid invoice amount' = total - amount_paid (cash taken at billing), matching
+    the Payments page. Returns a rounded float."""
+    c = Customer.query.get(cust_id)
+    if not c:
+        return 0.0
+    opening = float(c.opening_balance or 0)
+    net_q = db.session.query(
+        func.sum(func.coalesce(Invoice.total, 0) - func.coalesce(Invoice.amount_paid, 0))
+    ).filter(Invoice.customer_id == cust_id, Invoice.status.in_(['posted', 'finalised']))
+    net = float(net_q.scalar() or 0)
+    paid_q = db.session.query(func.sum(CustomerPayment.amount)).filter(
+        CustomerPayment.customer_id == cust_id)
+    paid = float(paid_q.scalar() or 0)
+    return round(opening + net - paid, 2)
+
+def supplier_balance(sup_id, uid=None):
+    """Unified supplier balance: opening_balance + purchases - payments."""
+    s = Supplier.query.get(sup_id)
+    if not s:
+        return 0.0
+    opening = float(s.opening_balance or 0)
+    net = float(db.session.query(func.sum(Purchase.total_cost)).filter(
+        Purchase.supplier_id == sup_id).scalar() or 0)
+    paid = float(db.session.query(func.sum(SupplierPayment.amount)).filter(
+        SupplierPayment.supplier_id == sup_id).scalar() or 0)
+    return round(opening + net - paid, 2)
 
 @app.route('/api/invoices', methods=['GET'])
 def get_invoices():
@@ -2150,9 +2238,7 @@ def create_invoice():
         customer_name_snap=cust_name,
         invoice_date=date.today(),
         notes=data.get('notes', '').strip(),
-        previous_balance=float(db.session.query(func.sum(Invoice.total)).filter(
-            Invoice.customer_id == cust_id, Invoice.status != 'cancelled'
-        ).scalar() or 0) if cust_id else 0,
+        previous_balance=customer_balance(cust_id, uid) if cust_id else 0,
     )
     db.session.add(inv)
     db.session.flush()  # get inv.id
@@ -2201,7 +2287,12 @@ def get_invoice(inv_id):
     uid = session.get('user_id')
     if uid and inv.user_id and inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
-    return jsonify(inv.to_dict())
+    d = inv.to_dict()
+    # Include the customer's contact so the bill can be WhatsApp'd straight to them
+    if inv.customer_id and inv.customer:
+        d['customer_phone'] = inv.customer.phone or ''
+        d['customer_whatsapp'] = inv.customer.whatsapp or ''
+    return jsonify(d)
 
 @app.route('/api/invoices/<int:inv_id>', methods=['PUT'])
 def update_invoice(inv_id):
@@ -2385,9 +2476,15 @@ def get_customers_with_balance():
     if q:
         query = query.filter(
             (Customer.name.ilike(f'%{q}%')) | (Customer.phone.ilike(f'%{q}%'))
+            | (Customer.code.ilike(f'%{q}%'))
         )
     customers = query.order_by(Customer.name).all()
-    return jsonify([c.to_dict() for c in customers])
+    result = []
+    for c in customers:
+        d = c.to_dict()
+        d['balance'] = customer_balance(c.id, uid)   # unified: opening + unpaid - payments
+        result.append(d)
+    return jsonify(result)
 
 
 @app.route('/api/payments/billing-customers', methods=['GET'])
@@ -2504,9 +2601,14 @@ def get_suppliers_with_balance():
     if uid:
         query = query.filter_by(user_id=uid)
     if q:
-        query = query.filter(Supplier.name.ilike(f'%{q}%'))
+        query = query.filter(Supplier.name.ilike(f'%{q}%') | Supplier.code.ilike(f'%{q}%'))
     suppliers = query.order_by(Supplier.name).all()
-    return jsonify([s.to_dict() for s in suppliers])
+    result = []
+    for s in suppliers:
+        d = s.to_dict()
+        d['balance'] = supplier_balance(s.id, uid)   # unified: opening + purchases - payments
+        result.append(d)
+    return jsonify(result)
 
 
 @app.route('/api/payments/billing-suppliers', methods=['GET'])
