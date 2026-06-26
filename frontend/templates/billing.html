@@ -250,7 +250,7 @@ input[type=number]{-moz-appearance:textfield}
           <div class="dropdown" id="itemDropdown"></div>
         </div>
         <button id="bonusToggleBtn" onclick="toggleBonus()" title="Show/edit bonus text on cart rows" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:.75em;font-weight:700;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">B+</button>
-        <button id="addOrderBtn" onclick="toggleAddOrder()" title="New items added at bottom" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:1.1em;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">⬇</button>
+        <button id="addOrderBtn" onclick="toggleAddOrder()" title="New items added at top" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid #667eea;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;font-size:1.1em;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">⬆</button>
         <button onclick="openScanModal()" title="Scan bill image to auto-fill items" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;padding:0 12px;border:1.5px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#667eea22,#764ba222);color:var(--accent);cursor:pointer;font-size:.82em;font-weight:700;white-space:nowrap;transition:all .18s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.96)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">📷 Scan Bill</button>
       </div>
 
@@ -366,6 +366,7 @@ input[type=number]{-moz-appearance:textfield}
     <button class="btn btn-green" onclick="saveInvoice()">💾 Save Invoice</button>
     <button class="btn btn-outline" onclick="saveDraft()">📋 Save as Draft</button>
     <button class="btn btn-outline" onclick="newBill()">+ New Bill</button>
+    <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444" onclick="cancelBill()">✕ Cancel</button>
 
     <div style="margin-top:16px;font-size:.8em;color:var(--sub);text-align:center" id="savedInvInfo"></div>
   </div>
@@ -404,6 +405,7 @@ input[type=number]{-moz-appearance:textfield}
   <button class="btn btn-green" style="margin-top:16px" onclick="saveInvoice()">💾 Save Invoice</button>
   <button class="btn btn-outline" onclick="saveDraft()">📋 Save as Draft</button>
   <button class="btn btn-outline" onclick="newBill();closeSummary()">+ New Bill</button>
+  <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444" onclick="cancelBill()">✕ Cancel</button>
 </div>
 <!-- Summary tab trigger -->
 <div class="sum-tab">
@@ -701,7 +703,7 @@ let settings = {};
 let currentOutstanding = 0;
 let _billSaving = false;
 let lastSavedInv = null, lastSavedIsEdit = false;
-let addOnTop = false;  // false = new items at bottom, true = new items at top
+let addOnTop = true;  // true = new items at top, false = new items at bottom
 let showBonus = false; // false = hide bonus text in cart rows, true = show + editable
 // Auto-draft: persist an in-progress bill to the server so a refresh never loses it
 let _autoDraftId = null;       // server id of the draft we keep updating
@@ -1073,6 +1075,8 @@ function addCustomItem(){
 }
 
 function addLine(item){
+  clearTimeout(itemTimer);
+  lastQuery='';
   document.getElementById('itemDropdown').classList.remove('open');
   document.getElementById('itemSearch').value='';
   // If already in list, just bump qty
@@ -1080,7 +1084,7 @@ function addLine(item){
   if(existingIdx!==-1){
     lines[existingIdx].qty++;
     calcLine(lines[existingIdx]);
-    renderLines();recalc();_focusCartField('q');return;
+    renderLines();recalc();setTimeout(()=>_focusCartField('q'),10);return;
   }
   const line={
     item_id:item.id, item_name:item.name, item_code:item.code,
@@ -1095,7 +1099,7 @@ function addLine(item){
   lines.push(line);
   renderLines();
   recalc();
-  _focusCartField('q');
+  setTimeout(()=>_focusCartField('q'),10);
 }
 
 function calcLine(l){
@@ -1446,6 +1450,7 @@ async function saveInvoice(){
     customer_id: customer?customer.id:null,
     customer_name: typedName || 'Walk-in',
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
+    amount_paid: parseFloat(document.getElementById('cashReceivedInp').value)||0,
     lines: lines.map(l=>({
       item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
       qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
@@ -1460,8 +1465,7 @@ async function saveInvoice(){
   let inv=await r.json();
   if(r.ok){
     if(inv.status === 'draft'){
-      const amtPaid=parseFloat(document.getElementById('cashReceivedInp').value)||0;
-      const pr = await fetch(`/api/invoices/${inv.id}/post`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount_paid:amtPaid})});
+      const pr = await fetch(`/api/invoices/${inv.id}/post`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount_paid:payload.amount_paid})});
       if(pr.ok) inv = await pr.json();
     }
     savedInvoiceId = inv.id;
@@ -1483,6 +1487,7 @@ async function saveInvoice(){
 function _autoDraftPayload(){
   const typedName = document.getElementById('custSearch').value.trim();
   return {
+    is_auto_draft: true,
     customer_id: customer?customer.id:null,
     customer_name: typedName||'Walk-in',
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
@@ -1824,6 +1829,18 @@ function newBill(){
   document.getElementById('dCashReceivedInp').value=0;
   document.getElementById('savedInvInfo').textContent='';
   loadHistory();
+}
+
+function cancelBill(){
+  if(!lines.length && !customer) return;
+  if(!confirm('Cancel this invoice? All items will be cleared.')) return;
+  // Delete auto-draft from server if one was created
+  if(_autoDraftId){
+    fetch(`/api/invoices/${_autoDraftId}`,{method:'DELETE'}).catch(()=>{});
+  }
+  newBill();
+  closeSummary();
+  toast('Invoice cancelled');
 }
 
 // History

@@ -2210,7 +2210,8 @@ def get_invoices():
     cust_id = request.args.get('customer_id')
     offset = max(0, int(request.args.get('offset', 0)))
     limit = min(max(1, int(request.args.get('limit', 100))), 500)
-    query = Invoice.query.filter(Invoice.status != 'deleted').filter_by(user_id=uid)
+    query = Invoice.query.filter(Invoice.status != 'deleted').filter(
+        ~Invoice.invoice_number.like('DRAFT-%')).filter_by(user_id=uid)
     query = query.order_by(Invoice.id.desc())
     if cust_id:
         query = query.filter_by(customer_id=int(cust_id)).limit(5)
@@ -2241,9 +2242,10 @@ def create_invoice():
     data = request.get_json()
     cust_id = data.get('customer_id') or None
     cust_name = (data.get('customer_name') or '').strip() or 'Walk-in'
+    is_auto_draft = data.get('is_auto_draft', False)
     inv = Invoice(
         user_id=session.get('user_id'),
-        invoice_number=next_invoice_number(),
+        invoice_number='DRAFT-TMP' if is_auto_draft else next_invoice_number(),
         customer_id=cust_id,
         customer_name_snap=cust_name,
         invoice_date=date.today(),
@@ -2252,9 +2254,16 @@ def create_invoice():
     )
     db.session.add(inv)
     db.session.flush()  # get inv.id
+    if is_auto_draft:
+        inv.invoice_number = f'DRAFT-{inv.id}'
 
-    for line_data in data.get('lines', []):
-        item = Item.query.get(line_data.get('item_id')) if line_data.get('item_id') else None
+    # Batch-load all referenced items in ONE query instead of per-line
+    line_list = data.get('lines', [])
+    item_ids = {ld.get('item_id') for ld in line_list if ld.get('item_id')}
+    items_map = {i.id: i for i in Item.query.filter(Item.id.in_(item_ids)).all()} if item_ids else {}
+
+    for line_data in line_list:
+        item = items_map.get(line_data.get('item_id'))
         # Auto-save custom items to catalog
         if not item and line_data.get('item_name', '').strip():
             item = _ensure_item_exists(
@@ -2288,6 +2297,18 @@ def create_invoice():
 
     db.session.flush()
     _adjust_stock(inv.lines, -1)
+
+    # Auto-post in one round trip if requested
+    amount_paid = data.get('amount_paid')
+    if amount_paid is not None:
+        inv.amount_paid = round(float(amount_paid or 0), 2)
+        inv.status = 'posted'
+        if inv.customer_id:
+            c = Customer.query.get(inv.customer_id)
+            if c:
+                net_due = round(float(inv.total) - inv.amount_paid, 2)
+                c.balance = round(float(c.balance or 0) + net_due, 2)
+
     db.session.commit()
     return jsonify(inv.to_dict()), 201
 
@@ -2316,6 +2337,11 @@ def update_invoice(inv_id):
         label = 'Finalised' if inv.status == 'finalised' else 'Cancelled'
         return jsonify({'error': f'Cannot edit a {label} invoice. Unlock it first from Admin page.'}), 400
     data = request.get_json()
+
+    is_auto_draft = data.get('is_auto_draft', False)
+    # Assign real invoice number when explicitly saving (not an auto-draft update)
+    if not is_auto_draft and inv.invoice_number.startswith('DRAFT-'):
+        inv.invoice_number = next_invoice_number()
 
     inv.customer_id = data.get('customer_id') or None
     inv.customer_name_snap = (data.get('customer_name') or '').strip() or 'Walk-in'
@@ -2363,6 +2389,20 @@ def update_invoice(inv_id):
     inv.total = round(float(inv.subtotal) + float(inv.tax_amount) - inv.discount_amount, 2)
     db.session.flush()
     _adjust_stock(inv.lines, -1)
+
+    # Auto-post in one round trip if amount_paid provided
+    amount_paid = data.get('amount_paid')
+    if amount_paid is not None and not is_auto_draft:
+        inv.amount_paid = round(float(amount_paid or 0), 2)
+        inv.status = 'posted'
+        if inv.invoice_number.startswith('DRAFT-'):
+            inv.invoice_number = next_invoice_number()
+        if inv.customer_id:
+            c = Customer.query.get(inv.customer_id)
+            if c:
+                net_due = round(float(inv.total) - inv.amount_paid, 2)
+                c.balance = round(float(c.balance or 0) + net_due, 2)
+
     db.session.commit()
     return jsonify(inv.to_dict())
 
@@ -2375,9 +2415,14 @@ def delete_invoice(inv_id):
     if inv.status != 'draft':
         label = {'posted': 'Pending Delivery', 'finalised': 'Finalised', 'cancelled': 'Cancelled'}.get(inv.status, inv.status)
         return jsonify({'error': f'Cannot delete a {label} invoice. Only pending (draft) invoices can be deleted.'}), 400
-    # Soft delete — keeps record so invoice number is permanently retired and never reused
     _adjust_stock(inv.lines, +1)
-    inv.status = 'deleted'
+    # Auto-drafts (DRAFT-*) were never real — hard delete, no number consumed
+    if inv.invoice_number.startswith('DRAFT-'):
+        for line in inv.lines:
+            db.session.delete(line)
+        db.session.delete(inv)
+    else:
+        inv.status = 'deleted'
     db.session.commit()
     return jsonify({'success': True})
 
@@ -2464,6 +2509,8 @@ def post_invoice(inv_id):
     amount_paid = round(float(data.get('amount_paid', 0) or 0), 2)
     inv.amount_paid = amount_paid
     inv.status = 'posted'
+    if inv.invoice_number.startswith('DRAFT-'):
+        inv.invoice_number = next_invoice_number()
     # Update customer balance: only net due (total - amount paid at billing)
     if inv.customer_id:
         c = Customer.query.get(inv.customer_id)
