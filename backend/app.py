@@ -452,8 +452,15 @@ def superadmin_users_page():
 def superadmin_items_page():
     return render_template('superadmin/items.html')
 
+def _require_superadmin():
+    if not session.get('is_superadmin'):
+        return jsonify({'error': 'Access denied'}), 403
+    return None
+
 @app.route('/api/superadmin/users')
 def superadmin_get_users():
+    denied = _require_superadmin()
+    if denied: return denied
     search = (request.args.get('search') or '').strip()
     q = User.query.filter_by(is_superadmin=False)
     if search:
@@ -483,6 +490,8 @@ def superadmin_get_users():
 
 @app.route('/api/superadmin/users/<int:uid>/reset-password', methods=['POST'])
 def superadmin_reset_password(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     data = request.get_json()
     new_pwd = (data.get('new_password') or '').strip()
     if not new_pwd or len(new_pwd) < 4:
@@ -496,6 +505,8 @@ def superadmin_reset_password(uid):
 
 @app.route('/api/superadmin/users/<int:uid>', methods=['DELETE'])
 def superadmin_delete_user(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     user = User.query.get(uid)
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
@@ -521,6 +532,8 @@ def superadmin_delete_user(uid):
 
 @app.route('/api/superadmin/users/<int:uid>/clear-data', methods=['DELETE'])
 def superadmin_clear_user_data(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     user = User.query.get(uid)
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
@@ -546,6 +559,8 @@ def superadmin_clear_user_data(uid):
 
 @app.route('/api/superadmin/users/<int:uid>/suspend', methods=['POST'])
 def superadmin_suspend_user(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     user = User.query.get(uid)
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
@@ -555,6 +570,8 @@ def superadmin_suspend_user(uid):
 
 @app.route('/api/superadmin/users/<int:uid>/unsuspend', methods=['POST'])
 def superadmin_unsuspend_user(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     user = User.query.get(uid)
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
@@ -564,6 +581,8 @@ def superadmin_unsuspend_user(uid):
 
 @app.route('/api/superadmin/users/<int:uid>/unlock-admin', methods=['POST'])
 def superadmin_unlock_admin(uid):
+    denied = _require_superadmin()
+    if denied: return denied
     user = User.query.get(uid)
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
@@ -774,9 +793,17 @@ def superadmin_forgot_password():
         return jsonify({'match': True, 'email_failed': True, 'reason': hint})
     return jsonify({'match': True, 'email_failed': False})
 
+_reset_verify_attempts: dict = {}  # ip -> {'count': int, 'locked_until': datetime|None}
+
 @app.route('/api/superadmin/verify-reset-code', methods=['POST'])
 def superadmin_verify_reset_code():
     """Verify the 4-digit code and start a session if valid."""
+    ip = get_client_ip()
+    now = datetime.utcnow()
+    rec = _reset_verify_attempts.get(ip, {'count': 0, 'locked_until': None})
+    if rec['locked_until'] and now < rec['locked_until']:
+        wait = int((rec['locked_until'] - now).total_seconds())
+        return jsonify({'error': f'Too many attempts. Try again in {wait}s.'}), 429
     code = (request.get_json() or {}).get('code', '').strip()
     if not code:
         return jsonify({'error': 'Code is required'}), 400
@@ -786,7 +813,12 @@ def superadmin_verify_reset_code():
     if datetime.utcnow() > user.reset_code_expiry:
         return jsonify({'error': 'Code has expired. Please request a new one.'}), 401
     if not check_password_hash(user.reset_code_hash, code):
+        rec['count'] = rec.get('count', 0) + 1
+        if rec['count'] >= 5:
+            rec['locked_until'] = now + timedelta(minutes=30)
+        _reset_verify_attempts[ip] = rec
         return jsonify({'error': 'Invalid code'}), 401
+    _reset_verify_attempts.pop(ip, None)
     # Valid — log in
     session.clear()
     session.permanent = True
@@ -849,6 +881,8 @@ def superadmin_get_ip_logs():
 
 @app.route('/api/superadmin/messages')
 def superadmin_get_messages():
+    denied = _require_superadmin()
+    if denied: return denied
     requests = PasswordResetRequest.query.order_by(
         PasswordResetRequest.status.asc(),
         PasswordResetRequest.requested_at.desc()
@@ -867,6 +901,8 @@ def superadmin_get_messages():
 
 @app.route('/api/superadmin/messages/<int:rid>/resolve', methods=['POST'])
 def superadmin_resolve_message(rid):
+    denied = _require_superadmin()
+    if denied: return denied
     data = request.get_json()
     new_pwd = (data.get('new_password') or '').strip()
     if not new_pwd or len(new_pwd) < 4:
@@ -883,6 +919,8 @@ def superadmin_resolve_message(rid):
 
 @app.route('/api/superadmin/messages/<int:rid>/dismiss', methods=['POST'])
 def superadmin_dismiss_message(rid):
+    denied = _require_superadmin()
+    if denied: return denied
     req = PasswordResetRequest.query.get_or_404(rid)
     req.status = 'dismissed'
     req.resolved_at = datetime.utcnow()
@@ -891,6 +929,8 @@ def superadmin_dismiss_message(rid):
 
 @app.route('/api/superadmin/pending-count')
 def superadmin_pending_count():
+    denied = _require_superadmin()
+    if denied: return denied
     count = PasswordResetRequest.query.filter_by(status='pending').count()
     return jsonify({'count': count})
 
@@ -1313,6 +1353,12 @@ def add_category():
 
 @app.route('/api/categories/<int:cid>', methods=['DELETE'])
 def delete_category(cid):
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'error': 'Access denied'}), 403
+    u = User.query.get(uid)
+    if not u or (not u.is_admin and not u.is_superadmin):
+        return jsonify({'error': 'Only admins can delete categories'}), 403
     c = Category.query.get_or_404(cid)
     db.session.delete(c)
     db.session.commit()
@@ -1512,10 +1558,10 @@ def update_item(iid):
 @app.route('/api/suppliers', methods=['GET'])
 def get_suppliers():
     uid = session.get('user_id')
+    if not uid:
+        return jsonify([])
     q = request.args.get('q', '').strip()
-    query = Supplier.query.filter_by(is_active=True)
-    if uid:
-        query = query.filter_by(user_id=uid)
+    query = Supplier.query.filter_by(is_active=True, user_id=uid)
     if q:
         query = query.filter(Supplier.name.ilike(f'%{q}%') | Supplier.code.ilike(f'%{q}%'))
     return jsonify([s.to_dict() for s in query.order_by(Supplier.name).all()])
@@ -1541,7 +1587,7 @@ def add_supplier():
 def update_supplier(sid):
     s = Supplier.query.get_or_404(sid)
     uid = session.get('user_id')
-    if s.user_id and s.user_id != uid:
+    if not uid or s.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
     if 'name' in data: s.name = data['name'].strip()
@@ -1558,7 +1604,7 @@ def update_supplier(sid):
 def delete_supplier(sid):
     s = Supplier.query.get_or_404(sid)
     uid = session.get('user_id')
-    if s.user_id and s.user_id != uid:
+    if not uid or s.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     s.is_active = False
     db.session.commit()
@@ -1567,9 +1613,9 @@ def delete_supplier(sid):
 @app.route('/api/purchases', methods=['GET'])
 def get_purchases():
     uid = session.get('user_id')
-    query = Purchase.query
-    if uid:
-        query = query.filter_by(user_id=uid)
+    if not uid:
+        return jsonify([])
+    query = Purchase.query.filter_by(user_id=uid)
     purchases = query.order_by(Purchase.created_at.desc()).all()
     return jsonify([p.to_dict() for p in purchases])
 
@@ -1589,10 +1635,15 @@ def save_purchase():
     purchase_number = f'PUR-{num:04d}'
 
     total_cost = 0
+    sup_id = data.get('supplier_id')
+    if sup_id:
+        sup = Supplier.query.get(sup_id)
+        if not sup or sup.user_id != uid:
+            return jsonify({'error': 'Invalid supplier'}), 400
     purchase = Purchase(
         user_id=session.get('user_id'),
         purchase_number=purchase_number,
-        supplier_id=data.get('supplier_id'),
+        supplier_id=sup_id,
         supplier_name=data.get('supplier_name', 'Counter'),
     )
     db.session.add(purchase)
@@ -1664,7 +1715,7 @@ def save_purchase():
 def delete_purchase(pid):
     p = Purchase.query.get_or_404(pid)
     uid = session.get('user_id')
-    if p.user_id and p.user_id != uid:
+    if not uid or p.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     # Reverse stock qty
     for line in p.lines:
@@ -1685,7 +1736,7 @@ def delete_purchase(pid):
 def update_purchase(pid):
     p = Purchase.query.get_or_404(pid)
     uid = session.get('user_id')
-    if p.user_id and p.user_id != uid:
+    if not uid or p.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
 
@@ -1977,10 +2028,10 @@ def import_items():
 @app.route('/api/customers', methods=['GET'])
 def get_customers():
     uid = session.get('user_id')
+    if not uid:
+        return jsonify([])
     q = request.args.get('q', '').strip()
-    query = Customer.query.filter_by(is_active=True)
-    if uid:
-        query = query.filter_by(user_id=uid)
+    query = Customer.query.filter_by(is_active=True, user_id=uid)
     if q:
         query = query.filter(
             (Customer.name.ilike(f'{q}%')) | (Customer.phone.ilike(f'%{q}%'))
@@ -2023,7 +2074,7 @@ def add_customer():
 def update_customer(cid):
     c = Customer.query.get_or_404(cid)
     uid = session.get('user_id')
-    if c.user_id and c.user_id != uid:
+    if not uid or c.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
     if 'name' in data:       c.name         = data['name'].strip()
@@ -2043,7 +2094,7 @@ def update_customer(cid):
 def delete_customer(cid):
     c = Customer.query.get_or_404(cid)
     uid = session.get('user_id')
-    if c.user_id and c.user_id != uid:
+    if not uid or c.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     c.is_active = False
     db.session.commit()
@@ -2248,6 +2299,10 @@ def create_invoice():
     data = request.get_json()
     cust_id = data.get('customer_id') or None
     cust_name = (data.get('customer_name') or '').strip() or 'Walk-in'
+    if cust_id:
+        cust = Customer.query.get(cust_id)
+        if not cust or cust.user_id != uid:
+            return jsonify({'error': 'Invalid customer'}), 400
     is_auto_draft = data.get('is_auto_draft', False)
     inv = Invoice(
         user_id=session.get('user_id'),
@@ -2323,7 +2378,7 @@ def create_invoice():
 def get_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     d = inv.to_dict()
     # Phone: prefer the number saved at billing time, fall back to customer record
@@ -2341,7 +2396,7 @@ def update_invoice(inv_id):
         return jsonify({'error': 'Guests cannot update server invoices.'}), 403
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('finalised', 'cancelled'):
         label = 'Finalised' if inv.status == 'finalised' else 'Cancelled'
@@ -2421,7 +2476,7 @@ def update_invoice(inv_id):
 def delete_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status != 'draft':
         label = {'posted': 'Pending Delivery', 'finalised': 'Finalised', 'cancelled': 'Cancelled'}.get(inv.status, inv.status)
@@ -2463,7 +2518,7 @@ def admin_suppliers():
 def unpost_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status not in ('posted', 'finalised'):
         return jsonify({'error': 'Invoice cannot be unlocked'}), 400
@@ -2481,7 +2536,7 @@ def unpost_invoice(inv_id):
 def cancel_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('cancelled', 'deleted'):
         return jsonify({'error': 'Already cancelled'}), 400
@@ -2500,7 +2555,7 @@ def cancel_invoice(inv_id):
 def finalise_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status != 'posted':
         return jsonify({'error': 'Only Pending Delivery invoices can be finalised'}), 400
@@ -2512,7 +2567,7 @@ def finalise_invoice(inv_id):
 def post_invoice(inv_id):
     inv = Invoice.query.get_or_404(inv_id)
     uid = session.get('user_id')
-    if uid and inv.user_id and inv.user_id != uid:
+    if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if inv.status in ('posted', 'finalised', 'cancelled'):
         return jsonify({'error': 'Invoice is already saved or finalised'}), 400
@@ -2609,7 +2664,7 @@ def add_customer_payment():
     c = None
     if cid:
         c = Customer.query.get_or_404(cid)
-        if c.user_id and uid and c.user_id != uid:
+        if not uid or c.user_id != uid:
             return jsonify({'error': 'Access denied'}), 403
     pmt = CustomerPayment(
         user_id=uid,
@@ -2630,7 +2685,7 @@ def add_customer_payment():
 def delete_customer_payment(pid):
     uid = session.get('user_id')
     pmt = CustomerPayment.query.get_or_404(pid)
-    if pmt.user_id and uid and pmt.user_id != uid:
+    if not uid or pmt.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if pmt.customer_id:
         c = Customer.query.get(pmt.customer_id)
@@ -2729,7 +2784,7 @@ def add_supplier_payment():
     s = None
     if sid:
         s = Supplier.query.get_or_404(sid)
-        if s.user_id and uid and s.user_id != uid:
+        if not uid or s.user_id != uid:
             return jsonify({'error': 'Access denied'}), 403
     pmt = SupplierPayment(
         user_id=uid,
@@ -2750,7 +2805,7 @@ def add_supplier_payment():
 def delete_supplier_payment(pid):
     uid = session.get('user_id')
     pmt = SupplierPayment.query.get_or_404(pid)
-    if pmt.user_id and uid and pmt.user_id != uid:
+    if not uid or pmt.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     if pmt.supplier_id:
         s = Supplier.query.get(pmt.supplier_id)
