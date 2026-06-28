@@ -500,11 +500,17 @@ def superadmin_delete_user(uid):
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
     # Delete all cascading data
+    CustomerPayment.query.filter_by(user_id=uid).delete()
+    SupplierPayment.query.filter_by(user_id=uid).delete()
     for inv in Invoice.query.filter_by(user_id=uid).all():
         db.session.delete(inv)
     for pur in Purchase.query.filter_by(user_id=uid).all():
         db.session.delete(pur)
     UserItemDiscount.query.filter_by(user_id=uid).delete()
+    UserItemOverride.query.filter_by(user_id=uid).delete()
+    UserIPLog.query.filter_by(user_id=uid).delete()
+    PasswordResetRequest.query.filter_by(user_id=uid).delete()
+    GuestLimit.query.filter_by(user_id=uid).delete()
     Item.query.filter_by(user_id=uid).delete()
     Customer.query.filter_by(user_id=uid).delete()
     Supplier.query.filter_by(user_id=uid).delete()
