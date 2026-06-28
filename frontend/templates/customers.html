@@ -153,7 +153,10 @@ textarea{resize:vertical;min-height:70px}
     <div class="form-row">
       <div class="form-group">
         <label>Phone</label>
-        <input id="f_phone" type="tel" placeholder="03xxxxxxxxx">
+        <div style="display:flex;gap:6px">
+          <input id="f_phone" type="tel" placeholder="03xxxxxxxxx" style="flex:1">
+          <button type="button" onclick="pickContact('f_phone','f_wa')" class="contact-pick-btn" style="display:none;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--accent);font-size:1.1em;cursor:pointer;flex-shrink:0" title="Pick from contacts">📇</button>
+        </div>
       </div>
       <div class="form-group">
         <label>WhatsApp</label>
@@ -343,6 +346,24 @@ function newBill(customerId){
 }
 
 function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+// Contact Picker API (mobile browsers)
+async function pickContact(phoneId, waId){
+  try{
+    const contacts = await navigator.contacts.select(['tel','name'],{multiple:false});
+    if(contacts && contacts.length){
+      const c = contacts[0];
+      const tel = (c.tel && c.tel[0]) ? c.tel[0].replace(/[\s\-()]/g,'') : '';
+      if(tel){
+        document.getElementById(phoneId).value = tel;
+        if(waId) document.getElementById(waId).value = tel;
+      }
+    }
+  }catch(e){ toast('Contact picker not available',true); }
+}
+if('contacts' in navigator && 'ContactsManager' in window){
+  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+}
 
 loadCustomers();
 (function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();

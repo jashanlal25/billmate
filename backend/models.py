@@ -335,6 +335,7 @@ class Invoice(db.Model):
     invoice_number = db.Column(db.String(30), unique=True, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     customer_name_snap = db.Column(db.String(150))   # stored at invoice time
+    customer_phone_snap = db.Column(db.String(30))    # phone used at billing time
     invoice_date = db.Column(db.Date, nullable=False, default=date.today)
     status = db.Column(db.String(20), default='draft')   # draft / posted / cancelled
     previous_balance = db.Column(db.Numeric(10, 2), default=0)  # customer balance before this invoice
@@ -365,6 +366,7 @@ class Invoice(db.Model):
             'invoice_number': self.invoice_number,
             'customer_id': self.customer_id,
             'customer_name': self.customer_name_snap or 'Walk-in',
+            'customer_phone_snap': self.customer_phone_snap or '',
             'invoice_date': self.invoice_date.isoformat(),
             'status': self.status,
             'previous_balance': float(self.previous_balance or 0),

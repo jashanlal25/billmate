@@ -166,6 +166,13 @@ input[type=number]{-moz-appearance:textfield}
   /* Cust row */
   .cust-row{flex-wrap:wrap}
   #custInvBtn{width:100%}
+  /* Item search: full-width input + collapsed action buttons */
+  .item-search-row{flex-wrap:wrap}
+  .item-search-row .item-search-wrap{flex:1 1 100%!important;order:1}
+  .item-action-btns{display:none!important}
+  .mob-more-btn{display:flex!important}
+  .mob-actions-row{display:none;width:100%;gap:8px;order:3;flex-wrap:wrap}
+  .mob-actions-row.open{display:flex}
 }
 /* Line row 3-dots menu */
 .dots-btn{display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--sub);font-size:1.3em;padding:2px 6px;border-radius:6px;line-height:1}
@@ -190,7 +197,12 @@ input[type=number]{-moz-appearance:textfield}
 .scan-result-item.unmatched{opacity:.55;border-style:dashed}
 .scan-spinner{display:inline-block;width:22px;height:22px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Mobile item-search toolbar extras */
+.mob-more-btn{display:none;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:1.3em;flex-shrink:0;order:2;-webkit-tap-highlight-color:transparent;transition:background .18s,transform .1s}
+.mob-more-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border-color:#667eea}
+.mob-actions-row{display:none}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 <nav class="nav">
@@ -237,6 +249,10 @@ input[type=number]{-moz-appearance:textfield}
       <div id="custSection" style="position:relative">
         <div class="cust-row">
           <input class="cust-search" id="custSearch" placeholder="Customer name or code (empty = Walk-in)..." oninput="searchCustomer(this.value);this.value=toTitleCase(this.value)" onkeydown="custSearchKey(event)" autocomplete="new-password">
+          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
+            <input id="custPhone" type="tel" placeholder="Phone (optional)" style="width:130px;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.82em;outline:none">
+            <button type="button" onclick="pickContact()" class="contact-pick-btn" style="display:none;padding:7px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--accent);font-size:1em;cursor:pointer;flex-shrink:0" title="Pick from contacts">📇</button>
+          </div>
           <button id="custInvBtn" style="display:none;padding:7px 13px;border:none;border-radius:10px;background:rgba(102,126,234,.25);color:#a5b4fc;font-size:.8em;font-weight:600;cursor:pointer;white-space:nowrap" onclick="toggleCustInvoices()">📋 Invoices</button>
         </div>
         <div id="custDropdown" class="dropdown"></div>
@@ -244,14 +260,22 @@ input[type=number]{-moz-appearance:textfield}
       </div>
 
       <!-- Item Search -->
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <div class="item-search-row" style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
         <div class="item-search-wrap" style="flex:1;margin-bottom:0">
           <input class="item-search" id="itemSearch" placeholder="Type medicine name to add..." oninput="searchItem(this.value)" onkeydown="itemSearchKey(event)" autocomplete="off">
           <div class="dropdown" id="itemDropdown"></div>
         </div>
-        <button id="bonusToggleBtn" onclick="toggleBonus()" title="Show/edit bonus text on cart rows" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:.75em;font-weight:700;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">B+</button>
-        <button id="addOrderBtn" onclick="toggleAddOrder()" title="New items added at top" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid #667eea;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;font-size:1.1em;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">⬆</button>
-        <button onclick="openScanModal()" title="Scan bill image to auto-fill items" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;padding:0 12px;border:1.5px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#667eea22,#764ba222);color:var(--accent);cursor:pointer;font-size:.82em;font-weight:700;white-space:nowrap;transition:all .18s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.96)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">📷 Scan Bill</button>
+        <span class="item-action-btns" style="display:contents">
+          <button id="bonusToggleBtn" onclick="toggleBonus()" title="Show/edit bonus text on cart rows" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:.75em;font-weight:700;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">B+</button>
+          <button id="addOrderBtn" onclick="toggleAddOrder()" title="New items added at top" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border:1.5px solid #667eea;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;font-size:1.1em;line-height:1;transition:background .18s,border-color .18s,color .18s,transform .1s;-webkit-tap-highlight-color:transparent;user-select:none" onpointerdown="this.style.transform='scale(.9)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">⬆</button>
+          <button onclick="openScanModal()" title="Scan bill image to auto-fill items" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;padding:0 12px;border:1.5px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#667eea22,#764ba222);color:var(--accent);cursor:pointer;font-size:.82em;font-weight:700;white-space:nowrap;transition:all .18s;-webkit-tap-highlight-color:transparent" onpointerdown="this.style.transform='scale(.96)'" onpointerup="this.style.transform=''" onpointerleave="this.style.transform=''">📷 Scan Bill</button>
+        </span>
+        <button class="mob-more-btn" id="mobMoreBtn" onclick="toggleMobActions(event)" title="More actions">⋯</button>
+        <div class="mob-actions-row" id="mobActionsRow">
+          <button id="mobBonusBtn" onclick="toggleBonus();updateMobBtnStates()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--sub);cursor:pointer;font-size:.82em;font-weight:700;-webkit-tap-highlight-color:transparent">B+ Bonus</button>
+          <button id="mobOrderBtn" onclick="toggleAddOrder();updateMobBtnStates()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;border:1.5px solid #667eea;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;font-size:.82em;font-weight:700;-webkit-tap-highlight-color:transparent">⬆ Order</button>
+          <button onclick="openScanModal()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:42px;border:1.5px solid var(--border);border-radius:12px;background:linear-gradient(135deg,#667eea22,#764ba222);color:var(--accent);cursor:pointer;font-size:.82em;font-weight:700;-webkit-tap-highlight-color:transparent">📷 Scan</button>
+        </div>
       </div>
 
       <!-- Custom item modal (item not in catalog) -->
@@ -430,6 +454,7 @@ input[type=number]{-moz-appearance:textfield}
       <button class="mbtn mbtn-load setup-req" style="width:100%;padding:12px;font-size:.95em" onclick="printSavedBill()">🖨️ Print Bill</button>
       <button class="setup-req" onclick="shareWhatsApp()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#25d366;color:#fff;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s">📲 Share on WhatsApp</button>
       <button class="mbtn setup-req" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfSavedBill()">📄 PDF</button>
+      <button class="setup-req" id="psPdfCustBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#25d366);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="pdfToCustomer()">📄📲 PDF to Customer (WhatsApp)</button>
       <button class="setup-req" id="psMsgVendorBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="openVendorMessage()">📦 Send items to suppliers (reorder)</button>
       <button class="mbtn mbtn-close" style="width:100%;padding:12px;font-size:.95em" onclick="closePostSave()">✕ Close</button>
     </div>
@@ -650,6 +675,42 @@ function toggleTheme(){
   applyTheme(next);
 }
 function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+function toggleMobActions(e){
+  if(e) e.stopPropagation();
+  var row=document.getElementById('mobActionsRow');
+  var btn=document.getElementById('mobMoreBtn');
+  row.classList.toggle('open');
+  btn.classList.toggle('active');
+}
+function closeMobActions(){
+  var row=document.getElementById('mobActionsRow');
+  var btn=document.getElementById('mobMoreBtn');
+  if(row.classList.contains('open')){
+    row.classList.remove('open');
+    btn.classList.remove('active');
+  }
+}
+function updateMobBtnStates(){
+  var bb=document.getElementById('mobBonusBtn');
+  if(bb){
+    bb.style.background=showBonus?'linear-gradient(135deg,#16a34a,#15803d)':'var(--inp)';
+    bb.style.color=showBonus?'#fff':'var(--sub)';
+    bb.style.borderColor=showBonus?'#16a34a':'var(--border)';
+  }
+  var ob=document.getElementById('mobOrderBtn');
+  if(ob){
+    ob.style.background=addOnTop?'linear-gradient(135deg,#667eea,#764ba2)':'var(--inp)';
+    ob.style.color=addOnTop?'#fff':'var(--sub)';
+    ob.style.borderColor=addOnTop?'#667eea':'var(--border)';
+  }
+}
+document.addEventListener('click',function(e){
+  var row=document.getElementById('mobActionsRow');
+  if(!row||!row.classList.contains('open')) return;
+  var moreBtn=document.getElementById('mobMoreBtn');
+  if(row.contains(e.target)||moreBtn.contains(e.target)) return;
+  closeMobActions();
+});
 
 const IS_GUEST = {{ 'true' if is_guest else 'false' }};
 
@@ -830,6 +891,7 @@ function selectCustomer(id){
   customer=customers.find(c=>c.id===id);
   document.getElementById('custSearch').value=customer.name;
   document.getElementById('custDropdown').classList.remove('open');
+  document.getElementById('custPhone').value=customer.phone||customer.whatsapp||'';
   const outstanding = parseFloat(customer.outstanding||0);
   currentOutstanding = outstanding;
   // Reset balance toggles: show ON, include ON when a balance exists, edit OFF
@@ -1138,7 +1200,7 @@ function renderLines(){
         <span class="mob-lbl">Qty</span>
         <div class="qty-stepper">
           <button onclick="stepQty(${i},-1)">−</button>
-          <input class="qty-inp" type="number" min="1" value="${l.qty}" onchange="updateQty(${i},this.value)">
+          <input class="qty-inp" type="number" min="1" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
           <button onclick="stepQty(${i},1)">+</button>
         </div>
       </td>
@@ -1449,6 +1511,7 @@ async function saveInvoice(){
   const payload={
     customer_id: customer?customer.id:null,
     customer_name: typedName || 'Walk-in',
+    customer_phone: document.getElementById('custPhone').value.trim(),
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
     amount_paid: parseFloat(document.getElementById('cashReceivedInp').value)||0,
     lines: lines.map(l=>({
@@ -1490,6 +1553,7 @@ function _autoDraftPayload(){
     is_auto_draft: true,
     customer_id: customer?customer.id:null,
     customer_name: typedName||'Walk-in',
+    customer_phone: document.getElementById('custPhone').value.trim(),
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
     lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||''}))
   };
@@ -1601,7 +1665,7 @@ function closePostSave(){
   loadHistory();
 }
 
-function _invWithPhone(inv){ return Object.assign({}, inv, {customer_phone: customer?(customer.phone||''):'', customer_address: customer?(customer.address||''):''}); }
+function _invWithPhone(inv){ const ph=document.getElementById('custPhone').value.trim()||(customer?(customer.phone||''):''); return Object.assign({}, inv, {customer_phone: ph, customer_address: customer?(customer.address||''):''}); }
 
 function _openInvoiceWindow(html){
   // Open a blank tab first (inside the click handler = allowed by mobile browsers),
@@ -1645,6 +1709,40 @@ function pdfSavedBill(){
   _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true, false, _psShowVendor(), _psShowBalance()));
 }
 
+function pdfToCustomer(){
+  if(!lastSavedInv) return;
+  const cphone = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
+  if(!cphone){ toast('No customer phone number',true); return; }
+  const html = buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true, false, _psShowVendor(), _psShowBalance());
+  const container = document.createElement('div');
+  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px';
+  document.body.appendChild(container);
+  const fileName = `${lastSavedInv.invoice_number}.pdf`;
+  html2pdf().set({
+    margin: [10,10,10,10],
+    filename: fileName,
+    image: {type:'jpeg',quality:0.95},
+    html2canvas: {scale:2,useCORS:true},
+    jsPDF: {unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(container).outputPdf('blob').then(blob=>{
+    document.body.removeChild(container);
+    const file = new File([blob], fileName, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:fileName}).catch(()=>{});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      URL.revokeObjectURL(url);
+      toast('PDF downloaded — attach it manually in WhatsApp');
+    }
+  }).catch(()=>{
+    document.body.removeChild(container);
+    toast('PDF generation failed',true);
+  });
+}
+
 // Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
 function _initPostSaveVendorUI(inv){
   const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
@@ -1661,6 +1759,9 @@ function _initPostSaveVendorUI(inv){
   const billingChk = document.getElementById('pbShowChk');
   if(bchk) bchk.checked = billingChk ? billingChk.checked : true;
   if(brow) brow.style.display = hasBal ? 'flex' : 'none';
+  const custPh = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
+  const pdfCustBtn = document.getElementById('psPdfCustBtn');
+  if(pdfCustBtn) pdfCustBtn.style.display = custPh ? 'block' : 'none';
 }
 
 function shareWhatsApp(){
@@ -1673,6 +1774,7 @@ function shareWhatsApp(){
   let msg = `*${settings.shop_name||'Invoice'}*\n`;
   msg += `Invoice: ${inv.invoice_number}  |  ${inv.invoice_date||''}\n`;
   if(inv.customer_name && inv.customer_name!=='Walk-in') msg += `Customer: ${inv.customer_name}\n`;
+  msg += `Total No of Items: ${lines.length}\n`;
   msg += `\n`;
   const showVendor = _psShowVendor();
   lines.forEach(l=>{
@@ -1692,7 +1794,9 @@ function shareWhatsApp(){
     msg += `\n*Grand Total: Rs.${(currentOutstanding+total).toFixed(2)}*`;
   }
   if(settings.phone) msg += `\n\n${settings.shop_name||''} · ${settings.phone}`;
-  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  const cphone = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
+  const waUrl = cphone ? `https://wa.me/${cphone}?text=` : 'https://wa.me/?text=';
+  window.open(waUrl+encodeURIComponent(msg),'_blank');
 }
 
 // Share a saved/viewed invoice as a WhatsApp text bill (works from an invoice object).
@@ -1702,6 +1806,7 @@ function shareInvoiceWhatsApp(inv){
   let msg = `*${settings.shop_name||'Invoice'}*\n`;
   msg += `Invoice: ${inv.invoice_number}  |  ${inv.invoice_date||''}\n`;
   if(inv.customer_name && inv.customer_name!=='Walk-in') msg += `Customer: ${inv.customer_name}\n`;
+  msg += `Total No of Items: ${inv.lines.length}\n`;
   msg += `\n`;
   inv.lines.forEach(l=>{
     const lineTotal = ((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
@@ -1746,15 +1851,14 @@ function _vendorPhone(vendor){
 }
 function _vendorReorderUrl(vendor, items){
   const inv = _vendorInv();
-  let msg = `*Reorder from ${vendor}*\n`;
-  if(settings.shop_name) msg += `${settings.shop_name}\n`;
+  let msg = `*Order for ${vendor}*\n`;
   if(inv && inv.invoice_number) msg += `Ref: ${inv.invoice_number}\n`;
+  msg += `Total Items: ${items.length}\n`;
   msg += `\n`;
   items.forEach(l=>{
     const q = (+l.qty)%1 ? (+l.qty).toFixed(2) : (+l.qty).toFixed(0);
     msg += `• ${l.item_name} ×${q}\n`;
   });
-  if(settings.phone) msg += `\n${settings.shop_name||''} · ${settings.phone}`;
   const phone = _vendorPhone(vendor);
   return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
 }
@@ -1819,6 +1923,7 @@ function newBill(){
   _rememberAutoDraft(null);
   lines=[];customer=null;savedInvoiceId=null;currentOutstanding=0;showingCustInv=false;
   document.getElementById('custSearch').value='';
+  document.getElementById('custPhone').value='';
   document.getElementById('prevBalSection').style.display='none';
   document.getElementById('custInvBtn').style.display='none';
   renderLines();
@@ -2004,10 +2109,12 @@ async function viewInvoice(id){
   // Action buttons based on status
   const acts = document.getElementById('mActions');
   const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
+  const custPh = (inv.customer_whatsapp||inv.customer_phone||'').replace(/[^\d]/g,'');
   const printPdfBtns = `
     <button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
+    ${custPh?`<button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 PDF to Customer</button>`:''}
     ${hasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   const sc=setupCompleted;
   if(inv.status === 'draft'){
@@ -2089,7 +2196,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
     .grand-row td{font-size:1.05em;font-weight:800;color:${accent};border-top:2px solid ${accent};padding-top:8px}
     .prev-row td{color:#92400e;font-size:.9em}
     .footer{margin-top:28px;padding-top:12px;border-top:1px dashed #ccc;text-align:center;font-size:.78em;color:#888}
-    @media print{body{padding:8px 10mm;max-width:none}@page{margin:10mm}}
+    @media print{body{padding:8px 10mm;max-width:none}@page{margin:10mm}thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}.totals-wrap{page-break-inside:avoid;break-inside:avoid}}
   </style></head><body>
   <!-- Shop name centered top -->
   <div class="shop-header">
@@ -2212,6 +2319,40 @@ function pdfInvoiceModal(){
   _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()));
 }
 
+function pdfToCustomerModal(){
+  if(!currentInv) return;
+  const cphone = (currentInv.customer_whatsapp||currentInv.customer_phone||'').replace(/[^\d]/g,'');
+  if(!cphone){ toast('No customer phone number',true); return; }
+  const html = buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref());
+  const container = document.createElement('div');
+  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px';
+  document.body.appendChild(container);
+  const fileName = `${currentInv.invoice_number}.pdf`;
+  html2pdf().set({
+    margin: [10,10,10,10],
+    filename: fileName,
+    image: {type:'jpeg',quality:0.95},
+    html2canvas: {scale:2,useCORS:true},
+    jsPDF: {unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(container).outputPdf('blob').then(blob=>{
+    document.body.removeChild(container);
+    const file = new File([blob], fileName, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:fileName}).catch(()=>{});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      URL.revokeObjectURL(url);
+      toast('PDF downloaded — attach it manually in WhatsApp');
+    }
+  }).catch(()=>{
+    document.body.removeChild(container);
+    toast('PDF generation failed',true);
+  });
+}
+
 async function postInvoice(id){
   const r = await fetch(`/api/invoices/${id}/post`, {method:'POST'});
   const res = await r.json();
@@ -2245,8 +2386,10 @@ function loadIntoBuilder(id){
   const inv = currentInv;
   closeInvModal();
   // Load customer
-  customer = inv.customer_id ? {id: inv.customer_id, name: inv.customer_name} : null;
+  customer = inv.customer_id ? {id: inv.customer_id, name: inv.customer_name, phone: inv.customer_phone||'', whatsapp: inv.customer_whatsapp||''} : null;
   document.getElementById('custSearch').value = inv.customer_name === 'Walk-in' ? '' : inv.customer_name;
+  const editPhone = (inv.customer_phone_snap||inv.customer_whatsapp||inv.customer_phone||'');
+  document.getElementById('custPhone').value = editPhone;
   // Load lines
   lines = inv.lines.map(l=>({
     item_id: l.item_id,
@@ -2581,6 +2724,24 @@ function applyScanResults(){
 }
 // ── Keyboard shortcuts: q=qty, d=disc%, p=retail(price), t=tp ────────────────
 // Focus a cart field on the last-added row (q=qty, d=disc, p=retail, t=tp)
+// Contact Picker (mobile)
+async function pickContact(){
+  try{
+    const contacts = await navigator.contacts.select(['tel','name'],{multiple:false});
+    if(contacts && contacts.length){
+      const c = contacts[0];
+      const tel = (c.tel && c.tel[0]) ? c.tel[0].replace(/[\s\-()]/g,'') : '';
+      if(tel) document.getElementById('custPhone').value = tel;
+      if(!document.getElementById('custSearch').value.trim() && c.name && c.name[0]){
+        document.getElementById('custSearch').value = c.name[0];
+      }
+    }
+  }catch(e){}
+}
+if('contacts' in navigator && 'ContactsManager' in window){
+  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+}
+
 function _focusCartField(key){
   if(!lines.length) return;
   const map = {q:6, d:4, p:2, t:3};

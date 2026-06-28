@@ -26,7 +26,7 @@
     <input type="hidden" id="cEditId">
     <div style="margin-bottom:14px"><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Full Name *</label><input id="c_name" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none" oninput="this.value=toTitleCase(this.value)"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
-      <div><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Phone</label><input id="c_phone" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"></div>
+      <div><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Phone</label><div style="display:flex;gap:6px"><input id="c_phone" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"><button type="button" onclick="pickContact('c_phone','c_wa')" class="contact-pick-btn" style="display:none;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--accent);font-size:1.1em;cursor:pointer;flex-shrink:0" title="Pick from contacts">📇</button></div></div>
       <div><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">WhatsApp</label><input id="c_wa" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none"></div>
     </div>
     <div style="margin-bottom:14px"><label style="font-size:.78em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Address</label><textarea id="c_addr" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.9em;outline:none;resize:vertical;min-height:60px"></textarea></div>
@@ -157,6 +157,22 @@ async function deleteCustomer(id,name){
 }
 
 function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
+
+async function pickContact(phoneId, waId){
+  try{
+    const contacts = await navigator.contacts.select(['tel'],{multiple:false});
+    if(contacts && contacts.length){
+      const tel = (contacts[0].tel && contacts[0].tel[0]) ? contacts[0].tel[0].replace(/[\s\-()]/g,'') : '';
+      if(tel){
+        document.getElementById(phoneId).value = tel;
+        if(waId) document.getElementById(waId).value = tel;
+      }
+    }
+  }catch(e){ toast('Contact picker not available',true); }
+}
+if('contacts' in navigator && 'ContactsManager' in window){
+  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+}
 
 loadCustomers();
 </script>

@@ -203,8 +203,16 @@ async function saveSetup(){
   const addr=document.getElementById('s_address').value.trim();
   if(!addr){toast('Address is required',true);document.getElementById('s_address').focus();return;}
   const phone=buildPhone('s_phone_code','s_phone_num');
+  const phoneNum=document.getElementById('s_phone_num').value.trim();
+  if(phoneNum && !document.getElementById('s_phone_code').value.trim()){
+    toast('Enter country code for Phone (e.g. 92)',true);document.getElementById('s_phone_code').focus();return;
+  }
   if(!phone){toast('Phone number is required',true);document.getElementById('s_phone_num').focus();return;}
   const whatsapp=buildPhone('s_wa_code','s_wa_num');
+  const waNum=document.getElementById('s_wa_num').value.trim();
+  if(waNum && !document.getElementById('s_wa_code').value.trim()){
+    toast('Enter country code for WhatsApp (e.g. 92)',true);document.getElementById('s_wa_code').focus();return;
+  }
   if(!whatsapp){toast('WhatsApp number is required',true);document.getElementById('s_wa_num').focus();return;}
   const adminPwd=document.getElementById('s_admin_password').value;
   if(!adminPwdAlreadySet && !adminPwd.trim()){toast('Admin password is required',true);document.getElementById('s_admin_password').focus();return;}

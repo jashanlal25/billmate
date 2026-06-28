@@ -173,8 +173,16 @@ async function save(){
   const name = document.getElementById('shop_name').value.trim();
   if(!name){ toast('Shop name is required', true); return; }
   const phone=buildPhone('phone_code','phone_num');
+  const phoneNum=document.getElementById('phone_num').value.trim();
+  if(phoneNum && !document.getElementById('phone_code').value.trim()){
+    toast('Enter country code for Phone (e.g. 92)',true); document.getElementById('phone_code').focus(); return;
+  }
   if(!phone){ toast('Phone number is required',true); document.getElementById('phone_num').focus(); return; }
   const whatsapp=buildPhone('wa_code','wa_num');
+  const waNum=document.getElementById('wa_num').value.trim();
+  if(waNum && !document.getElementById('wa_code').value.trim()){
+    toast('Enter country code for WhatsApp (e.g. 92)',true); document.getElementById('wa_code').focus(); return;
+  }
   if(!whatsapp){ toast('WhatsApp number is required',true); document.getElementById('wa_num').focus(); return; }
   const r = await fetch('/api/settings',{
     method:'POST',

@@ -2248,6 +2248,7 @@ def create_invoice():
         invoice_number='DRAFT-TMP' if is_auto_draft else next_invoice_number(),
         customer_id=cust_id,
         customer_name_snap=cust_name,
+        customer_phone_snap=(data.get('customer_phone') or '').strip()[:30] or None,
         invoice_date=date.today(),
         notes=data.get('notes', '').strip(),
         previous_balance=customer_balance(cust_id, uid) if cust_id else 0,
@@ -2319,8 +2320,11 @@ def get_invoice(inv_id):
     if uid and inv.user_id and inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     d = inv.to_dict()
-    # Include the customer's contact so the bill can be WhatsApp'd straight to them
-    if inv.customer_id and inv.customer:
+    # Phone: prefer the number saved at billing time, fall back to customer record
+    if inv.customer_phone_snap:
+        d['customer_phone'] = inv.customer_phone_snap
+        d['customer_whatsapp'] = inv.customer_phone_snap
+    elif inv.customer_id and inv.customer:
         d['customer_phone'] = inv.customer.phone or ''
         d['customer_whatsapp'] = inv.customer.whatsapp or ''
     return jsonify(d)
@@ -2345,6 +2349,7 @@ def update_invoice(inv_id):
 
     inv.customer_id = data.get('customer_id') or None
     inv.customer_name_snap = (data.get('customer_name') or '').strip() or 'Walk-in'
+    inv.customer_phone_snap = (data.get('customer_phone') or '').strip()[:30] or None
     inv.notes = data.get('notes', '').strip()
     inv.discount_amount = float(data.get('discount_amount', 0) or 0)
 

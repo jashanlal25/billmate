@@ -1,2313 +1,0 @@
-
-<!DOCTYPE html>
-<html lang="en" dir="ltr" data-theme="light">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-  <title>ANAS SYSTEM  Offline Offer List</title>
-
-<style>
-:root{
-  --panel:rgba(13,18,40,.60);
-  --panelSolid:#101b37;
-  --text:#eaf3ff;
-  --muted:#b9c7e6;
-  --textSolid:#eaf3ff;
-  --border:rgba(255,255,255,.12);
-  --chip:#121a2b;
-  --btn:#1a2540;
-  --thead:#0e1730;
-  --theadText:#cfe3ff;
-  --accent:#2dd4bf;
-  --grad1:#1e3a8a;
-  --grad2:#2563eb;
-  --bg1:#1e1552;
-  --bg2:#2c1691;
-  --bg3:#3f66d1;
-  --bg4:#4ea3ff;
-
-  /* ? viewport fix helper */
-  --vh: 1vh;
-}
-
-[data-theme="light"]{
-  --panel:rgba(255,255,255,.95);
-  --panelSolid:#fff;
-  --text:#0b1220;
-  --muted:#55617a;
-  --textSolid:#0b1220;
-  --border:rgba(8,20,60,.16);
-  --chip:#f3f6ff;
-  --btn:#eaf0ff;
-  --thead:#f7f9ff;
-  --theadText:#5d6e90;
-  --accent:#0ea5e9;
-  --grad1:#08124A;
-  --grad2:#1A2FA0;
-  --bg1:#f3f6ff;
-  --bg2:#edf2ff;
-  --bg3:#e9efff;
-  --bg4:#e6ecff;
-}
-
-*, *::before, *::after{ box-sizing:border-box; }
-
-html, body{ width:100%; }
-html{ -webkit-text-size-adjust:100%; height:100%; }
-
-body{
-  margin:0;
-  font-family:'Segoe UI',Roboto,Arial,system-ui,sans-serif;
-  color:var(--text);
-
-  overflow-x:hidden;
-  overflow-y:auto; /* ? scroll enable */
-
-  /* ? orientation / address bar safe height */
-  min-height: calc(var(--vh) * 100);
-  min-height: 100svh;
-  min-height: 100dvh;
-
-  /* ? heavy repaint fix: remove "fixed" */
-background: linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 35%, var(--bg3) 65%, var(--bg4) 100%);
-background-attachment: fixed;
-background-repeat: no-repeat;
-background-size: cover;
--webkit-font-smoothing: antialiased;
-text-rendering: optimizeLegibility;
-}
-
-/* wrapper */
-.wrap{
-  width:100%;
-  max-width:1100px;
-  margin:0 auto;
-  padding:16px 12px;
-}
-
-/* main card */
-.card{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:18px;
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-
-  box-shadow:0 18px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.08);
-  overflow:hidden;
-
-  display:flex;
-  flex-direction:column;
-}
-
-/* header */
-.head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-  padding:14px;
-  border-bottom:1px solid var(--border);
-}
-.meta{ color:var(--muted); font-size:12px; }
-
-.btn,
-.theme-toggle{
-  border:1px solid var(--border);
-  background:var(--btn);
-  color:var(--text);
-  border-radius:12px;
-  padding:8px 12px;
-  cursor:pointer;
-  text-decoration:none;
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-}
-
-/* shop */
-.shopbox{
-  padding:14px 16px;
-  border-bottom:1px solid var(--border);
-  text-align:center;
-}
-.shopname{
-  margin:0 0 6px;
-  font-weight:900;
-  font-size:28px;
-  letter-spacing:.4px;
-  color:#cfe3ff;
-}
-[data-theme="light"] .shopname{ color:#0A1866; }
-.addr{ color:var(--muted); font-size:.95rem; }
-
-/* chips */
-.info{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  justify-content:center;
-  padding:10px 16px;
-  border-bottom:1px solid var(--border);
-}
-.tag{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 12px;
-  border:1px solid var(--border);
-  border-radius:999px;
-  background:var(--chip);
-  color:var(--text);
-  font-size:12px;
-}
-
-.controls{ display:block; margin:12px 0; padding:0 16px; }
-.row{ padding:0 clamp(12px, 6vw, 100px); }
-
-/* promo video card */
-.promo-video{
-  margin:16px auto 24px;
-  max-width:1100px;
-  padding:16px;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:18px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:0 18px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.08);
-}
-.promo-video .pv-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-}
-.pv-title{
-  margin:0;
-  font-weight:900;
-  letter-spacing:.2px;
-  color:var(--text);
-  font-size:20px;
-}
-.pv-frame{
-  position:relative;
-  width:100%;
-  aspect-ratio:16/9.3;
-  background:#000;
-  border-radius:14px;
-  overflow:hidden;
-  border:1px solid var(--border);
-}
-.pv-frame::before{
-  content:"";
-  position:absolute; inset:-1px;
-  border-radius:14px;
-  pointer-events:none;
-  background:linear-gradient(135deg, var(--grad1), var(--grad2));
-  opacity:.15;
-  -webkit-mask:linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor;
-  mask-composite:exclude;
-}
-.pv-frame iframe{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  border:0;
-  background:#000;
-}
-
-/* inputs */
-input[type=text],input[type=number]{
-  width:100%;
-  padding:11px 12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--chip);
-  color:var(--text);
-  outline:none;
-}
-input:focus{
-  box-shadow:0 0 0 2px rgba(14,165,233,.18);
-  border-color:var(--accent);
-}
-
-/* search */
-.search-box{ position:relative; width:100%; max-width:560px; margin:0 auto; }
-.search-box i{
-  position:absolute;
-  left:16px;
-  top:50%;
-  transform:translateY(-50%);
-  font-size:18px;
-  pointer-events:none;
-  opacity:.75;
-}
-#liveSearch{
-  width:100%;
-  height:44px;
-  padding:10px 12px 10px 52px !important;
-  border:1px solid #d0d7ef;
-  border-radius:12px;
-  background:#fff;
-  color:#111;
-  outline:none;
-  font-weight:700;
-  font-size:16px;
-}
-#liveSearch:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 2px rgba(14,165,233,.18);
-}
-
-/* scroll area (table area scroll) */
-.scrollBoth{
-  border-top:1px solid var(--border);
-
-  -webkit-overflow-scrolling:touch;
-
-}
-
-/* table */
-table.table-fixed{
-  width:100%;
-  border-collapse:collapse;
-  table-layout:fixed;
-}
-thead th{
-  position:sticky;
-  top:0;
-  background:var(--thead);
-  color:var(--theadText);
-  font-weight:700;
-  border-bottom:1px solid var(--border);
-  padding:8px 10px;
-  white-space:nowrap;
-}
-tbody td{
-  padding:8px 10px;
-  border-bottom:1px solid var(--border);
-  vertical-align:middle;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-/* widths desktop */
-.col-code{width:50px}
-.col-name{width:200px}
-.col-qty{width:60px}
-.col-disc{width:60px}
-.col-bonus{width:74px}
-.col-tp{width:70px}
-.col-tax{width:70px}
-
-.first-col{white-space:normal;word-break:break-word;font-weight:800;line-height:1.25;}
-.cell-name{white-space:normal !important;word-break:break-word;overflow-wrap:anywhere;font-weight:800;line-height:1.25}
-
-/* company row */
-.company-head td{
-  background:linear-gradient(90deg,#1e3a8a 0%,#2563eb 50%,#1e3a8a 100%);
-  color:#fff;
-  text-align:center;
-  font-weight:800;
-  letter-spacing:.5px;
-  border-bottom:1px solid var(--border);
-  padding:8px 0;
-  line-height:1.2;
-  text-shadow:0 0 8px rgba(0,0,0,.25);
-}
-
-/* qty */
-.qty-wrap{display:flex;justify-content:center}
-.qty-input{
-  width:100%;
-  max-width:72px;
-  min-width:56px;
-  text-align:center;
-  border-radius:10px;
-  background:#fff;
-  color:#111;
-  border:1px solid #d0d7ef;
-  height:36px;
-  padding:6px 6px;
-  font-weight:800;
-}
-.qty-input::-webkit-outer-spin-button,
-.qty-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
-.qty-input[type=number]{ -moz-appearance:textfield; }
-
-/* footer */
-.footbar{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-  flex-wrap:wrap;
-  padding:12px 16px;
-  border-top:1px solid var(--border);
-}
-.pill{
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-  border:1px solid var(--border);
-  background:var(--chip);
-  color:var(--text);
-  border-radius:10px;
-  padding:8px 12px;
-  font-weight:700;
-}
-
-/* customer title */
-.cust-title{
-  margin:6px 0 12px;
-  text-align:center;
-  font-weight:900;
-  font-size:20px;
-  letter-spacing:.3px;
-  color:var(--text);
-  text-shadow:0 2px 14px rgba(0,0,0,.25);
-}
-.cust-title::after{
-  content:"";
-  display:block;
-  width:180px;
-  height:3px;
-  margin:10px auto 0;
-  border-radius:999px;
-  background:linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity:.85;
-}
-#fldName{ font-size:16px; font-weight:800; letter-spacing:.2px; }
-
-/* hint */
-.hint{ padding:10px 16px 0; color:var(--muted); font-size:12px; }
-noscript .noscriptBox{
-  margin:10px 16px 0;
-  padding:10px 12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  background:var(--chip);
-  color:var(--text);
-  font-size:12px;
-  font-weight:800;
-}
-
-/* whatsapp button */
-.btn-wa{
-  border: 1px solid rgba(34, 197, 94, .28);
-  background: linear-gradient(180deg, #16a34a 0%, #0f7a36 100%);
-  color: #fff !important;
-  border-radius: 12px;
-  padding: 8px 14px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  font-weight: 900;
-  box-shadow: 0 10px 22px rgba(16, 185, 129, .22);
-}
-.btn-wa:hover{
-  background: linear-gradient(180deg, #15803d 0%, #0d6b30 100%);
-  box-shadow: 0 14px 28px rgba(16, 185, 129, .28);
-}
-.btn-wa:active{
-  transform: translateY(1px);
-  filter: brightness(.98);
-}
-
-/* force name col wrap always */
-table.table-fixed tbody td:nth-child(2){
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  line-height: 1.2;
-}
-
-/* MOBILE */
-@media (max-width: 720px){
-  .wrap{ padding:10px 8px; }
-  .shopname{ font-size:22px; }
-  .addr{ font-size:12px; }
-
-  thead th, tbody td{
-    padding:2px 2px !important;
-    font-size:9px !important;
-    font-weight:700;
-  }
-
-  table.table-fixed tbody td{
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: clip !important;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-  }
-
-  .col-code{width:10% !important;}
-  .col-name{width:35% !important;}
-  .col-qty{width:12% !important;}
-  .col-disc{width:12% !important;}
-  .col-bonus{width:12% !important;}
-  .col-tp{width:10% !important;}
-  .col-tax{width:9% !important;}
-
-  .cust-title{ font-size:16px; }
-  .cust-title::after{ width:140px; }
-
-  .cell-name, .cell-disc{
-    white-space:normal !important;
-    word-break:break-word;
-    overflow-wrap:anywhere;
-    font-weight:800;
-    line-height:1.25;
-    font-size:11px !important;
-  }
-
-  .qty-input{
-    min-width:42px !important;
-    max-width:52px !important;
-    height:32px !important;
-    font-size:12px !important;
-    padding:4px 4px !important;
-  }
-
-  /* heavy effects OFF on mobile */
-  .card, .promo-video{
-    backdrop-filter:none !important;
-    -webkit-backdrop-filter:none !important;
-  }
-
-
-}
-
-/* reduce motion */
-
-</style>
-
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"></head>
-
-<body>
-  <div class="wrap">
-    <div class="card">
-<center><img src="https://anas-system.com/bis.png" alt="" style="width: 300px; height:80px"></center>
-
-      <div class="head">
-        <div>
-          <div class="meta" id="metaText"><b>List No : </b>000050<b>Date :21/06/2026</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="themeBtn" class="theme-toggle" type="button" aria-pressed="true">&#x2600;&#xFE0F; Light</button>
-          <button id="resetBtn" class="theme-toggle" type="button">Reset Qty</button>
-        </div>
-      </div>
-
-      <div class="shopbox">
-<h1 class="shopname">ZIDANE MEDICO                           </h1>
-        <div class="addr" >                                        <br>                                        </div>
-      </div>
-
-      <div class="info"><span class="tag">OFFER LIST</span>  </div>
-
-      <div class="controls">
-        <div class="row">
-          <div class="search-box">
-<i>&#x1F50D;</i>
-            <input id="liveSearch" type="text" placeholder="Search products (code / name)" autocomplete="off">
-          </div>
-        </div>
-      </div>
-
-      <div class="hint">
-        Note: WhatsApp/Viewer me agar buttons kaam na karein to "Open in Browser" (Microsoft Edge/ Google Chrome) karein<br>
-        Preview Order  & Generate pdf jab internet connect hoga tab kaam karainge.
-      </div>
-
-      <noscript>
-        <div class="noscriptBox">
-          Search/Preview/PDF/WhatsApp features ke liye browser me open karein.
-        </div>
-      </noscript>
-
-
-      <div class="scrollBoth" id="scrollWrap">
-        <table class="table-fixed">
-          <colgroup>
-            <col class="col-code">
-            <col class="col-name">
-            <col class="col-qty">
-            <col class="col-disc">
-            <col class="col-bonus">
-            <col class="col-tp">
-            <col class="col-tax">
-          </colgroup>
-          <thead>
-            <tr>
-              <th class="first-col">Code</th>
-              <th>Item Name</th>
-              <th>Order</th>
-              <th>Disc %</th>
-              <th>Bonus</th>
-              <th>T.P</th>
-              <th>Tax</th>
-            </tr>
-          </thead>
-
-          
-          <tbody id="itemsBody">
-<tr class="company-head"><td colspan="7">   Ü...                       </td></tr>
-            <tr class="item-row" data-id="01321620262028272106" data-tp="340.00" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 013  </td><td class="cell-name">          TOLSURA 100MG               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="01221620262028272106" data-tp="340.00" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 012  </td><td class="cell-name">          XENOM                       </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">21 ST  C E N T U R Y          </td></tr>
-
-            <tr class="item-row" data-id="Y13521620262028272106" data-tp="526.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> Y135 </td><td class="cell-name">          CARICEF 200MG TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            526.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="924621620262028272106" data-tp="444.41" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 9246 </td><td class="cell-name">          CLARITEK 250                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            444.41
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="926121620262028272106" data-tp="552.50" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 9261 </td><td class="cell-name">          COVAM 5 160MG               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            552.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="905321620262028272106" data-tp="3638.00" data-disc="0.00" data-bonus="NET 1950" data-tax="0.00">
-              <td class="first-col"> 9053 </td><td class="cell-name">          TENOFO B                    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           NET 1950  
-              </td><td class="num">                           3638.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ABBOTT LABORATORIES           </td></tr>
-
-            <tr class="item-row" data-id="240221620262028272106" data-tp="268.78" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2402 </td><td class="cell-name">          DUPHALAC SYP SMALL +        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            268.78
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="326621620262028272106" data-tp="977.50" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3266 </td><td class="cell-name">          GANATON 50MG TAB            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            977.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="326721620262028272106" data-tp="544.00" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3267 </td><td class="cell-name">          GANATON OD TABS             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            544.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="727221620262028272106" data-tp="790.50" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7272 </td><td class="cell-name">          SERC 16MG TABS              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            790.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="063321620262028272106" data-tp="165.75" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0633 </td><td class="cell-name">          SOMOGEL CREAM               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            165.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="772821620262028272106" data-tp="433.50" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7728 </td><td class="cell-name">          SURBEX Z TABS               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            433.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ALI GOHAR PHARMACEUTICALS     </td></tr>
-
-            <tr class="item-row" data-id="155021620262028272106" data-tp="289.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1550 </td><td class="cell-name">          CHYMORAL FORT +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            289.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="689021620262028272106" data-tp="331.50" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6890 </td><td class="cell-name">          RIGIX TAB                   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            331.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="752521620262028272106" data-tp="276.25" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7525 </td><td class="cell-name">          SPASLER P SYP               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            276.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="823221620262028272106" data-tp="669.37" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8232 </td><td class="cell-name">          URSO 250 CAP -              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            669.37
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ASIAN CONTINENTAL             </td></tr>
-
-            <tr class="item-row" data-id="926021620262028272106" data-tp="455.18" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 9260 </td><td class="cell-name">          VOREN SR 100MG              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            455.18
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ATCO LABORATORIES             </td></tr>
-
-            <tr class="item-row" data-id="87821620262028272106" data-tp="80.89" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 878  </td><td class="cell-name">          BETADERM-N OINT (L) 15GM    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                             80.89
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="561621620262028272106" data-tp="114.90" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5616 </td><td class="cell-name">          NORSALINE-P N/S             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            114.90
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">AVENTIS PHARMA                </td></tr>
-
-            <tr class="item-row" data-id="164821620262028272106" data-tp="306.26" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1648 </td><td class="cell-name">          CLAFORAN INJ 1GM            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            306.26
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="305021620262028272106" data-tp="175.88" data-disc="1.00" data-bonus="CTN2%" data-tax="0.00">
-              <td class="first-col"> 3050 </td><td class="cell-name">          FLAGYL INJ.(WITH RING) -    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>           CTN2%     
-              </td><td class="num">                            175.88
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="305221620262028272106" data-tp="131.76" data-disc="2.00" data-bonus="CTN 3%" data-tax="0.00">
-              <td class="first-col"> 3052 </td><td class="cell-name">          FLAGYL SYP -                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>           CTN 3%    
-              </td><td class="num">                            131.76
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="305421620262028272106" data-tp="809.55" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3054 </td><td class="cell-name">          FLAGYL TAB. 400MG *         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            809.55
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="522521620262028272106" data-tp="1178.10" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 5225 </td><td class="cell-name">          MUSCORIL CAP -              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                           1178.10
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="556121620262028272106" data-tp="570.35" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5561 </td><td class="cell-name">          NO-SPA FORTE                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            570.35
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="556221620262028272106" data-tp="2125.00" data-disc="3.00" data-bonus="30PCS5%" data-tax="0.00">
-              <td class="first-col"> 5562 </td><td class="cell-name">          NO-SPA INJ.-                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>           30PCS5%   
-              </td><td class="num">                           2125.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="556321620262028272106" data-tp="209.95" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5563 </td><td class="cell-name">          NO-SPA TAB.+                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            209.95
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">BAREET CITY PHARMA            </td></tr>
-
-            <tr class="item-row" data-id="060921620262028272106" data-tp="935.00" data-disc="22.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0609 </td><td class="cell-name">          BARIZOLD 400MG TB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           22.00%
-         </td>     <td>                     
-              </td><td class="num">                            935.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="110021620262028272106" data-tp="80.00" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1100 </td><td class="cell-name">          BRITANYL SYP +              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                             80.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="232321620262028272106" data-tp="85.00" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2323 </td><td class="cell-name">          DOMEL SYP                   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                             85.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="291521620262028272106" data-tp="600.95" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2915 </td><td class="cell-name">          FEBROL TAB +                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            600.95
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">BARRET HODGSON   MARKEET      </td></tr>
-
-            <tr class="item-row" data-id="159421620262028272106" data-tp="170.00" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1594 </td><td class="cell-name">          CIPOCAIN EAR DROP           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                            170.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="159621620262028272106" data-tp="133.45" data-disc="12.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1596 </td><td class="cell-name">          CIPOTIC EAR DROP            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           12.00%
-         </td>     <td>                     
-              </td><td class="num">                            133.45
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="218421620262028272106" data-tp="127.50" data-disc="13.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2184 </td><td class="cell-name">          DIABOLD 1MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           13.00%
-         </td>     <td>                     
-              </td><td class="num">                            127.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="218721620262028272106" data-tp="382.50" data-disc="30.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2187 </td><td class="cell-name">          DIABOLD 4MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           30.00%
-         </td>     <td>                     
-              </td><td class="num">                            382.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="232421620262028272106" data-tp="425.00" data-disc="35.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2324 </td><td class="cell-name">          DOMEL TAB (NEWRATE)         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           35.00%
-         </td>     <td>                     
-              </td><td class="num">                            425.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="730421620262028272106" data-tp="382.50" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7304 </td><td class="cell-name">          SERT 50MG TAB               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                            382.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">BAYER                         </td></tr>
-
-            <tr class="item-row" data-id="162521620262028272106" data-tp="339.99" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1625 </td><td class="cell-name">          CIPROXIN 250 TAB(BAYER      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            339.99
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">BEECHAM                       </td></tr>
-
-            <tr class="item-row" data-id="37621620262028272106" data-tp="1616.27" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 376  </td><td class="cell-name">          AMOXIL CAP 500MG +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                           1616.27
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="38821620262028272106" data-tp="1083.52" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 388  </td><td class="cell-name">          AMPICLOX CAP 250MG -        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                           1083.52
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="38921620262028272106" data-tp="1846.96" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 389  </td><td class="cell-name">          AMPICLOX CAP.500 +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                           1846.96
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="65021620262028272106" data-tp="479.09" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 650  </td><td class="cell-name">          AUGMENTEN-625 DS TAB -      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            479.09
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="65121620262028272106" data-tp="506.55" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 651  </td><td class="cell-name">          AUGMENTEN-DS SYP +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            506.55
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="65621620262028272106" data-tp="322.69" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 656  </td><td class="cell-name">          AUGMENTIN SYP -             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            322.69
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">BOSCH PHARMACEUTICALS LTD     </td></tr>
-
-            <tr class="item-row" data-id="26721620262028272106" data-tp="127.50" data-disc="20.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 267  </td><td class="cell-name">          ALOC 60MG TAB               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           20.00%
-         </td>     <td>                     
-              </td><td class="num">                            127.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="137521620262028272106" data-tp="471.75" data-disc="30.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1375 </td><td class="cell-name">          CEBOSH 200 MG TABS          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           30.00%
-         </td>     <td>                     
-              </td><td class="num">                            471.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="137721620262028272106" data-tp="314.50" data-disc="34.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1377 </td><td class="cell-name">          CEBOSH DS SYP-              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           34.00%
-         </td>     <td>                     
-              </td><td class="num">                            314.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="137821620262028272106" data-tp="259.25" data-disc="32.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1378 </td><td class="cell-name">          CEBOSH SYP 30ML SMALL -     </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           32.00%
-         </td>     <td>                     
-              </td><td class="num">                            259.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="237721620262028272106" data-tp="102.00" data-disc="22.00" data-bonus="OLD" data-tax="0.00">
-              <td class="first-col"> 2377 </td><td class="cell-name">          DROMAX DROP                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           22.00%
-         </td>     <td>           OLD       
-              </td><td class="num">                            102.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">C.C.L                         </td></tr>
-
-            <tr class="item-row" data-id="824521620262028272106" data-tp="421.68" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8245 </td><td class="cell-name">          VALAM 5/80 TAB              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            421.68
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">E-MERCK/A.D. MARKER           </td></tr>
-
-            <tr class="item-row" data-id="114221620262028272106" data-tp="1275.00" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1142 </td><td class="cell-name">          BUSCOPAN PLUS TAB -         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                           1275.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">FEROZSONS(SPENCER PHARMA)     </td></tr>
-
-            <tr class="item-row" data-id="AZB21620262028272106" data-tp="302.89" data-disc="25.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> AZB  </td><td class="cell-name">          AZOBAR 500                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           25.00%
-         </td>     <td>                     
-              </td><td class="num">                            302.89
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="DAP21620262028272106" data-tp="340.85" data-disc="35.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> DAP  </td><td class="cell-name">          DAPXIGA M-XR 5/1000         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           35.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.85
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="ICON21620262028272106" data-tp="335.08" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> ICON </td><td class="cell-name">          ICON 100MG                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            335.08
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">G.S.K LABORATORIES            </td></tr>
-
-            <tr class="item-row" data-id="90921620262028272106" data-tp="153.53" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 909  </td><td class="cell-name">          BETNOVATE-N CREAM 10GM      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            153.53
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="124221620262028272106" data-tp="157.88" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1242 </td><td class="cell-name">          CALPOL TAB -                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            157.88
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="635021620262028272106" data-tp="96.44" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6350 </td><td class="cell-name">          POLYFAX EYE OINT -          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                             96.44
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="635221620262028272106" data-tp="190.03" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6352 </td><td class="cell-name">          POLYFAX SKIN OINT 20GM -    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            190.03
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">GENIX PHARMA                  </td></tr>
-
-            <tr class="item-row" data-id="351121620262028272106" data-tp="892.50" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3511 </td><td class="cell-name">          GRAT 320MG TAB              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            892.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="433021620262028272106" data-tp="716.58" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4330 </td><td class="cell-name">          LALAP 50MG TAB              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            716.58
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="073721620262028272106" data-tp="487.90" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0737 </td><td class="cell-name">          TELMIS A 80/5MG             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            487.90
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">GETZ PHARMA                   </td></tr>
-
-            <tr class="item-row" data-id="141721620262028272106" data-tp="267.60" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1417 </td><td class="cell-name">          CEFIGET 100 MG SYRUP -      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            267.60
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="141921620262028272106" data-tp="479.53" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1419 </td><td class="cell-name">          CEFIGET 400mg CAPS          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            479.53
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="023521620262028272106" data-tp="317.05" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0235 </td><td class="cell-name">          CEFIGET DS NEW SYP          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            317.05
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="146921620262028272106" data-tp="425.00" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1469 </td><td class="cell-name">          CELBEXX 100MG CAP           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            425.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="147021620262028272106" data-tp="646.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1470 </td><td class="cell-name">          CELBEXX 200MG CAPS - -  #   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            646.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="166421620262028272106" data-tp="361.25" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1664 </td><td class="cell-name">          CLARITEK 125 SYP +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            361.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="016921620262028272106" data-tp="433.50" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0169 </td><td class="cell-name">          COVAM 5/80 MG TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            433.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="300021620262028272106" data-tp="544.00" data-disc="8.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3000 </td><td class="cell-name">          FEXET 120MG TAB -           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            8.00%
-         </td>     <td>                     
-              </td><td class="num">                            544.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="300221620262028272106" data-tp="340.00" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3002 </td><td class="cell-name">          FEXET 60 MG TABS (GETZ      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="324521620262028272106" data-tp="680.00" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3245 </td><td class="cell-name">          GABICA 150 MG CAPS          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            680.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="062321620262028272106" data-tp="1253.75" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0623 </td><td class="cell-name">          GABICA 300MG NEW            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                           1253.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="324721620262028272106" data-tp="427.46" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3247 </td><td class="cell-name">          GABICA 50 MG TABS           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            427.46
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="324821620262028272106" data-tp="925.67" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3248 </td><td class="cell-name">          GABICA 75MG CAP             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            925.67
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="023621620262028272106" data-tp="281.13" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0236 </td><td class="cell-name">          GETRYL 1 MG NEW             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            281.13
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="337221620262028272106" data-tp="609.96" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3372 </td><td class="cell-name">          GETRYL 3MG NEW TABS -       </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            609.96
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="349621620262028272106" data-tp="1836.00" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3496 </td><td class="cell-name">          GONADIL-F CAP +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                           1836.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="444521620262028272106" data-tp="578.00" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4445 </td><td class="cell-name">          LEFLOX 250MG TAB #          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            578.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="453221620262028272106" data-tp="841.50" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4532 </td><td class="cell-name">          LIPIGET 10 MG TABS          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            841.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="Y10721620262028272106" data-tp="1394.00" data-disc="18.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> Y107 </td><td class="cell-name">          LIPIGET 20 CUT              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           18.00%
-         </td>     <td>                     
-              </td><td class="num">                           1394.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="514621620262028272106" data-tp="458.38" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5146 </td><td class="cell-name">          MONTIGET 10MG TAB(GETZ -    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            458.38
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="519421620262028272106" data-tp="518.50" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5194 </td><td class="cell-name">          MOXIGET 400 MG TABS         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            518.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="023321620262028272106" data-tp="335.75" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0233 </td><td class="cell-name">          NEXUM 20 MG NEW             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            335.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="550121620262028272106" data-tp="547.40" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5501 </td><td class="cell-name">          NEXUM 40MG (GETZ) *         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            547.40
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="691221620262028272106" data-tp="518.50" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6912 </td><td class="cell-name">          RISEK 20 MG CAPS            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            518.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="691321620262028272106" data-tp="731.85" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6913 </td><td class="cell-name">          RISEK 40 MG CAPS            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            731.85
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="A2821620262028272106" data-tp="495.55" data-disc="17.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> A28  </td><td class="cell-name">          RISEK INJ                   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           17.00%
-         </td>     <td>                     
-              </td><td class="num">                            495.55
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="710221620262028272106" data-tp="329.80" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7102 </td><td class="cell-name">          SALBO INH -                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            329.80
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="748621620262028272106" data-tp="697.00" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7486 </td><td class="cell-name">          SOLIFEN 5 MG TABS           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            697.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="781321620262028272106" data-tp="1317.50" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7813 </td><td class="cell-name">          TAMSOLIN 0.4MG CAP          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                           1317.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="808821620262028272106" data-tp="963.90" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8088 </td><td class="cell-name">          TREVIAMET 50/500 MG TABS    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            963.90
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="059121620262028272106" data-tp="395.25" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0591 </td><td class="cell-name">          VILGET M 50/500MG           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            395.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="025721620262028272106" data-tp="467.50" data-disc="24.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0257 </td><td class="cell-name">          ZAVGET 10 MG TAB            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           24.00%
-         </td>     <td>                     
-              </td><td class="num">                            467.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">GSK PANADOL RANGE PREMIER     </td></tr>
-
-            <tr class="item-row" data-id="608721620262028272106" data-tp="79.55" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6087 </td><td class="cell-name">          PANADOL DROPS +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                             79.55
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="608921620262028272106" data-tp="125.77" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6089 </td><td class="cell-name">          PANADOL LIQUID              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            125.77
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="609021620262028272106" data-tp="617.95" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 6090 </td><td class="cell-name">          PANADOL TAB #               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            617.95
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">HEALTH AID                    </td></tr>
-
-            <tr class="item-row" data-id="VPN21620262028272106" data-tp="538.05" data-disc="14.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> VPN  </td><td class="cell-name">          VPN 20                      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           14.00%
-         </td>     <td>                     
-              </td><td class="num">                            538.05
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">HIGHNOON LABORATORIES         </td></tr>
-
-            <tr class="item-row" data-id="066421620262028272106" data-tp="484.50" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0664 </td><td class="cell-name">          BIFORGE 5/160MG             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            484.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="013821620262028272106" data-tp="421.60" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0138 </td><td class="cell-name">          COMBIVAIR 200 MG            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            421.60
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="013921620262028272106" data-tp="439.45" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0139 </td><td class="cell-name">          COMBIVAIR 400 MG TAB        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            439.45
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="780621620262028272106" data-tp="680.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7806 </td><td class="cell-name">          TAGIPMET 50/500 MG TABS     </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            680.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="818121620262028272106" data-tp="351.48" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8181 </td><td class="cell-name">          ULSANIC SYRUP +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            351.48
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">HILTON                        </td></tr>
-
-            <tr class="item-row" data-id="163121620262028272106" data-tp="417.35" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1631 </td><td class="cell-name">          CITANEW 10MG TAB #          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            417.35
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="445621620262028272106" data-tp="697.93" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4456 </td><td class="cell-name">          LERACE 250MG TAB            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            697.93
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="481721620262028272106" data-tp="270.30" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4817 </td><td class="cell-name">          MAXIT 50MG TAB +            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            270.30
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="481821620262028272106" data-tp="359.55" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4818 </td><td class="cell-name">          MAXIT 75 MG TAB +           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            359.55
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="525721620262028272106" data-tp="421.50" data-disc="0.00" data-bonus="NET 320" data-tax="0.00">
-              <td class="first-col"> 5257 </td><td class="cell-name">          MYTEKA (SACHETS *           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           NET 320   
-              </td><td class="num">                            421.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="525821620262028272106" data-tp="470.90" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5258 </td><td class="cell-name">          MYTEKA 10MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            470.90
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="862621620262028272106" data-tp="337.45" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8626 </td><td class="cell-name">          XOBIX 7.5MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            337.45
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="072221620262028272106" data-tp="987.71" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0722 </td><td class="cell-name">          ZEEGAP 100MG NEW            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            987.71
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="876721620262028272106" data-tp="1136.87" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8767 </td><td class="cell-name">          ZEEGAP 150MG CAPS           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                           1136.87
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">HIMONT PHARMACEUTICALS        </td></tr>
-
-            <tr class="item-row" data-id="752421620262028272106" data-tp="1295.01" data-disc="14.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7524 </td><td class="cell-name">          SPASFON TAB +               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           14.00%
-         </td>     <td>                     
-              </td><td class="num">                           1295.01
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">HORIZON PHARMA                </td></tr>
-
-            <tr class="item-row" data-id="858421620262028272106" data-tp="576.30" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 8584 </td><td class="cell-name">          X-PLENDED EZ 10/20          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            576.30
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ICI                           </td></tr>
-
-            <tr class="item-row" data-id="083321620262028272106" data-tp="580.89" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0833 </td><td class="cell-name">          ALCUFLEX 550G TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            580.89
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="392021620262028272106" data-tp="138.01" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3920 </td><td class="cell-name">          INDERAL TAB 10MG +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            138.01
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="789821620262028272106" data-tp="182.75" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7898 </td><td class="cell-name">          TENORMIN 25 MG TABS         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            182.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="789921620262028272106" data-tp="321.81" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7899 </td><td class="cell-name">          TENORMIN 50 MG TABS         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            321.81
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">KNOOL (BOOTS)                 </td></tr>
-
-            <tr class="item-row" data-id="50321620262028272106" data-tp="1084.60" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 503  </td><td class="cell-name">          ARINAC FORTE TAB +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                           1084.60
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="111921620262028272106" data-tp="109.75" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1119 </td><td class="cell-name">          BRUFEN  SYRUP (L)           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            109.75
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">LILLY                         </td></tr>
-
-            <tr class="item-row" data-id="138421620262028272106" data-tp="242.25" data-disc="20.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1384 </td><td class="cell-name">          CECLOR DROP +(LILLY         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           20.00%
-         </td>     <td>                     
-              </td><td class="num">                            242.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="138621620262028272106" data-tp="420.75" data-disc="20.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1386 </td><td class="cell-name">          CECLOR SYRUP 125MG +        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           20.00%
-         </td>     <td>                     
-              </td><td class="num">                            420.75
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">MARTIN DOW                    </td></tr>
-
-            <tr class="item-row" data-id="776921620262028272106" data-tp="764.10" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7769 </td><td class="cell-name">          SYNFLEX TAB.550MG +         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            764.10
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">MAXITECH                      </td></tr>
-
-            <tr class="item-row" data-id="MAX21620262028272106" data-tp="402.61" data-disc="22.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> MAX  </td><td class="cell-name">          MAXITHRO 500 TAB            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           22.00%
-         </td>     <td>                     
-              </td><td class="num">                            402.61
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="MAXI21620262028272106" data-tp="258.46" data-disc="22.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> MAXI </td><td class="cell-name">          MAXITHRO SYP                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           22.00%
-         </td>     <td>                     
-              </td><td class="num">                            258.46
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">NEUTRO PHARMA                 </td></tr>
-
-            <tr class="item-row" data-id="925421620262028272106" data-tp="324.10" data-disc="7.00" data-bonus="" data-tax="71.00">
-              <td class="first-col"> 9254 </td><td class="cell-name">          INDROP DCAP                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            324.10
-</td><td align="center">     71.00
-</td></tr>
-            <tr class="item-row" data-id="020921620262028272106" data-tp="266.05" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0209 </td><td class="cell-name">          INDROP-D INJ                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            266.05
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">NOVARTIS (PREMAIER)           </td></tr>
-
-            <tr class="item-row" data-id="870721620262028272106" data-tp="284.75" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8707 </td><td class="cell-name">          ZATOFEN TAB +               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            284.75
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">NOVINS                        </td></tr>
-
-            <tr class="item-row" data-id="564221620262028272106" data-tp="180.64" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5642 </td><td class="cell-name">          NOVIPRAZ 10 MG TABS         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                            180.64
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">P.D.H                         </td></tr>
-
-            <tr class="item-row" data-id="121521620262028272106" data-tp="212.50" data-disc="20.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1215 </td><td class="cell-name">          CALCIUM-P SYP +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           20.00%
-         </td>     <td>                     
-              </td><td class="num">                            212.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">PFIZER LABORATORIES           </td></tr>
-
-            <tr class="item-row" data-id="561721620262028272106" data-tp="834.36" data-disc="5.00" data-bonus="RUB" data-tax="0.00">
-              <td class="first-col"> 5617 </td><td class="cell-name">          NORVASC TAB 10MG            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>           RUB       
-              </td><td class="num">                            834.36
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="561821620262028272106" data-tp="426.57" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5618 </td><td class="cell-name">          NORVASC TAB 5MG +           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            426.57
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">PHARMAVO                      </td></tr>
-
-            <tr class="item-row" data-id="21321620262028272106" data-tp="790.50" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 213  </td><td class="cell-name">          AIREEZ TABLETS 10MG         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            790.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="68421620262028272106" data-tp="603.50" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 684  </td><td class="cell-name">          AVSAR 160/10 MG TABS        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            603.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="68521620262028272106" data-tp="498.10" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 685  </td><td class="cell-name">          AVSAR 160/5 MG TABS         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            498.10
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="68621620262028272106" data-tp="392.70" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 686  </td><td class="cell-name">          AVSAR 80/5 MG TABS          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            392.70
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="08321620262028272106" data-tp="578.00" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 083  </td><td class="cell-name">          BYNEVOL 5MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            578.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="B01121620262028272106" data-tp="604.95" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> B011 </td><td class="cell-name">          DUZALTA 30 MG TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            604.95
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="270021620262028272106" data-tp="296.10" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2700 </td><td class="cell-name">          ESTAR 5 MG TABS             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            296.10
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="349821620262028272106" data-tp="578.00" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3498 </td><td class="cell-name">          GOURIC 40MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            578.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="084821620262028272106" data-tp="626.69" data-disc="8.00" data-bonus="" data-tax="137.87">
-              <td class="first-col"> 0848 </td><td class="cell-name">          K-1000 MG TAB               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            8.00%
-         </td>     <td>                     
-              </td><td class="num">                            626.69
-</td><td align="center">    137.87
-</td></tr>
-            <tr class="item-row" data-id="858121620262028272106" data-tp="405.45" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 8581 </td><td class="cell-name">          X-PLENDED 10MG TABS -       </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            405.45
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="XPL21620262028272106" data-tp="374.00" data-disc="0.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> XPL  </td><td class="cell-name">          X-PLENDED EZ 10/10          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            374.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">PHARMEDIC                     </td></tr>
-
-            <tr class="item-row" data-id="055621620262028272106" data-tp="186.15" data-disc="3.00" data-bonus="OLD" data-tax="0.00">
-              <td class="first-col"> 0556 </td><td class="cell-name">          ONSET 8MG INJ               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>           OLD       
-              </td><td class="num">                            186.15
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="060321620262028272106" data-tp="420.75" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0603 </td><td class="cell-name">          ONSET 8MG TAB               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            420.75
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ROCHE                         </td></tr>
-
-            <tr class="item-row" data-id="450021620262028272106" data-tp="552.50" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4500 </td><td class="cell-name">          LEXOTANIL 3MG TAB (ROCHE    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            552.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="824921620262028272106" data-tp="323.00" data-disc="0.00" data-bonus="NET 360" data-tax="0.00">
-              <td class="first-col"> 8249 </td><td class="cell-name">          VALIUM INJ.                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            0.00%
-         </td>     <td>           NET 360   
-              </td><td class="num">                            323.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SAFFRON                       </td></tr>
-
-            <tr class="item-row" data-id="791621620262028272106" data-tp="340.00" data-disc="31.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7916 </td><td class="cell-name">          TERBISIL 125MG TAB          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           31.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="013721620262028272106" data-tp="281.21" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0137 </td><td class="cell-name">          TERBISIL CREAM              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            281.21
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SAMI                          </td></tr>
-
-            <tr class="item-row" data-id="2SUM21620262028272106" data-tp="412.25" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2SUM </td><td class="cell-name">          2SUM 1GRAM                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            412.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="A32321620262028272106" data-tp="501.50" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> A323 </td><td class="cell-name">          2SUM 2G INJ                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            501.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="44621620262028272106" data-tp="310.00" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 446  </td><td class="cell-name">          ANTIAL TABS --              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            310.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="Y9521620262028272106" data-tp="451.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> Y95  </td><td class="cell-name">          AZITMA 250 MG TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            451.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="AZIT21620262028272106" data-tp="421.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> AZIT </td><td class="cell-name">          AZITMA 500                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            421.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="064021620262028272106" data-tp="170.00" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0640 </td><td class="cell-name">          BREEKY TAB                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            170.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="133521620262028272106" data-tp="471.75" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1335 </td><td class="cell-name">          CARICEF 400MG  CAP          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            471.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="133721620262028272106" data-tp="327.25" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1337 </td><td class="cell-name">          CARICEF DS SYP  ---         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            327.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="133821620262028272106" data-tp="267.75" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1338 </td><td class="cell-name">          CARICEF SYP 30ML SMALL -    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            267.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="DICL21620262028272106" data-tp="230.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> DICL </td><td class="cell-name">          DICLORAN GEL NEW            </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            230.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="221621620262028272106" data-tp="310.25" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2216 </td><td class="cell-name">          DICLORAN TAB 50MG -         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            310.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="320721620262028272106" data-tp="214.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3207 </td><td class="cell-name">          FUNGONE 150MG CAP  - -      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            214.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="350521620262028272106" data-tp="138.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3505 </td><td class="cell-name">          GRASIL 100MG INJ-(SAMI      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            138.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="350621620262028272106" data-tp="225.25" data-disc="3.00" data-bonus="T.P" data-tax="0.00">
-              <td class="first-col"> 3506 </td><td class="cell-name">          GRASIL 250MG INJ (SAMI -    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>           T.P       
-              </td><td class="num">                            225.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="350721620262028272106" data-tp="180.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3507 </td><td class="cell-name">          GRASIL 25MG INJ             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            180.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="350821620262028272106" data-tp="340.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3508 </td><td class="cell-name">          GRASIL 500MG INJ (SAMI --   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            340.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="350921620262028272106" data-tp="225.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3509 </td><td class="cell-name">          GRASIL 50MG INJ -           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            225.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="INT21620262028272106" data-tp="229.50" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> INT  </td><td class="cell-name">          INTIG D SYP                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            229.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="IND21620262028272106" data-tp="420.75" data-disc="8.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> IND  </td><td class="cell-name">          INTIG D TAB                 </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            8.00%
-         </td>     <td>                     
-              </td><td class="num">                            420.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="069221620262028272106" data-tp="289.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0692 </td><td class="cell-name">          ITP 50MG TAB                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            289.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="515021620262028272106" data-tp="454.75" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5150 </td><td class="cell-name">          MONTIKA 10MG TAB - (SAMI    </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            454.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="563421620262028272106" data-tp="233.75" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5634 </td><td class="cell-name">          NOVIDAT 250MG TAB           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            233.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="563521620262028272106" data-tp="378.25" data-disc="2.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5635 </td><td class="cell-name">          NOVIDAT 500MG TAB.          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            2.00%
-         </td>     <td>                     
-              </td><td class="num">                            378.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="563621620262028272106" data-tp="276.04" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5636 </td><td class="cell-name">          NOVIDAT DS INJ              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            276.04
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="PRE21620262028272106" data-tp="344.25" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> PRE  </td><td class="cell-name">          PREGY 75MG                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            344.25
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="A12821620262028272106" data-tp="187.00" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> A128 </td><td class="cell-name">          PROVAS N FORTE              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            187.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="ROM21620262028272106" data-tp="1573.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> ROM  </td><td class="cell-name">          ROMERO 1G INJ               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                           1573.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="ROM521620262028272106" data-tp="872.00" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> ROM5 </td><td class="cell-name">          ROMERO 500 INJ              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            872.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SANDOZ                        </td></tr>
-
-            <tr class="item-row" data-id="71021620262028272106" data-tp="466.40" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 710  </td><td class="cell-name">          AZOMAX 500MG TABS           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            466.40
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="71121620262028272106" data-tp="348.50" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 711  </td><td class="cell-name">          AZOMAX SYRUP                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            348.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SANDOZ (CONSUMER              </td></tr>
-
-            <tr class="item-row" data-id="117821620262028272106" data-tp="303.45" data-disc="1.00" data-bonus="CTN 2%" data-tax="0.00">
-              <td class="first-col"> 1178 </td><td class="cell-name">          CAC 1000 ORANGE SMALL       </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>           CTN 2%    
-              </td><td class="num">                            303.45
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SANTE PHARMA NOOR             </td></tr>
-
-            <tr class="item-row" data-id="A04621620262028272106" data-tp="678.30" data-disc="15.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> A046 </td><td class="cell-name">          NASOMET NASAL SPRAY         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           15.00%
-         </td>     <td>                     
-              </td><td class="num">                            678.30
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SCHERING                      </td></tr>
-
-            <tr class="item-row" data-id="807321620262028272106" data-tp="224.40" data-disc="8.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8073 </td><td class="cell-name">          TRAVOCORT CREAM +           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            8.00%
-         </td>     <td>                     
-              </td><td class="num">                            224.40
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SEARLE                        </td></tr>
-
-            <tr class="item-row" data-id="061221620262028272106" data-tp="352.75" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 0612 </td><td class="cell-name">          BYSCARD 5MG TAB             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            352.75
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="0221620262028272106" data-tp="204.00" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 02   </td><td class="cell-name">          BYSCARD2.5                  </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            204.00
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="351521620262028272106" data-tp="93.21" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3515 </td><td class="cell-name">          GRAVINATE LIQUID *          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                             93.21
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="566621620262028272106" data-tp="165.78" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5666 </td><td class="cell-name">          NUBEROL FORT TABS           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            165.78
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="566721620262028272106" data-tp="722.33" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5667 </td><td class="cell-name">          NUBEROL TAB  (SEARLE)-      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            722.33
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="806121620262028272106" data-tp="212.50" data-disc="8.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8061 </td><td class="cell-name">          TRAMAL CAP. 50MG +          </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            8.00%
-         </td>     <td>                     
-              </td><td class="num">                            212.50
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="844221620262028272106" data-tp="425.00" data-disc="7.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8442 </td><td class="cell-name">          VITRUM TAB  (SEARLE         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            7.00%
-         </td>     <td>                     
-              </td><td class="num">                            425.00
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">SQUIBB                        </td></tr>
-
-            <tr class="item-row" data-id="830621620262028272106" data-tp="603.18" data-disc="12.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8306 </td><td class="cell-name">          VELOSEF CAP 500MG +         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           12.00%
-         </td>     <td>                     
-              </td><td class="num">                            603.18
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">STIEFEL                       </td></tr>
-
-            <tr class="item-row" data-id="171621620262028272106" data-tp="185.05" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1716 </td><td class="cell-name">          CLOBEVATE CREAM -           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            185.05
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="382521620262028272106" data-tp="254.29" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3825 </td><td class="cell-name">          HYDROZOLE CREAM             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            254.29
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">TABROS PHARMA                 </td></tr>
-
-            <tr class="item-row" data-id="241021620262028272106" data-tp="118.18" data-disc="6.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 2410 </td><td class="cell-name">          DURAGESIC FORTE TAB         </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            6.00%
-         </td>     <td>                     
-              </td><td class="num">                            118.18
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="322021620262028272106" data-tp="113.05" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3220 </td><td class="cell-name">          FUSIL CREAM SAMLL 5G        </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            113.05
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="322521620262028272106" data-tp="113.05" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 3225 </td><td class="cell-name">          FUSIL-HC CREAM {SMALL}      </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                            113.05
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">THE VITAMIN COMPANY,USA       </td></tr>
-
-            <tr class="item-row" data-id="743021620262028272106" data-tp="1062.00" data-disc="3.00" data-bonus="" data-tax="295.00">
-              <td class="first-col"> 7430 </td><td class="cell-name">          SKIN AQUA BLUE              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                           1062.00
-</td><td align="center">    295.00
-</td></tr><tr class="company-head"><td colspan="7">WERRICK                       </td></tr>
-
-            <tr class="item-row" data-id="747321620262028272106" data-tp="255.87" data-disc="1.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7473 </td><td class="cell-name">          SOFTIN TAB  +               </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            1.00%
-         </td>     <td>                     
-              </td><td class="num">                            255.87
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">WILSON'S                      </td></tr>
-
-            <tr class="item-row" data-id="747821620262028272106" data-tp="593.30" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7478 </td><td class="cell-name">          SOFVASE 10 MG +             </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            593.30
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="747921620262028272106" data-tp="303.31" data-disc="4.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 7479 </td><td class="cell-name">          SOFVASE 5MG TAB -(WILSONS   </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            4.00%
-         </td>     <td>                     
-              </td><td class="num">                            303.31
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">WOODWARDS                     </td></tr>
-
-            <tr class="item-row" data-id="179121620262028272106" data-tp="127.50" data-disc="13.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1791 </td><td class="cell-name">          COF REST SYP -              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           13.00%
-         </td>     <td>                     
-              </td><td class="num">                            127.50
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">WYETH +LEDERLE                </td></tr>
-
-            <tr class="item-row" data-id="443721620262028272106" data-tp="193.38" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 4437 </td><td class="cell-name">          LEDERPLEX SYRUP -           </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            193.38
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="520121620262028272106" data-tp="166.60" data-disc="10.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 5201 </td><td class="cell-name">          MUCAINE SUSP                </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                           10.00%
-         </td>     <td>                     
-              </td><td class="num">                            166.60
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">Y.S.P. GROUP                  </td></tr>
-
-            <tr class="item-row" data-id="847421620262028272106" data-tp="1019.14" data-disc="5.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 8474 </td><td class="cell-name">          VOREN TAB 50MG              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            5.00%
-         </td>     <td>                     
-              </td><td class="num">                           1019.14
-</td><td align="center">      0.00
-</td></tr><tr class="company-head"><td colspan="7">ZAFA                          </td></tr>
-
-            <tr class="item-row" data-id="Y12521620262028272106" data-tp="110.54" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> Y125 </td><td class="cell-name">          CARDACE 10 NEW              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                            110.54
-</td><td align="center">      0.00
-</td></tr>
-            <tr class="item-row" data-id="131121620262028272106" data-tp="47.31" data-disc="3.00" data-bonus="" data-tax="0.00">
-              <td class="first-col"> 1311 </td><td class="cell-name">          CARDACE 5 MG +              </td><td><div class="qty-wrap"><input class="qty-input" type="number" min="0" max="5000" step="1" placeholder="0" inputmode="numeric"></div>
-              </td><td class="num">                            3.00%
-         </td>     <td>                     
-              </td><td class="num">                             47.31
-</td><td align="center">      0.00
-</td></tr>
-
-          </tbody>
-        </table>      </div>
-
-
-        <div class="row" style="padding-top:14px;padding-bottom:18px">
-          <div class="fld">
-            <h2 class="cust-title">Enter Customer Name / Shop Title</h2>
-            <input id="fldName" type="text" placeholder="Enter Customer Name / Shop Title" maxlength="120" required>
-          </div>
-        </div>
-
-
-      <input type="hidden" id="waNumber" value="+03112127664 ">
-
-      <div class="footbar">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <span class="pill">Total Items: <b id="totalAll">0</b></span>
-          <span class="pill">Selected Items: <b id="totalSel">0</b></span>
-          <span class="pill">Net Total: <b id="netTotal">0.00</b></span>
-        </div>
-
-        <!-- ? Buttons --> <form id="pdfForm" action="https://anas-system.com/pdf.php" method="POST" target="_blank" style="display:none"> <input type="hidden" name="payload" id="pdfPayload"></form>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button id="previewBtn" class="btn" type="button" style="font-weight:800">Preview Order &#x2197;</button>
-
-          <button id="prepareBtn" class="btn-wa" type="button">&#x1F7E2; Order &#x2192; WhatsApp</button> <a id="pdfBtn" class="btn" href="#" style="font-weight:800">&#x1F4C4; PDF Order</a>
-        </div>
-      </div>
-
-    </div>
-  </div><section class="promo-video" aria-label="Video guide"><div class="pv-frame"><iframe src="https://anas-system.com/ordervideo.htm" title="YouTube video player" loading="lazy" allow="accelerometer;autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen=""></iframe></div></section><footer class="pub-footer" style="margin:16px auto 24px;max-width:1100px;padding:12px 16px;text-align:center;color:var(--muted)">  <div style="border-top:1px solid var(--border);padding-top:10px">    DEVELOPED BY <strong>SHUMAIL AMIN</strong>    &#x00A0;&#x2022;&#x00A0; Mobile: <a href="tel:+923242010921" style="color:inherit;text-decoration:none"><strong>+92 324 2010921</strong></a>    &#x00A0;&#x2022;&#x00A0; PTCL: <a href="tel:+922132731964" style="color:inherit;text-decoration:none"><strong>021-32731964</strong></a>    &#x00A0;&#x2022;&#x00A0; Website: <a href="https://anas-system.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none"><strong>Anas-System.com</strong></a>  </div></footer>
-<script>
-/* =========================
-   OFFLINE META
-========================= */
-var OFFLINE_META = {
-  offerId: "000050",
-  shopTitle: "ZIDANE MEDICO                           ",
-  shopAddr: "                                                                                 ",
-  chips: ["OFFER LIST", "                              ", "                              "]
-};
-
-/* =========================
-   BASIC HELPERS (NO REGEX)
-========================= */
-function toStr(x){
-  if (x === null || x === undefined) return "";
-  return String(x);
-}
-
-function trimText(s){
-  return toStr(s).trim();
-}
-
-function toNum(x){
-  var s = toStr(x);
-  var out = "";
-  var i = 0;
-  var ch = "";
-
-  /* remove commas, spaces, % and arabic percent */
-  for (i = 0; i < s.length; i++){
-    ch = s.charAt(i);
-    if (ch === "," || ch === " " || ch === "%" || ch === "?") continue;
-    out += ch;
-  }
-
-  var n = parseFloat(out);
-  if (isNaN(n)) return 0;
-  return n;
-}
-
-function fmt2(n){
-  n = Number(n || 0);
-  return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
-}
-
-/* optional: for preview html */
-function escapeHtml(s){
-  s = toStr(s);
-  var out = "";
-  var i = 0;
-  var ch = "";
-
-  for (i = 0; i < s.length; i++){
-    ch = s.charAt(i);
-    if (ch === "&") out += "&amp;";
-    else if (ch === "<") out += "&lt;";
-    else if (ch === ">") out += "&gt;";
-    else if (ch === '"') out += "&quot;";
-    else if (ch === "'") out += "&#39;";
-    else out += ch;
-  }
-  return out;
-}
-
-function normalizeWaPhone(raw){
-  var s = toStr(raw);
-  var out = "";
-  var i = 0;
-  var ch = "";
-
-  /* keep digits only */
-  for (i = 0; i < s.length; i++){
-    ch = s.charAt(i);
-    if (ch >= "0" && ch <= "9") out += ch;
-  }
-  return out;
-}
-
-function openWhatsApp(phoneDigits, text){
-  var url = "https://wa.me/" + phoneDigits + "?text=" + encodeURIComponent(text);
-  var w = window.open(url, "_blank");
-  if (!w) window.location.href = url;
-}
-
-/* =========================
-   DOM INIT
-========================= */
-var OFFER_ID = OFFLINE_META.offerId || 0;
-var LS_KEY_QTY  = "anas_offline_offer:" + OFFER_ID + ":qty";
-var LS_KEY_NAME = "anas_offline_offer:" + OFFER_ID + ":cust";
-
-var elBody     = document.getElementById("itemsBody");
-var elTotalAll = document.getElementById("totalAll");
-var elTotalSel = document.getElementById("totalSel");
-var elNetTotal = document.getElementById("netTotal");
-var live       = document.getElementById("liveSearch");
-var fldName    = document.getElementById("fldName");
-var waHidden   = document.getElementById("waNumber");
-
-var elShopTitle = document.getElementById("shopTitle");
-var elShopAddr  = document.getElementById("shopAddr");
-if (elShopTitle) elShopTitle.textContent = OFFLINE_META.shopTitle || "ANAS SYSTEM";
-if (elShopAddr)  elShopAddr.textContent  = OFFLINE_META.shopAddr  || "";
-
-(function renderChips(){
-  var box = document.getElementById("infoChips");
-  if (!box) return;
-
-  box.innerHTML = "";
-  var arr = OFFLINE_META.chips || [];
-  for (var i = 0; i < arr.length; i++){
-    var sp = document.createElement("span");
-    sp.className = "tag";
-    sp.textContent = arr[i];
-    box.appendChild(sp);
-  }
-})();
-
-/* =========================
-   WHATSAPP TEXT
-========================= */
-function buildWaMessage(payload){
-  var msg = "";
-
-  msg += "*Customer* : " + payload.customerName + "\n";
-  msg += "*List No* : 000050\n";
-  msg += "====================\n";
-
-  for (var i = 0; i < payload.items.length; i++){
-    var it = payload.items[i];
-    msg += "*Code* : " + it.code + "\n";
-    msg += "*QTY*  : " + it.qty + "\n";
-    msg += "*Disc* : " + it.disc + "%\n";
-    msg += "*Bonus*: " + it.bonus + "\n";
-    msg += "*ITM*  : " + it.name + "\n";
-    msg += "--------------------\n";
-  }
-  msg += "*Items* : " + payload.totalItems + "\n";
-  msg += "*Net* : " + payload.netTotal + "\n";
-  msg += "====================\n";
-
-  /* remove extra ending newlines (no regex) */
-  while (msg.length > 0 && msg.charAt(msg.length - 1) === "\n"){
-    msg = msg.substring(0, msg.length - 1);
-  }
-
-  return msg;
-}
-
-function buildOrderPayload(){
-  var cust = trimText(fldName ? fldName.value : "");
-
-  var lines = [];
-  var net = 0;
-
-  if (!elBody) return null;
-
-  var rows = elBody.querySelectorAll("tr.item-row");
-  for (var i = 0; i < rows.length; i++){
-    var r = rows[i];
-    var inp = r.querySelector("input.qty-input");
-    var q = inp ? (parseInt(inp.value, 10) || 0) : 0;
-    if (q <= 0) continue;
-
-    var code = "";
-    var name = "";
-
-    if (r.children[0]) code = trimText(r.children[0].textContent);
-    if (r.children[1]) name = trimText(r.children[1].textContent);
-
-    var tp    = toNum(r.getAttribute("data-tp"));
-    var disc  = toNum(r.getAttribute("data-disc"));
-    var tax   = toNum(r.getAttribute("data-tax"));
-var bonus = String(r.getAttribute("data-bonus") || "").trim(); // bonus as string
-
-    var gross = q * tp;
-    var discAmt = gross * (disc / 100);
-    var taxAmt  = q * tax;
-    var lineNet = gross - discAmt + taxAmt;
-
-    net += lineNet;
-
-    lines.push({
-      code: code,
-      name: name,
-      qty: q,
-      tp: tp,
-      disc: disc,
-      bonus: bonus,
-      tax: tax,
-      lineNet: Number(fmt2(lineNet))
-    });
-  }
-
-  if (lines.length === 0){
-    alert("Kam az kam 1 item ki qty enter karein.");
-    return null;
-  }
-
-  return {
-    offerId: OFFER_ID,
-    shopTitle: OFFLINE_META.shopTitle || "",
-    customerName: cust,
-    totalItems: lines.length,
-    netTotal: Number(fmt2(net)),
-    items: lines
-  };
-}
-
-var btnPrepare = document.getElementById("prepareBtn");
-if (btnPrepare){
-  btnPrepare.addEventListener("click", function(){
-    var payload = buildOrderPayload();
-    if (!payload) return;
-
-    var waRaw = waHidden ? waHidden.value : "+03112127664 ";
-    var waPhone = normalizeWaPhone(waRaw);
-
-    if (!waPhone){
-      alert("WhatsApp number missing hai.");
-      return;
-    }
-
-    var text = buildWaMessage(payload);
-    openWhatsApp(waPhone, text);
-  });
-}
-</script>
-
-<script src="https://anas-system.com/anassystemnewoffer.js"></script>
-</body>
-</html>
-
