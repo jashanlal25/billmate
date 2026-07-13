@@ -32,9 +32,13 @@ run_web.bat
 /templates/
 CLAUDE.md
 
+# DB migration artifacts (contain full data + credentials)
+_migration/
+
 # OS
 .DS_Store
 Thumbs.db
 
 # Vercel
 .vercel/
+

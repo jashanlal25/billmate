@@ -1200,7 +1200,7 @@ function renderLines(){
         <span class="mob-lbl">Qty</span>
         <div class="qty-stepper">
           <button onclick="stepQty(${i},-1)">−</button>
-          <input class="qty-inp" type="number" min="1" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+          <input class="qty-inp" type="number" min="1" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)">
           <button onclick="stepQty(${i},1)">+</button>
         </div>
       </td>
