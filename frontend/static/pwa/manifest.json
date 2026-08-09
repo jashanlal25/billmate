@@ -9,20 +9,20 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/pwa/icon-192.png",
+      "src": "/static/pwa/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/pwa/icon-512.png",
+      "src": "/static/pwa/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
   "share_target": {
-    "action": "/pwa/share-handler",
+    "action": "/static/pwa/share-handler.html",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
