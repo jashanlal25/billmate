@@ -65,6 +65,29 @@ from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine,
 db.init_app(app)
 migrate = Migrate(app, db)
 
+# ── PWA Routes ─────────────────────────────────────────────────────────────────
+@app.route('/pwa/<path:filename>')
+def serve_pwa(filename):
+    """Serve PWA files from frontend/pwa folder."""
+    from flask import send_from_directory
+    pwa_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'pwa')
+    return send_from_directory(pwa_folder, filename)
+
+@app.route('/pwa/share-handler', methods=['GET', 'POST'])
+def pwa_share_handler():
+    """Handle shared files from PWA Share Target."""
+    # For now, redirect to superadmin items page with a message
+    # The actual file handling would require Web Share Target API support
+    from flask import redirect, url_for, session, flash
+
+    # Check if user is superadmin
+    if not session.get('is_superadmin'):
+        return redirect(url_for('superadmin_login_page'))
+
+    # Show a message about how to use the share feature
+    flash('To import from WhatsApp: Open BillMate in mobile browser → tap Share → select BillMate', 'info')
+    return redirect(url_for('superadmin_items_page'))
+
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
 GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/api/invoices', '/api/items',
