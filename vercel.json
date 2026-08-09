@@ -2,10 +2,6 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/pwa/:match*",
-      "destination": "/api/index"
-    },
-    {
       "source": "/(.*)",
       "destination": "/api/index"
     }

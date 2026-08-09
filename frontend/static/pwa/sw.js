@@ -2,9 +2,9 @@ const CACHE_NAME = 'billmate-v1';
 const ASSETS = [
   '/',
   '/items',
-  '/pwa/manifest.json',
-  '/pwa/icon-192.png',
-  '/pwa/icon-512.png'
+  '/static/pwa/manifest.json',
+  '/static/pwa/icon-192.png',
+  '/static/pwa/icon-512.png'
 ];
 
 // Install event - cache assets
