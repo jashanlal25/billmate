@@ -28,6 +28,15 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 h1{color:#fff;font-size:1.5em;font-weight:700;flex:1}
 .search-box{padding:10px 16px;border:1.5px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:.9em;width:240px;outline:none}
 .search-box::placeholder{color:rgba(255,255,255,.4)}
+.vendor-multi{position:relative}
+.vendor-btn{padding:10px 16px;border:1.5px solid rgba(255,255,255,.2);border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:.9em;outline:none;cursor:pointer;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vendor-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:1000;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);min-width:220px;max-height:340px;overflow-y:auto;padding:6px}
+.vendor-panel.open{display:block}
+.vendor-opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--text);font-size:.9em}
+.vendor-opt:hover{background:var(--row-hover)}
+.vendor-opt input{width:auto;margin:0;cursor:pointer}
+.vendor-opt-head{display:flex;justify-content:space-between;gap:8px;padding:4px 12px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.vendor-opt-head a{color:var(--accent);font-size:.82em;font-weight:700;cursor:pointer}
 .btn{padding:10px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.9em;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
 .btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(102,126,234,.4)}
 .btn-sm{padding:6px 12px;font-size:.8em;border-radius:8px}
@@ -77,6 +86,9 @@ input[type=number]{-moz-appearance:textfield}
 @media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
 @media(max-width:640px){
   .search-box{width:100%}
+  .vendor-multi{width:100%}
+  .vendor-btn{width:100%;max-width:none;text-align:left}
+  .vendor-panel{width:100%}
   table,thead,tbody,th,td,tr{display:block}
   thead tr{display:none}
   tr{border-bottom:2px solid var(--border);padding:8px 0}
@@ -126,6 +138,10 @@ input[type=number]{-moz-appearance:textfield}
   <div class="top-bar">
     <h1>💊 Item Catalog <span id="itemCount" style="font-size:.55em;font-weight:500;color:rgba(255,255,255,.5);margin-left:6px"></span></h1>
     <input class="search-box" id="searchBox" placeholder="Search items..." oninput="search(this.value)">
+    <div class="vendor-multi" id="vendorMulti">
+      <button type="button" class="vendor-btn" id="vendorBtn" onclick="toggleVendorPanel(event)" title="Filter by vendor">🏷 All Vendors ▾</button>
+      <div class="vendor-panel" id="vendorPanel"></div>
+    </div>
     <button class="btn" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="{% if is_guest %}_guestClearItems(){% else %}openBulkDeleteModal(){% endif %}">🗑 Clear Items</button>
     <button class="btn" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="openImportModal()">⬆ Import File</button>
     <button class="btn" onclick="openModal()">+ Add Item</button>
@@ -323,7 +339,10 @@ function _parseHtm(htmlText, vendor){
       } else {
         name=_clean(tds[1].textContent); disc_pct=_num(tds[3].textContent);
         bonus=tds.length>4?_clean(tds[4].textContent):'';
-        tp=_num(tds[tds.length-1].textContent);
+        // 7-col layout: Code | Name | Order | Offer | Bonus | T.P | Tax
+        // TP is the second-to-last cell; last cell is Tax (often 0.00).
+        tp = tds.length===7 ? (_num(tds[5].textContent)||_num(tds[6].textContent))
+                            : _num(tds[tds.length-1].textContent);
       }
       const retail=tp>0?Math.round(tp/0.85*100)/100:0;
       if(name) items.push({name,tp,retail_price:retail,discount_pct:disc_pct,bonus_text:bonus,tax_pct:0,vendor});
@@ -416,8 +435,8 @@ async function loadItems(q=''){
   } else {
     allItems = serverItems;
   }
-  const filtered = q ? allItems.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())) : allItems;
-  render(filtered);
+  populateVendorFilter();
+  applyFilters();
 }
 
 function render(items){
@@ -459,10 +478,63 @@ function render(items){
   }).join('');
 }
 
-function search(q){
-  const filtered = q ? allItems.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())) : allItems;
+let selectedVendors = new Set();  // empty = show all vendors
+
+function search(){ applyFilters(); }
+
+// Combined filter: item name search AND any of the ticked vendors
+function applyFilters(){
+  const q = (document.getElementById('searchBox').value || '').toLowerCase();
+  let filtered = allItems;
+  if(selectedVendors.size) filtered = filtered.filter(i => selectedVendors.has((i.vendor || '').trim()));
+  if(q) filtered = filtered.filter(i => i.name.toLowerCase().includes(q));
   render(filtered);
 }
+
+// Rebuild the vendor checkbox panel from the vendors present in allItems, keeping ticks
+function populateVendorFilter(){
+  const vendors = [...new Set(allItems.map(i => (i.vendor || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  // drop any ticked vendor that no longer exists
+  selectedVendors = new Set([...selectedVendors].filter(v => vendors.includes(v)));
+  const panel = document.getElementById('vendorPanel');
+  if(!vendors.length){
+    panel.innerHTML = '<div style="padding:12px;color:var(--sub);font-size:.85em">No vendors yet.<br>Import a file with a vendor name.</div>';
+    updateVendorBtn(); return;
+  }
+  panel.innerHTML =
+    '<div class="vendor-opt-head"><a onclick="setAllVendors(true)">Select all</a><a onclick="setAllVendors(false)">Clear</a></div>' +
+    vendors.map(v=>`<label class="vendor-opt"><input type="checkbox" value="${esc(v)}" ${selectedVendors.has(v)?'checked':''} onchange="onVendorCheck(this)">🏷 ${esc(v)}</label>`).join('');
+  updateVendorBtn();
+}
+
+function onVendorCheck(cb){
+  if(cb.checked) selectedVendors.add(cb.value); else selectedVendors.delete(cb.value);
+  updateVendorBtn(); applyFilters();
+}
+
+function setAllVendors(on){
+  selectedVendors = new Set();
+  document.querySelectorAll('#vendorPanel input[type=checkbox]').forEach(cb=>{
+    cb.checked = on; if(on) selectedVendors.add(cb.value);
+  });
+  updateVendorBtn(); applyFilters();
+}
+
+function updateVendorBtn(){
+  const n = selectedVendors.size;
+  const label = n===0 ? '🏷 All Vendors' : n===1 ? '🏷 '+[...selectedVendors][0] : `🏷 ${n} vendors`;
+  document.getElementById('vendorBtn').textContent = label + ' ▾';
+}
+
+function toggleVendorPanel(e){
+  e.stopPropagation();
+  document.getElementById('vendorPanel').classList.toggle('open');
+}
+// close the panel when clicking anywhere outside it
+document.addEventListener('click', e=>{
+  const wrap = document.getElementById('vendorMulti');
+  if(wrap && !wrap.contains(e.target)) document.getElementById('vendorPanel').classList.remove('open');
+});
 
 function openModal(reset=true){
   if(reset){

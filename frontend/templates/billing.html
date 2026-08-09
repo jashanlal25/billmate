@@ -141,16 +141,26 @@ input[type=number]{-moz-appearance:textfield}
   /* Lines table → card layout */
   #linesTable{overflow:visible}
   #linesTable thead{display:none}
-  #linesTable tbody tr{display:block;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative;border-bottom:none!important;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  /* Flex card so we can restore the original field order despite the new desktop column order */
+  #linesTable tbody tr{display:flex;flex-wrap:wrap;column-gap:8px;row-gap:0;align-items:flex-start;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative;border-bottom:none!important;box-shadow:0 2px 8px rgba(0,0,0,.06)}
   #linesTable td{display:none;border:none!important}
   #linesTable td:nth-child(1){display:none}
-  #linesTable td:nth-child(2){display:block;font-weight:700;font-size:1em;padding:0 40px 12px 0;width:100%;line-height:1.4}
-  #linesTable td:nth-child(3),
+  /* Item name — full width, on top */
+  #linesTable td:nth-child(2){display:block;order:1;font-weight:700;font-size:1em;padding:0 40px 12px 0;width:100%;line-height:1.4}
+  /* Rate grid restored to original order: Retail | TP  then  Disc | Tax */
+  #linesTable td:nth-child(6){order:2}
+  #linesTable td:nth-child(5){order:3}
+  #linesTable td:nth-child(4){order:4}
+  #linesTable td:nth-child(7){order:5}
   #linesTable td:nth-child(4),
   #linesTable td:nth-child(5),
-  #linesTable td:nth-child(6){display:inline-flex;flex-direction:column;align-items:flex-start;gap:6px;width:calc(50% - 6px);padding:6px 4px 4px;vertical-align:top}
-  #linesTable td:nth-child(7){display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:6px 4px 4px}
-  #linesTable td:nth-child(8){display:block;text-align:right;font-weight:800;font-size:1.05em;margin-top:10px;padding:8px 0 0;border-top:2px solid var(--border)!important;width:100%;color:var(--accent)}
+  #linesTable td:nth-child(6),
+  #linesTable td:nth-child(7){display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:calc(50% - 6px);padding:6px 4px 4px}
+  /* Qty stepper — full width, below the grid (as before) */
+  #linesTable td:nth-child(3){display:flex;order:6;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:6px 4px 4px}
+  /* Net — full width */
+  #linesTable td:nth-child(8){display:block;order:7;text-align:right;font-weight:800;font-size:1.05em;margin-top:10px;padding:8px 0 0;border-top:2px solid var(--border)!important;width:100%;color:var(--accent)}
+  /* Actions — absolute top-right corner */
   #linesTable td:nth-child(9){position:absolute!important;top:10px;right:10px;display:block}
   .mob-lbl{display:block;font-size:.72em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-right:0}
   .qty-inp{width:100%!important;font-size:.95em!important;padding:10px 10px!important;background:var(--inp)!important;text-align:center!important;border-radius:10px!important;border-width:2px!important}
@@ -319,11 +329,11 @@ input[type=number]{-moz-appearance:textfield}
           <tr>
             <th>#</th>
             <th>Item</th>
-            <th class="num col-retail">Retail</th>
+            <th class="num" style="text-align:center">Qty</th>
+            <th class="num" style="text-align:center">Disc %</th>
             <th class="num col-tp">TP</th>
-            <th class="num">Disc %</th>
-            <th class="num">Tax (Rs.)</th>
-            <th class="num">Qty</th>
+            <th class="num col-retail">Retail</th>
+            <th class="num" style="text-align:center">Tax (Rs.)</th>
             <th class="num">Net</th>
             <th class="no-print"></th>
           </tr>
@@ -1059,16 +1069,28 @@ function _highlightDdItem(idx){
   const dd = document.getElementById('itemDropdown');
   const items = dd.querySelectorAll('.dd-item');
   items.forEach((el, i) => el.style.background = i === idx ? 'var(--row-hover)' : '');
-  if(items[idx]) items[idx].scrollIntoView({block:'nearest'});
+  const it = items[idx];
+  if(it){
+    // Scroll only inside the dropdown — never bubble up and scroll the page
+    const top = it.offsetTop, bot = top + it.offsetHeight;
+    if(top < dd.scrollTop) dd.scrollTop = top;
+    else if(bot > dd.scrollTop + dd.clientHeight) dd.scrollTop = bot - dd.clientHeight;
+  }
   _ddHighlight = idx;
 }
 
 async function itemSearchKey(e){
   const dd = document.getElementById('itemDropdown');
   const items = dd.querySelectorAll('.dd-item');
-  if(e.key === 'ArrowDown'){
+  if(e.key === 'Escape'){
     e.preventDefault();
-    if(!dd.classList.contains('open')) return;
+    dd.classList.remove('open');
+    e.target.blur();                 // leave the search box → F5 works as browser reload
+    return;
+  }
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();              // stay in the list, never scroll the page
+    if(!dd.classList.contains('open')){ if(e.target.value.trim()) searchItem(e.target.value); return; }
     _highlightDdItem(Math.min(_ddHighlight + 1, items.length - 1));
     return;
   }
@@ -1146,7 +1168,7 @@ function addLine(item){
   if(existingIdx!==-1){
     lines[existingIdx].qty++;
     calcLine(lines[existingIdx]);
-    renderLines();recalc();setTimeout(()=>_focusCartField('q'),10);return;
+    renderLines();recalc();setTimeout(()=>_focusCartField('q',existingIdx),10);return;
   }
   const line={
     item_id:item.id, item_name:item.name, item_code:item.code,
@@ -1188,21 +1210,21 @@ function renderLines(){
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}</div>`:''}
       </td>
-      <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
-      <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
-      <td class="num">
-        <span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center">
-      </td>
-      <td class="num">
-        <span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center">
-      </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
         <div class="qty-stepper">
-          <button onclick="stepQty(${i},-1)">−</button>
-          <input class="qty-inp" type="number" min="1" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)">
-          <button onclick="stepQty(${i},1)">+</button>
+          <button type="button" tabindex="-1" onclick="stepQty(${i},-1)">−</button>
+          <input class="qty-inp" type="number" min="1" enterkeyhint="next" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)">
+          <button type="button" tabindex="-1" onclick="stepQty(${i},1)">+</button>
         </div>
+      </td>
+      <td class="num">
+        <span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" enterkeyhint="search" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center">
+      </td>
+      <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
+      <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
+      <td class="num">
+        <span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center">
       </td>
       <td class="num" style="font-weight:800;color:var(--accent)">Rs.${(l.lineNet+l.qty*l.tax).toFixed(2)}</td>
       <td class="no-print line-action">
@@ -2477,10 +2499,16 @@ window.addEventListener('load', () => {
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;if(!IS_GUEST)localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
 document.addEventListener('focusin',e=>{
-  if(e.target.type==='number'){e.target.dataset._prev=e.target.value;e.target.value='';}
+  if(e.target.type==='number'){
+    // Cart line inputs: keep the value visible and select it, so Enter keeps it
+    // and typing overwrites. (Don't blank — the user wants to see the current rate.)
+    if(e.target.closest('#linesBody')){ setTimeout(()=>{try{e.target.select();}catch(_){}} ,0); return; }
+    e.target.dataset._prev=e.target.value;e.target.value='';
+  }
 });
 document.addEventListener('focusout',e=>{
   if(e.target.type==='number'){
+    if(e.target.closest('#linesBody')) return;  // cart fields update themselves via onchange
     if(e.target.value===''||e.target.value===null){e.target.value=e.target.dataset._prev||'';}
     else{e.target.value=parseFloat(e.target.value).toFixed(2);}
   }
@@ -2742,19 +2770,29 @@ if('contacts' in navigator && 'ContactsManager' in window){
   document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
 }
 
-function _focusCartField(key){
-  if(!lines.length) return;
-  const map = {q:6, d:4, p:2, t:3};
-  const col = map[key];
-  if(!col) return;
-  const tbody = document.getElementById('linesBody');
-  const rows = tbody.querySelectorAll('tr');
-  const row = addOnTop ? rows[0] : rows[rows.length - 1];
-  if(!row) return;
-  const cells = row.querySelectorAll('td');
-  if(!cells[col]) return;
-  const inp = cells[col].querySelector('input');
-  if(inp){ inp.focus(); inp.select(); }
+// Column index of each editable cart field (desktop layout: # Item Qty Disc TP Retail Tax Net ⋯)
+const _CART_COL = {q:2, d:3, t:4, p:5};
+const _COL_KEY  = {2:'q', 3:'d', 4:'t', 5:'p'};
+const _ENTER_ORDER = ['q','d'];  // Enter walks Qty → Disc → item search (TP/Retail via T/P keys or F5)
+
+function _domRows(){ return [...document.getElementById('linesBody').querySelectorAll('tr')]; }
+function _domRowToLineIdx(row){ const d=_domRows().indexOf(row); if(d<0) return -1; return addOnTop ? (lines.length-1-d) : d; }
+function _rowForLine(idx){ const d = addOnTop ? (lines.length-1-idx) : idx; return _domRows()[d] || null; }
+
+function _focusRowField(lineIdx, key){
+  const row = _rowForLine(lineIdx); if(!row) return;
+  const cell = row.querySelectorAll('td')[_CART_COL[key]]; if(!cell) return;
+  const inp = cell.querySelector('input'); if(inp){ inp.focus(); inp.select(); }
+}
+// Blur first (commit value → may re-render), then focus the target on the fresh DOM
+function _navCartField(lineIdx, key){
+  const el = document.activeElement; if(el && el.blur) el.blur();
+  setTimeout(()=>_focusRowField(lineIdx, key), 0);
+}
+
+function _focusCartField(key, lineIdx){
+  if(!lines.length || !_CART_COL[key]) return;
+  _focusRowField(lineIdx==null ? lines.length-1 : lineIdx, key);
 }
 
 function _focusSearch(){
@@ -2762,50 +2800,111 @@ function _focusSearch(){
   if(s){ s.focus(); s.select(); }
 }
 
-// Keyboard nav: from idle press q/d/p/t to jump to last row field.
-// From inside cart inputs: q/d/p/t jump between fields, Enter/Space/Esc go to search.
+// Row on which F5/F8/F9 act: the focused cart row, else the most recently added item
+function _currentLineIdx(){
+  const el = document.activeElement;
+  if(el && el.closest && el.closest('#linesBody')){
+    const li = _domRowToLineIdx(el.closest('tr'));
+    if(li>=0) return li;
+  }
+  return lines.length-1;   // newest line = the last item you were working on
+}
+
+// F5 — change TP for THIS bill only (focus the line's TP for inline edit; no catalog change)
+function _tpCurrentBill(){
+  if(!lines.length) return;
+  _navCartField(_currentLineIdx(), 't');
+}
+// F8 — change TP and push it to the catalog so all future bills use it too
+async function _tpForAll(){
+  if(!lines.length) return;
+  const idx = _currentLineIdx(); const l = lines[idx]; if(!l) return;
+  const v = prompt(`New TP for "${l.item_name}" — updates the catalog for all future bills:`, l.tp.toFixed(2));
+  if(v===null) return;
+  const tp = Math.max(0, parseFloat(v)||0);
+  if(tp<=0){ toast('Enter a valid TP', true); return; }
+  l.tp = tp; l.retail = Math.round(tp/0.85*100)/100; calcLine(l); renderLines(); recalc();
+  const persistable = l.item_id && !String(l.item_id).startsWith('li_') && !String(l.item_id).startsWith('ginv_');
+  if(persistable && !IS_GUEST){
+    try{
+      const r = await fetch(`/api/items/${l.item_id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tp, retail_price:l.retail})});
+      if(r.ok){ _cacheClear(); toast('TP updated in catalog (all bills)'); }
+      else { toast('Updated on bill; catalog save failed', true); }
+    }catch(err){ toast('Updated on bill; catalog save failed', true); }
+  } else {
+    toast('TP updated on this bill');
+  }
+}
+// F9 — rename the item (also saves to catalog for logged-in users)
+async function _renameItem(){
+  if(!lines.length) return;
+  const idx = _currentLineIdx(); const l = lines[idx]; if(!l) return;
+  if(l.is_global){ toast('Global item name is shared — rename it from Items', true); return; }
+  const v = prompt('New item name:', l.item_name);
+  if(v===null) return;
+  const name = v.trim();
+  if(!name){ toast('Name required', true); return; }
+  l.item_name = name; renderLines(); recalc();
+  const persistable = l.item_id && !String(l.item_id).startsWith('li_') && !String(l.item_id).startsWith('ginv_');
+  if(persistable && !IS_GUEST){
+    try{ const r = await fetch(`/api/items/${l.item_id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})}); if(r.ok) _cacheClear(); }catch(err){}
+  }
+  toast('Name updated');
+}
+
 document.addEventListener('keydown', function(e){
   if(document.querySelector('.overlay.open')) return;
+
+  // Function keys: only custom while actively in the item search or a cart row.
+  // Outside those, F5/F8/F9 keep their default browser behaviour (reload etc.).
+  if(e.key === 'F5' || e.key === 'F8' || e.key === 'F9'){
+    const ae = document.activeElement;
+    const inItemArea = (ae && ae.id === 'itemSearch') || (ae && ae.closest && ae.closest('#linesBody'));
+    if(!inItemArea) return;  // let the browser handle it
+    e.preventDefault();
+    if(e.key === 'F5'){ _tpCurrentBill(); }
+    else if(e.key === 'F8'){ _tpForAll(); }
+    else { _renameItem(); }
+    return;
+  }
 
   const el = e.target;
   const tag = (el.tagName||'').toLowerCase();
 
-  // If inside a cart numeric input (inside #linesBody)
+  // Inside a cart numeric input: Enter chains fields, arrows move rows, Delete removes the line
   if(tag === 'input' && el.closest('#linesBody') && el.type === 'number'){
     const key = e.key.toLowerCase();
+    const row = el.closest('tr'); if(!row) return;
+    const cidx = [...row.children].indexOf(el.closest('td'));
+    const li = _domRowToLineIdx(row);
+
+    if(key === 'escape'){ e.preventDefault(); el.blur(); _focusSearch(); return; }
+    if(key === 'delete'){ e.preventDefault(); removeLine(li); _focusSearch(); return; }
     if(key === 'enter' || key === ' '){
       e.preventDefault();
-      el.blur();
-      _focusSearch();
+      const pos = _ENTER_ORDER.indexOf(_COL_KEY[cidx]);
+      if(pos>=0 && pos < _ENTER_ORDER.length-1){ _navCartField(li, _ENTER_ORDER[pos+1]); }
+      else { el.blur(); _focusSearch(); }
       return;
     }
-    if(key === 'escape'){
+    if(key === 'arrowdown' || key === 'arrowup'){
       e.preventDefault();
-      el.blur();
-      _focusSearch();
+      const rows = _domRows(); const d = rows.indexOf(row); const td = d + (key==='arrowdown'?1:-1);
+      if(td<0 || td>=rows.length) return;
+      const targetLi = addOnTop ? (lines.length-1-td) : td;
+      _navCartField(targetLi, _COL_KEY[cidx] || 'q');
       return;
     }
-    const fieldMap = {q:6, d:4, p:2, t:3};
-    if(fieldMap[key]){
-      e.preventDefault();
-      const row = el.closest('tr');
-      if(!row) return;
-      const cells = row.querySelectorAll('td');
-      const col = fieldMap[key];
-      if(!cells[col]) return;
-      const inp = cells[col].querySelector('input');
-      if(inp){ inp.focus(); inp.select(); }
-      return;
-    }
+    if(_CART_COL[key]){ e.preventDefault(); _navCartField(li, key); return; }
     return;
   }
 
-  // If not in any input — global shortcuts
-  if(tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  // Not in any input: Space jumps into the item search; q/d/t/p jump to that field
+  // on the last item. Arrows are left alone here so the page scrolls normally out here.
+  if(tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'button' || tag === 'a') return;
+  if(e.key === ' ' || e.code === 'Space'){ e.preventDefault(); _focusSearch(); return; }
   if(!lines.length) return;
-  const map = {q:6, d:4, p:2, t:3};
-  const col = map[e.key];
-  if(!col) return;
+  if(!_CART_COL[e.key]) return;
   e.preventDefault();
   _focusCartField(e.key);
 });

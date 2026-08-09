@@ -19,7 +19,8 @@
       "Bash(cp /mnt/e/billing_system/Dockerfile /mnt/c/Users/lapto/Documents/billmate/)",
       "Bash(cp /mnt/e/billing_system/vercel.json /mnt/c/Users/lapto/Documents/billmate/)",
       "Bash(cp /mnt/e/billing_system/.gitignore /mnt/c/Users/lapto/Documents/billmate/)",
-      "Bash(flask db:*)"
+      "Bash(flask db:*)",
+      "Bash(git *)"
     ]
   }
 }

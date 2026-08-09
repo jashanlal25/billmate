@@ -1112,7 +1112,12 @@ def superadmin_import_items():
                     name     = _clean(tds[1].get_text())
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                    fallback_tp = _num(tds[-1].get_text())
+                    # 7-col layout: Code | Name | Order | Offer | Bonus | T.P | Tax
+                    # TP is the second-to-last cell; last cell is Tax (often 0.00).
+                    if len(tds) == 7:
+                        fallback_tp = _num(tds[5].get_text()) or _num(tds[6].get_text())
+                    else:
+                        fallback_tp = _num(tds[-1].get_text())
                     stock_qty = 0
 
                 disc_pct     = parsed['disc_pct']
@@ -2004,7 +2009,12 @@ def import_items():
                     name     = _clean(tds[1].get_text())
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
-                    fallback_tp = _num(tds[-1].get_text())
+                    # 7-col layout: Code | Name | Order | Offer | Bonus | T.P | Tax
+                    # TP is the second-to-last cell; last cell is Tax (often 0.00).
+                    if len(tds) == 7:
+                        fallback_tp = _num(tds[5].get_text()) or _num(tds[6].get_text())
+                    else:
+                        fallback_tp = _num(tds[-1].get_text())
                     stock_qty = 0
 
                 disc_pct     = parsed['disc_pct']
