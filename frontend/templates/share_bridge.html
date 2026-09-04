@@ -31,6 +31,8 @@
     <a class="btn" id="cont" href="/items" style="display:none">Open BillMate Items</a>
   </div>
 
+  <!-- Must load BEFORE the inline script below — it uses ShareStore. -->
+  <script src="/static/share-store.js"></script>
   <script>
   (function(){
     // Payload injected server-side, JSON-escaped by Jinja's |tojson.
@@ -60,7 +62,9 @@
 
     try{
       // Decode base64 → bytes → real File, store in IndexedDB, then move on.
-      const bin = atob(payload.data);
+      // Strip any whitespace/newlines defensively; atob requires pure base64.
+      const b64 = String(payload.data).replace(/\s+/g, '');
+      const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
       const file = new File([bytes], payload.filename, {
@@ -76,10 +80,10 @@
         })
         .catch(() => fail('Could not store the file on this device.'));
     }catch(e){
-      fail('Could not decode the shared file.');
+      console.error('Shared file decode failed:', e);
+      fail('Could not decode the shared file. Please use the Import File button on the Items page instead.');
     }
   })();
   </script>
-  <script src="/static/share-store.js"></script>
 </body>
 </html>
