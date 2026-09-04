@@ -8,6 +8,7 @@ if base_dir not in sys.path:
 
 from flask import Flask, render_template, request, jsonify, redirect, session, url_for
 from bs4 import BeautifulSoup
+import base64
 import re
 import secrets
 import smtplib
@@ -65,28 +66,54 @@ from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine,
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# ── PWA Routes ─────────────────────────────────────────────────────────────────
-@app.route('/pwa/<path:filename>')
-def serve_pwa(filename):
-    """Serve PWA files from frontend/pwa folder."""
+# ── PWA / Web Share Target ────────────────────────────────────────────────────
+# Share Target size/extension limits mirror the Items import API (4 MB, .htm/.html).
+SHARE_TARGET_MAX_BYTES = 4 * 1024 * 1024
+SHARE_TARGET_ALLOWED_EXT = {'.htm', '.html'}
+
+@app.route('/sw.js')
+def serve_sw():
+    """Serve the service worker from the root so its scope is '/' (must cover /items and /share-target)."""
     from flask import send_from_directory
-    pwa_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'pwa')
-    return send_from_directory(pwa_folder, filename)
+    static_folder = os.path.join(_frontend, 'static')
+    resp = send_from_directory(static_folder, 'sw.js', mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
-@app.route('/pwa/share-handler', methods=['GET', 'POST'])
-def pwa_share_handler():
-    """Handle shared files from PWA Share Target."""
-    # For now, redirect to superadmin items page with a message
-    # The actual file handling would require Web Share Target API support
-    from flask import redirect, url_for, session, flash
+@app.route('/share-target', methods=['GET'])
+def share_target_get():
+    # Browsers occasionally GET the action URL; just go to Items.
+    return redirect('/items')
 
-    # Check if user is superadmin
-    if not session.get('is_superadmin'):
-        return redirect(url_for('superadmin_login_page'))
+@app.route('/share-target', methods=['POST'])
+def share_target_post():
+    """Web Share Target receiver (Android share sheet → BillMate).
 
-    # Show a message about how to use the share feature
-    flash('To import from WhatsApp: Open BillMate in mobile browser → tap Share → select BillMate', 'info')
-    return redirect(url_for('superadmin_items_page'))
+    Same-request browser transfer: the uploaded file is read, validated and
+    echoed back base64-embedded in a small bridge page. The browser stores it
+    in IndexedDB and then navigates to /items. Nothing is written to server
+    storage (serverless-safe: no /tmp between requests). The actual import
+    still goes through the fully-authenticated /api/items/import endpoint.
+    """
+    from flask import render_template
+
+    f = request.files.get('shared_file')
+    if not f or not f.filename:
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'No file was shared with BillMate.'})
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in SHARE_TARGET_ALLOWED_EXT:
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm / .html offer-list files can be imported.'})
+    data = f.read()
+    if not data:
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'The shared file is empty.'})
+    if len(data) > SHARE_TARGET_MAX_BYTES:
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'File too large (max 4 MB).'})
+    return render_template('share_bridge.html', payload={
+        'ok': True,
+        'filename': os.path.basename(f.filename)[:200],
+        'type': f.mimetype or 'text/html',
+        'data': base64.b64encode(data).decode('ascii'),
+    })
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
@@ -220,6 +247,11 @@ def check_auth():
     # Always allow auth routes, static, and public API
     if path.startswith('/auth') or path.startswith('/static') or path == '/':
         return
+    # Public, no-session-needed PWA endpoints: the service worker and the
+    # share-target bridge (transfers the shared file to the requester's own
+    # browser only — inventory writes still require an authenticated session).
+    if path in ('/sw.js', '/share-target'):
+        return
     if path == '/api/forgot-password-request':
         return
     # Superadmin login page + public recovery endpoints — always accessible
@@ -238,11 +270,13 @@ def check_auth():
         return
     user_id = session.get('user_id')
     is_guest = session.get('is_guest')
-    # Not logged in at all → welcome
+    # Not logged in at all → welcome (remember the target page so the login
+    # flow can return to it, e.g. a PWA share landing on /items?shared=1)
     if not user_id and not is_guest:
         if request.is_json:
             return jsonify({'error': 'Unauthorized'}), 401
-        return redirect('/')
+        from urllib.parse import quote
+        return redirect('/?next=' + quote(path))
     # Guest restrictions
     if is_guest:
         allowed = any(path.startswith(p) for p in GUEST_ALLOWED_PREFIXES)

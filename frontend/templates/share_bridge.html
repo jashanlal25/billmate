@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BillMate — Receiving shared file…</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+         background:#1a1a2e;color:#e5e7eb;display:flex;align-items:center;
+         justify-content:center;min-height:100vh;margin:0;padding:24px}
+    .card{max-width:340px;width:100%;text-align:center;background:#1e1b4b;
+          border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:36px 28px}
+    .icon{font-size:2.6em;margin-bottom:10px}
+    .name{font-weight:700;font-size:1em;color:#fff;word-break:break-all;margin:8px 0 20px}
+    .spin{width:34px;height:34px;margin:0 auto 16px;border-radius:50%;
+          border:3px solid rgba(255,255,255,.15);border-top-color:#0d6efd;
+          animation:r 0.9s linear infinite}
+    @keyframes r{to{transform:rotate(360deg)}}
+    .err{display:none;background:#450a0a;border:1px solid #b91c1c;border-radius:12px;
+         padding:16px;color:#fca5a5;font-size:.9em;margin-bottom:16px;line-height:1.5}
+    .btn{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#0d6efd,#4f46e5);
+         border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon" id="ico">📂</div>
+    <div id="spin" class="spin"></div>
+    <div class="name" id="fname">Receiving shared file…</div>
+    <div class="err" id="err"></div>
+    <a class="btn" id="cont" href="/items" style="display:none">Open BillMate Items</a>
+  </div>
+
+  <script>
+  (function(){
+    // Payload injected server-side, JSON-escaped by Jinja's |tojson.
+    const payload = {{ payload | tojson }};
+    const errBox = document.getElementById('err');
+
+    function fail(msg){
+      document.getElementById('spin').style.display = 'none';
+      document.getElementById('ico').textContent = '⚠️';
+      errBox.style.display = 'block';
+      errBox.textContent = msg;
+      document.getElementById('fname').textContent = 'Could not receive the shared file';
+      document.getElementById('cont').style.display = 'inline-block';
+    }
+
+    if(!payload || !payload.ok){
+      fail((payload && payload.error) || 'Invalid shared file.');
+      return;
+    }
+
+    document.getElementById('fname').textContent = payload.filename;
+
+    if(typeof indexedDB === 'undefined'){
+      fail('This browser cannot store shared files. Please use the Import File button on the Items page instead.');
+      return;
+    }
+
+    try{
+      // Decode base64 → bytes → real File, store in IndexedDB, then move on.
+      const bin = atob(payload.data);
+      const bytes = new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      const file = new File([bytes], payload.filename, {
+        type: payload.type || 'text/html',
+        lastModified: Date.now(),
+      });
+
+      ShareStore.savePendingSharedFile(file)
+        .then(() => {
+          // Stale shared files older than 24h get pruned by items.html on load.
+          document.getElementById('fname').textContent = payload.filename + ' received ✓';
+          setTimeout(() => { location.replace('/items?shared=1'); }, 250);
+        })
+        .catch(() => fail('Could not store the file on this device.'));
+    }catch(e){
+      fail('Could not decode the shared file.');
+    }
+  })();
+  </script>
+  <script src="/static/share-store.js"></script>
+</body>
+</html>

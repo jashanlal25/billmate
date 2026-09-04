@@ -106,7 +106,12 @@ async function doLogin(){
   if(!username||!password){showErr('l_err','Please fill in all fields');return;}
   const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
   const res=await r.json();
-  if(r.ok) location.href=res.redirect||'/billing';
+  if(r.ok){
+    // Return to the page that bounced us here (e.g. a PWA share landing on
+    // /items?shared=1). Only same-site absolute paths — never external URLs.
+    const nx=new URLSearchParams(location.search).get('next');
+    location.href=(nx&&nx.startsWith('/')&&!nx.startsWith('//'))?nx:(res.redirect||'/billing');
+  }
   else showErr('l_err',res.error||'Login failed');
 }
 

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Item Catalog</title>
+<link rel="manifest" href="/static/manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
 :root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row:#f9f9f9;--row-hover:#f0f0ff}
@@ -295,6 +296,7 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </div>
 
+<script src="/static/share-store.js"></script>
 <script>
 const CAN_DELETE_GLOBAL = {{ 'true' if can_delete_global else 'false' }};
 const IS_GUEST = {{ 'true' if is_guest else 'false' }};
@@ -708,11 +710,23 @@ function openImportModal(){
   }
   document.getElementById('importModal').classList.add('open');
 }
-function closeImportModal(){ document.getElementById('importModal').classList.remove('open'); }
+// Closing the modal (Cancel / background click) discards a pending
+// WhatsApp-shared file — it must not reappear on the next Items page load.
+function closeImportModal(){
+  document.getElementById('importModal').classList.remove('open');
+  if(window.ShareStore) ShareStore.clearPendingSharedFile();
+}
 function closeImportOnBg(e){ if(e.target === document.getElementById('importModal')) closeImportModal(); }
 
 function importFileChosen(input){
-  _importFile = input.files[0] || null;
+  prepareImportFile(input.files[0] || null);
+}
+
+// Central entry point for giving the import modal a file — used by manual
+// file selection, drag & drop, AND WhatsApp-shared files (Web Share Target),
+// so vendor inference and validation behave identically for all three.
+function prepareImportFile(file){
+  _importFile = file || null;
   document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
   _setImportVendor(_importFile ? _importFile.name : '');
   const btn = document.getElementById('importBtn');
@@ -730,14 +744,7 @@ function importDragLeave(e){
 function importDrop(e){
   e.preventDefault();
   importDragLeave(e);
-  const file = e.dataTransfer.files[0];
-  if(!file) return;
-  _importFile = file;
-  document.getElementById('importFileName').textContent = file.name;
-  _setImportVendor(file.name);
-  const btn = document.getElementById('importBtn');
-  btn.disabled = false; btn.style.opacity = '1';
-  document.getElementById('importResult').style.display = 'none';
+  prepareImportFile(e.dataTransfer.files[0] || null);
 }
 
 function _showImportResult(ok, msg){
@@ -786,6 +793,7 @@ async function doImport(){
       const note = document.getElementById('guestQuotaNote');
       if(note) note.textContent = `Guest limit: ${rem} of 2 file import${rem!==1?'s':''} remaining today`;
       _showImportResult(true, `Done! Added: ${added} · Updated: ${updated} · Skipped: ${skipped} · ${rem} import${rem!==1?'s':''} left today`);
+      if(window.ShareStore) ShareStore.clearPendingSharedFile();
       loadItems(document.getElementById('searchBox').value);
     } catch(e){ _showImportResult(false, 'Could not read file'); }
     btn.disabled = false; btn.textContent = 'Import';
@@ -803,6 +811,7 @@ async function doImport(){
     if(r.ok){
       const globalNote = res.alongside_global > 0 ? ` · ${res.alongside_global} kept alongside global` : '';
       _showImportResult(true, `Done! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${globalNote}`);
+      if(window.ShareStore) ShareStore.clearPendingSharedFile();
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);
     } else { _showImportResult(false, res.error || 'Import failed'); }
@@ -823,6 +832,32 @@ function loadSupplierList(){
 loadCategories();
 loadItems();
 loadSupplierList();
+
+// ── WhatsApp shared-file adoption (Web Share Target) ─────────────────────────
+// Only the INSTALLED standalone PWA automatically adopts a pending shared
+// file. Normal browser mode never restores it and keeps behaving exactly as
+// before; the pending record stays untouched for a later PWA session.
+function isStandalonePWA(){
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true;
+}
+async function _adoptPendingSharedFile(){
+  if(!isStandalonePWA()) return;
+  try{
+    await ShareStore.pruneStale();
+    const file = await ShareStore.takePendingSharedFile();
+    if(!file) return;
+    openImportModal();          // fresh modal state (resets file/vendor/btn)
+    prepareImportFile(file);    // same path as manual selection/drag-drop
+    toast('Shared file ready: ' + file.name);
+  }catch(e){ /* adoption is best-effort; manual import still works */ }
+}
+_adoptPendingSharedFile();
+
+// Keep the service worker fresh across the whole app scope.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
 (function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
