@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Welcome — BillMate</title>
+<link rel="manifest" href="/static/manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
 @view-transition{navigation:auto}
@@ -175,6 +176,11 @@ document.addEventListener('keydown',e=>{
   else if(document.getElementById('formReset').classList.contains('active')) doReset();
   else doRegister();
 });
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
