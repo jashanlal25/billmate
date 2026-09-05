@@ -261,8 +261,10 @@ input[type=number]{-moz-appearance:textfield}
     </div>
     <div class="form-group" id="bulkVendorRow" style="display:none;margin-bottom:16px">
       <label>Vendor</label>
-      <select id="bulkVendorSelect" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.95em"></select>
+      <select id="bulkVendorSelect" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.95em" onchange="_onBulkVendorChosen()">
+      </select>
     </div>
+    <button class="btn" id="bulkVendorClearBtn" style="display:none;width:100%;margin-bottom:10px;background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="doBulkDelete('vendor')">🗑 Clear Selected Vendor Items</button>
     <button class="btn btn-cancel" style="width:100%" onclick="closeBulkDeleteModal()">Cancel</button>
   </div>
 </div>
@@ -662,6 +664,13 @@ function openBulkDeleteModal(){
 }
 function closeBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.remove('open'); }
 
+function _onBulkVendorChosen(){
+  // Show/hide the explicit Clear button as soon as a real vendor is picked.
+  const sel = document.getElementById('bulkVendorSelect');
+  const btn = document.getElementById('bulkVendorClearBtn');
+  if(btn) btn.style.display = sel && sel.value ? 'block' : 'none';
+}
+
 function _refreshBulkVendorOptions(){
   const sel = document.getElementById('bulkVendorSelect');
   if(!sel) return;
@@ -670,6 +679,7 @@ function _refreshBulkVendorOptions(){
   sel.innerHTML = '<option value="">— select a vendor —</option>' +
     vendors.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
   if(prev && vendors.includes(prev)) sel.value = prev;
+  _onBulkVendorChosen();
 }
 
 let _bulkDeleting = false;
@@ -678,15 +688,18 @@ async function doBulkDelete(scope){
   if(scope !== 'vendor'){
     const row = document.getElementById('bulkVendorRow');
     if(row) row.style.display = 'none';
+    const cbtn = document.getElementById('bulkVendorClearBtn');
+    if(cbtn) cbtn.style.display = 'none';
   }
   const vendor = scope === 'vendor'
     ? (document.getElementById('bulkVendorSelect') || {}).value || ''
     : '';
   if(scope === 'vendor' && !vendor){
-    // Show the dropdown (first vendor-mode click) instead of submitting
+    // First click on the vendor option: just reveal the dropdown + hint.
+    // Clearing happens via the explicit "Clear Selected Vendor Items" button.
     document.getElementById('bulkVendorRow').style.display = 'block';
     _refreshBulkVendorOptions();
-    toast('Choose a vendor to clear', true);
+    toast('Select a vendor below, then press Clear', true);
     return;
   }
   closeBulkDeleteModal();
