@@ -842,13 +842,21 @@ function isStandalonePWA(){
          window.navigator.standalone === true;
 }
 async function _adoptPendingSharedFile(){
+  const _t0 = performance.now();
+  const _dbg = (label) => console.debug('[billmate-share-timing] items ' + label,
+    Math.round(performance.now() - _t0) + 'ms');
+  _dbg('js-start standalone=' + isStandalonePWA());
   if(!isStandalonePWA()) return;
   try{
+    _dbg('indexeddb-read-start');
     await ShareStore.pruneStale();
     const file = await ShareStore.takePendingSharedFile();
+    _dbg('indexeddb-read-complete file=' + (file ? file.name : 'none'));
     if(!file) return;
     openImportModal();          // fresh modal state (resets file/vendor/btn)
+    _dbg('modal-open');
     prepareImportFile(file);    // same path as manual selection/drag-drop
+    _dbg('prepareImportFile-complete');
     toast('Shared file ready: ' + file.name);
   }catch(e){ /* adoption is best-effort; manual import still works */ }
 }

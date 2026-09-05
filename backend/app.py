@@ -7,19 +7,34 @@ if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
 from flask import Flask, render_template, request, jsonify, redirect, session, url_for
-from bs4 import BeautifulSoup
 import base64
 import re
 import secrets
-import smtplib
 import threading
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import time
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+
+# Heavy imports deferred to first use (cold-start optimization — none of these
+# are needed to serve /share-target, /sw.js or page renders):
+#   bs4 (+lxml/soupsieve) — HTML parsing, used only by the item-import routes
+#   smtplib + email.mime  — used only by the superadmin reset-code email
+from importlib import import_module as _import_module
+_bs4 = None
+def _get_bs4():
+    global _bs4
+    if _bs4 is None:
+        _bs4 = _import_module('bs4')
+    return _bs4
+def _get_smtplib():
+    return _import_module('smtplib')
+def _get_mime_text():
+    return _import_module('email.mime.text')
+def _get_mime_multipart():
+    return _import_module('email.mime.multipart')
 
 project_dir = os.path.dirname(base_dir)  # billing_system/
 load_dotenv(os.path.join(project_dir, '.env'))
@@ -96,24 +111,38 @@ def share_target_post():
     still goes through the fully-authenticated /api/items/import endpoint.
     """
     from flask import render_template
+    _t = {'start': time.perf_counter()} if os.environ.get('BILLMATE_SHARE_TIMING') == '1' else None
 
     f = request.files.get('shared_file')
+    if _t: _t['files'] = time.perf_counter()
     if not f or not f.filename:
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'No file was shared with BillMate.'})
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in SHARE_TARGET_ALLOWED_EXT:
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm / .html offer-list files can be imported.'})
     data = f.read()
+    if _t: _t['read'] = time.perf_counter()
     if not data:
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'The shared file is empty.'})
     if len(data) > SHARE_TARGET_MAX_BYTES:
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'File too large (max 4 MB).'})
-    return render_template('share_bridge.html', payload={
+    b64 = base64.b64encode(data).decode('ascii')
+    if _t: _t['b64'] = time.perf_counter()
+    resp = render_template('share_bridge.html', payload={
         'ok': True,
         'filename': os.path.basename(f.filename)[:200],
         'type': f.mimetype or 'text/html',
-        'data': base64.b64encode(data).decode('ascii'),
+        'data': b64,
     })
+    if _t:
+        _t['render'] = time.perf_counter()
+        print(f"[billmate-share-timing] /share-target bytes={len(data)} "
+              f"files={(_t['files']-_t['start'])*1000:.1f}ms "
+              f"read={(_t['read']-_t['files'])*1000:.1f}ms "
+              f"b64={(_t['b64']-_t['read'])*1000:.1f}ms "
+              f"render={(_t['render']-_t['b64'])*1000:.1f}ms "
+              f"total={(_t['render']-_t['start'])*1000:.1f}ms", flush=True)
+    return resp
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
@@ -191,8 +220,17 @@ def _log_user_ip(uid: int, username: str, ip: str):
         _ip_log_cache.discard(key)
 
 _defaults_seeded = False
+# Public PWA endpoints that never touch the database: the service worker file
+# and the Web Share Target bridge (it only echoes the shared file back to the
+# requester's own browser — inventory writes go through /api/items/import).
+# Skipping the DB hooks here removes a network round-trip (and on a cold
+# instance, the first PostgreSQL connection) from the share startup path.
+_PWA_DBFREE_PATHS = ('/sw.js', '/share-target')
+
 @app.before_request
 def seed_defaults():
+    if request.path in _PWA_DBFREE_PATHS:
+        return
     global _defaults_seeded
     if not _defaults_seeded:
         _defaults_seeded = True
@@ -216,6 +254,8 @@ def seed_defaults():
 
 @app.before_request
 def record_ip():
+    if request.path in _PWA_DBFREE_PATHS:
+        return
     uid = session.get('user_id') or session.get('superadmin_uid')
     username = session.get('username')
     if uid and username and not session.get('is_guest'):
@@ -770,7 +810,7 @@ def _send_reset_email(to_email: str, code: str):
     smtp_port = int(os.environ.get('SMTP_PORT', '587'))
     if not smtp_user or not smtp_pass:
         raise RuntimeError('SMTP credentials not configured')
-    msg = MIMEMultipart('alternative')
+    msg = _get_mime_multipart().MIMEMultipart('alternative')
     msg['From'] = f'BillMate <{smtp_user}>'
     msg['To'] = to_email
     msg['Subject'] = 'BillMate — Super Admin Reset Code'
@@ -791,9 +831,9 @@ def _send_reset_email(to_email: str, code: str):
       <p style="color:#888;font-size:.85em">Valid for <strong>24 hours</strong>. Your original password still works if you remember it.</p>
       <p style="color:#bbb;font-size:.78em;margin-top:16px">If you did not request this, ignore this email.</p>
     </div>'''
-    msg.attach(MIMEText(body_text, 'plain'))
-    msg.attach(MIMEText(body_html, 'html'))
-    with smtplib.SMTP(smtp_host, smtp_port) as srv:
+    msg.attach(_get_mime_text().MIMEText(body_text, 'plain'))
+    msg.attach(_get_mime_text().MIMEText(body_html, 'html'))
+    with _get_smtplib().SMTP(smtp_host, smtp_port) as srv:
         srv.ehlo()
         srv.starttls()
         srv.login(smtp_user, smtp_pass)
@@ -1139,7 +1179,7 @@ def superadmin_import_items():
             added += 1
 
     try:
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = _get_bs4().BeautifulSoup(html, 'html.parser')
         new_rows = soup.find_all('tr', class_='item-row')
         if new_rows:
             for row in new_rows:
@@ -1337,10 +1377,14 @@ def purchase_page():
 
 @app.route('/items')
 def items_page():
-    return render_template('items.html',
+    _t0 = time.perf_counter() if os.environ.get('BILLMATE_SHARE_TIMING') == '1' else None
+    resp = render_template('items.html',
         can_delete_global=bool(session.get('is_admin') or session.get('is_superadmin')),
         is_guest=bool(session.get('is_guest'))
     )
+    if _t0 is not None:
+        print(f"[billmate-share-timing] /items render={(time.perf_counter()-_t0)*1000:.1f}ms", flush=True)
+    return resp
 
 @app.route('/customers')
 def customers_page():
@@ -2031,7 +2075,7 @@ def import_items():
 
     # ── Parse HTML ─────────────────────────────────────────────────────────────
     try:
-        soup = BeautifulSoup(html, 'html.parser')
+        soup = _get_bs4().BeautifulSoup(html, 'html.parser')
 
         new_rows = soup.find_all('tr', class_='item-row')
         if new_rows:

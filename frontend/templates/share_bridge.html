@@ -35,8 +35,12 @@
   <script src="/static/share-store.js"></script>
   <script>
   (function(){
+    const _t0 = performance.now();
+    const _dbg = (label) => console.debug('[billmate-share-timing] bridge ' + label,
+      Math.round(performance.now() - _t0) + 'ms');
     // Payload injected server-side, JSON-escaped by Jinja's |tojson.
     const payload = {{ payload | tojson }};
+    _dbg('payload-available');
     const errBox = document.getElementById('err');
 
     function fail(msg){
@@ -65,18 +69,23 @@
       // Strip any whitespace/newlines defensively; atob requires pure base64.
       const b64 = String(payload.data).replace(/\s+/g, '');
       const bin = atob(b64);
+      _dbg('atob-complete');
       const bytes = new Uint8Array(bin.length);
       for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      _dbg('uint8array-complete');
       const file = new File([bytes], payload.filename, {
         type: payload.type || 'text/html',
         lastModified: Date.now(),
       });
+      _dbg('file-complete');
 
+      _dbg('indexeddb-save-start');
       ShareStore.savePendingSharedFile(file)
         .then(() => {
+          _dbg('indexeddb-save-complete');
           // Stale shared files older than 24h get pruned by items.html on load.
           document.getElementById('fname').textContent = payload.filename + ' received ✓';
-          setTimeout(() => { location.replace('/items?shared=1'); }, 250);
+          setTimeout(() => { _dbg('navigate-start'); location.replace('/items?shared=1'); }, 250);
         })
         .catch(() => fail('Could not store the file on this device.'));
     }catch(e){

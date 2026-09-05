@@ -1,8 +1,9 @@
-const CACHE_NAME = 'billmate-v7';
+const CACHE_NAME = 'billmate-v8';
 const urlsToCache = [
   '/static/manifest.json',
   '/static/icon-192.png',
-  '/static/icon-512.png'
+  '/static/icon-512.png',
+  '/static/share-store.js'
 ];
 
 // Install service worker
