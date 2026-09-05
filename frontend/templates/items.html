@@ -254,6 +254,14 @@ input[type=number]{-moz-appearance:textfield}
         <div style="font-weight:700;font-size:.95em">⚠️ Delete All My Items</div>
         <div style="font-size:.78em;opacity:.85;margin-top:2px">Remove every private item in your catalogue</div>
       </button>
+      <button class="btn" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);text-align:left;padding:14px 18px" onclick="doBulkDelete('vendor')">
+        <div style="font-weight:700;font-size:.95em">🏷 Clear a Particular Vendor</div>
+        <div style="font-size:.78em;opacity:.85;margin-top:2px">Remove all items from one vendor — other vendors untouched</div>
+      </button>
+    </div>
+    <div class="form-group" id="bulkVendorRow" style="display:none;margin-bottom:16px">
+      <label>Vendor</label>
+      <select id="bulkVendorSelect" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.95em"></select>
     </div>
     <button class="btn btn-cancel" style="width:100%" onclick="closeBulkDeleteModal()">Cancel</button>
   </div>
@@ -646,24 +654,66 @@ function _guestClearItems(){
 function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
 
 // ── Bulk Delete ──────────────────────────────────────────────────────────────
-function openBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.add('open'); }
+function openBulkDeleteModal(){
+  document.getElementById('bulkDeleteModal').classList.add('open');
+  // Populate the vendor dropdown from the SAME source the catalog vendor
+  // filter uses (allItems) — same trim, dedupe, sort, casing.
+  _refreshBulkVendorOptions();
+}
 function closeBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.remove('open'); }
+
+function _refreshBulkVendorOptions(){
+  const sel = document.getElementById('bulkVendorSelect');
+  if(!sel) return;
+  const vendors = [...new Set(allItems.map(i => (i.vendor || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— select a vendor —</option>' +
+    vendors.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if(prev && vendors.includes(prev)) sel.value = prev;
+}
 
 let _bulkDeleting = false;
 async function doBulkDelete(scope){
   if(_bulkDeleting) return;
+  if(scope !== 'vendor'){
+    const row = document.getElementById('bulkVendorRow');
+    if(row) row.style.display = 'none';
+  }
+  const vendor = scope === 'vendor'
+    ? (document.getElementById('bulkVendorSelect') || {}).value || ''
+    : '';
+  if(scope === 'vendor' && !vendor){
+    // Show the dropdown (first vendor-mode click) instead of submitting
+    document.getElementById('bulkVendorRow').style.display = 'block';
+    _refreshBulkVendorOptions();
+    toast('Choose a vendor to clear', true);
+    return;
+  }
   closeBulkDeleteModal();
-  const label = scope === 'recent' ? 'items from the last 24 hours' : 'ALL your private items';
-  if(!confirm(`Delete ${label}? This cannot be undone.`)) return;
+  let label;
+  if(scope === 'recent')      label = 'items from the last 24 hours';
+  else if(scope === 'vendor') label = `ALL items from vendor '${vendor}' (items from other vendors will not be affected)`;
+  else                        label = 'ALL your private items';
+  if(!confirm(`Are you sure you want to delete ${label}? This action cannot be undone.`)) return;
   _bulkDeleting = true;
   toast('Deleting… please wait');
   try{
-    const r = await fetch('/api/items/bulk-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope})});
+    const r = await fetch('/api/items/bulk-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({scope, vendor})});
     const res = await r.json();
     if(r.ok){
-      toast(`Deleted ${res.deleted} item${res.deleted!==1?'s':''}`);
+      if(scope === 'vendor'){
+        toast(res.deleted > 0
+          ? `${res.deleted} ${vendor} item${res.deleted!==1?'s':''} cleared successfully.`
+          : `No items found for vendor '${vendor}'.`);
+        // If the now-cleared vendor was ticked in the catalog filter,
+        // drop it so the list doesn't sit on a stale empty filter.
+        selectedVendors.delete(vendor);
+      } else {
+        toast(`Deleted ${res.deleted} item${res.deleted!==1?'s':''}`);
+      }
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);
+      _refreshBulkVendorOptions();
     } else {
       toast(res.error||'Error deleting', true);
     }

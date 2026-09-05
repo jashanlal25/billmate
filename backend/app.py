@@ -1943,11 +1943,22 @@ def bulk_delete_items():
         return jsonify({'error': 'Guests cannot delete items.'}), 403
     uid = session.get('user_id')
     data = request.get_json() or {}
-    scope = data.get('scope', 'all')  # 'all' or 'recent'
+    scope = data.get('scope', 'all')  # 'all', 'recent', or 'vendor'
 
+    # Base query: the user's own private items only — never global items.
     query = Item.query.filter_by(user_id=uid, is_active=True, is_global=False)
 
-    if scope == 'recent':
+    vendor = (data.get('vendor', '') or '').strip()
+    if scope == 'vendor':
+        # Clear items for ONE vendor only. Exact-match on the stored vendor
+        # string (same identity semantics as the Items-page vendor filter) —
+        # no substring/LIKE/case-insensitive matching.
+        if not vendor:
+            return jsonify({'error': 'Vendor is required for vendor-scoped clear'}), 400
+        if len(vendor) > 50:
+            return jsonify({'error': 'Invalid vendor'}), 400
+        query = query.filter(Item.vendor == vendor)
+    elif scope == 'recent':
         # Items added in the last import session: those created today or
         # during the most recent batch (last 24 hours as a practical window)
         cutoff = datetime.utcnow() - timedelta(hours=24)
@@ -1955,9 +1966,11 @@ def bulk_delete_items():
 
     # Single bulk UPDATE — one round-trip to the DB instead of one per row.
     # Row-by-row updates over a remote DB were slow enough to time out.
+    # (Soft delete only — historical invoice/purchase lines are untouched,
+    # exactly like the existing clear-all.)
     count = query.update({Item.is_active: False}, synchronize_session=False)
     db.session.commit()
-    return jsonify({'deleted': count})
+    return jsonify({'deleted': count, 'scope': scope, 'vendor': vendor if scope == 'vendor' else None})
 
 
 @app.route('/api/items/import', methods=['POST'])
