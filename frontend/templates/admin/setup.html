@@ -14,6 +14,8 @@
 .phone-num{flex:1;min-width:0;padding:11px 14px;border:none;background:transparent;color:var(--text);font-size:.95em;outline:none}
 .wa-label-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .wa-same-lbl{display:inline-flex;align-items:center;gap:4px;font-size:.75em;color:var(--sub);cursor:pointer;user-select:none;white-space:nowrap}
+.backup-inspect-btn{transition:background .2s,color .2s,border-color .2s}
+.backup-inspect-btn:hover{background:#667eea !important;color:#fff !important;border-color:#667eea !important}
 </style>
 <div class="section-header" style="max-width:640px;margin:0 auto"><div class="section-title">⚙️ Shop Setup</div></div>
 <div class="card" style="padding:28px;max-width:640px;margin:0 auto">
@@ -68,6 +70,7 @@
   </div>
   <button onclick="saveSetup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:600;cursor:pointer">Save Settings</button>
 </div>
+
 
 <div style="max-width:640px;margin:24px auto 0">
   <div class="section-header"><div class="section-title">📷 Scan Bill — AI Keys</div></div>
@@ -252,6 +255,59 @@ function togglePwdField(btn, id){
   const show=inp.type==='password';
   inp.type=show?'text':'password';
   btn.textContent=show?'🙈':'👁️';
+}
+
+async function downloadBackup(){
+  const r=await fetch('/api/backup/export');
+  if(!r.ok){toast('Could not create backup',true);return;}
+  const blob=await r.blob(), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='billmate-backup.zip'; a.click(); URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+
+let backupOperationInProgress=false;
+
+async function inspectBackup(){
+  if(backupOperationInProgress){toast('Backup operation already in progress',true);return;}
+  const file=document.getElementById('backupFile').files[0];
+  if(!file){toast('Choose a backup file first',true);return;}
+  const fd=new FormData(); fd.append('file',file);
+  const r=await fetch('/api/backup/inspect',{method:'POST',body:fd}), res=await r.json();
+  if(!r.ok){toast(res.error||'Invalid backup',true);return;}
+  document.getElementById('backupInfo').textContent='Valid backup created '+(res.created_at||'unknown')+'. Records: '+Object.entries(res.counts).map(([k,v])=>k+' '+v).join(', ');
+  document.getElementById('restoreBtn').style.display='block';
+}
+
+async function restoreBackup(){
+  if(backupOperationInProgress){toast('Restore already in progress — please wait',true);return;}
+  if(!confirm('Restore this backup? Existing data will remain and restored records may be added.')) return;
+  backupOperationInProgress=true;
+  const file=document.getElementById('backupFile').files[0];
+  if(!file){toast('Choose a backup file first',true);return;}
+  const fd=new FormData(); fd.append('file',file); fd.append('confirm','RESTORE');
+  const btn=document.getElementById('restoreBtn'), progress=document.getElementById('restoreProgress');
+  const bar=document.getElementById('restoreBar'), pct=document.getElementById('restorePercent'), status=document.getElementById('restoreStatus');
+  const setProgress=(value,label)=>{bar.style.width=value+'%';pct.textContent=value+'%';status.textContent=label;};
+  progress.style.display='block'; btn.disabled=true; document.getElementById('inspectBackupBtn').disabled=true; btn.textContent='Restoring...';
+  setProgress(10,'Uploading backup...');
+  const timer=setInterval(()=>{
+    const current=parseInt(pct.textContent,10);
+    if(current<88) setProgress(current+1, current<30?'Validating backup...':current<60?'Restoring business records...':'Restoring invoice and purchase history...');
+  },180);
+  try{
+    const r=await fetch('/api/backup/restore',{method:'POST',body:fd});
+    let res={}; try{res=await r.json();}catch(e){res.error='Server returned an invalid response';}
+    clearInterval(timer);
+    if(!r.ok){setProgress(0,res.error||'Restore failed');toast(res.error||'Restore failed',true);return;}
+    const total=Object.values(res.created||{}).reduce((sum,count)=>sum+count,0);
+    setProgress(100,'Restore completed successfully');
+    alert(`Backup restored successfully — ${total} records added.`);
+    toast(`Backup restored successfully — ${total} records added.`);
+    document.getElementById('backupInfo').textContent=`Restore complete: ${total} records added successfully.`;
+    btn.style.display='none';
+  }catch(e){
+    clearInterval(timer); setProgress(0,'Restore failed'); toast('Network error while restoring backup',true);
+  }finally{backupOperationInProgress=false;btn.disabled=false;document.getElementById('inspectBackupBtn').disabled=false;if(btn.style.display!=='none')btn.textContent='Restore Backup';}
 }
 
 async function changeLoginPwd(){

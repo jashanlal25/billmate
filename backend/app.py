@@ -6,15 +6,20 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
-from flask import Flask, render_template, request, jsonify, redirect, session, url_for
+from flask import Flask, render_template, request, jsonify, redirect, session, url_for, send_file
 import base64
+import io
+import json
 import re
+import zipfile
 import secrets
 import threading
 import time
+from decimal import Decimal
 from flask_migrate import Migrate
 from datetime import date, datetime, timedelta
 from sqlalchemy import func
+import sqlalchemy as sa
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -1367,9 +1372,233 @@ def change_admin_password():
     session.pop('force_admin_pwd_change', None)
     return jsonify({'success': True})
 
+# ── Customer backups ─────────────────────────────────────────────────────────
+_BACKUP_FORMAT = 'billmate-backup'
+_BACKUP_VERSION = 1
+_BACKUP_TABLES = {
+    'categories': Category,
+    'items': Item,
+    'customers': Customer,
+    'suppliers': Supplier,
+    'purchases': Purchase,
+    'purchase_lines': PurchaseLine,
+    'invoices': Invoice,
+    'invoice_lines': InvoiceLine,
+    'customer_payments': CustomerPayment,
+    'supplier_payments': SupplierPayment,
+    'user_item_discounts': UserItemDiscount,
+    'user_item_overrides': UserItemOverride,
+}
+_BACKUP_SECRET_FIELDS = {'password_hash', 'admin_password_hash', 'groq_api_key',
+                         'gemini_api_key', 'reset_code_hash', 'reset_code_expiry'}
+
+
+def _backup_value(value):
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return value
+
+
+def _backup_row(obj, excluded=()):
+    excluded = set(excluded)
+    return {
+        column.name: _backup_value(getattr(obj, column.name))
+        for column in obj.__table__.columns
+        if column.name not in excluded and column.name not in _BACKUP_SECRET_FIELDS
+    }
+
+
+def _backup_payload(uid):
+    data = {}
+    for name, model in _BACKUP_TABLES.items():
+        query = model.query
+        if name == 'categories':
+            rows = query.all()
+        elif name in ('purchase_lines', 'invoice_lines'):
+            parent = PurchaseLine.purchase_id if name == 'purchase_lines' else InvoiceLine.invoice_id
+            parent_model = Purchase if name == 'purchase_lines' else Invoice
+            rows = query.join(parent_model).filter(parent_model.user_id == uid).all()
+        else:
+            rows = query.filter(model.user_id == uid).all()
+        data[name] = [_backup_row(row, {'user_id'}) for row in rows]
+    settings = Settings.query.filter_by(user_id=uid).first()
+    data['settings'] = [_backup_row(settings, {'id', 'user_id', *_BACKUP_SECRET_FIELDS})] if settings else []
+    return {
+        'format': _BACKUP_FORMAT,
+        'version': _BACKUP_VERSION,
+        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'source_username': session.get('username', ''),
+        'data': data,
+    }
+
+
+def _read_backup_payload():
+    upload = request.files.get('file')
+    if upload:
+        try:
+            raw = upload.read()
+            if zipfile.is_zipfile(io.BytesIO(raw)):
+                with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                    names = archive.namelist()
+                    member = 'billmate-backup.json' if 'billmate-backup.json' in names else None
+                    if not member:
+                        member = next((name for name in names if name.endswith('.json')), None)
+                    if not member:
+                        return None
+                    raw = archive.read(member)
+            return json.loads(raw.decode('utf-8'))
+        except (ValueError, TypeError, OSError, zipfile.BadZipFile, UnicodeDecodeError):
+            return None
+    return request.get_json(silent=True)
+
+
+def _validate_backup(payload):
+    if not isinstance(payload, dict) or payload.get('format') != _BACKUP_FORMAT:
+        return 'Invalid BillMate backup file'
+    if payload.get('version') != _BACKUP_VERSION or not isinstance(payload.get('data'), dict):
+        return 'Unsupported or invalid backup version'
+    if any(key not in payload['data'] for key in _BACKUP_TABLES):
+        return 'Backup is missing required data sections'
+    if any(not isinstance(payload['data'].get(key), list) for key in _BACKUP_TABLES):
+        return 'Backup data sections must be lists'
+    return None
+
+
+@app.route('/api/backup/export')
+def backup_export():
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered account required'}), 403
+    body = json.dumps(_backup_payload(uid), ensure_ascii=False, indent=2).encode('utf-8')
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as backup_zip:
+        backup_zip.writestr('billmate-backup.json', body)
+    archive.seek(0)
+    return send_file(archive, mimetype='application/zip', as_attachment=True,
+                     download_name='billmate-backup.zip')
+
+
+@app.route('/api/backup/inspect', methods=['POST'])
+def backup_inspect():
+    if not session.get('user_id') or session.get('is_guest'):
+        return jsonify({'error': 'Registered account required'}), 403
+    payload = _read_backup_payload()
+    error = _validate_backup(payload)
+    if error:
+        return jsonify({'error': error}), 400
+    return jsonify({'valid': True, 'version': payload['version'], 'created_at': payload.get('created_at'),
+                    'counts': {key: len(payload['data'][key]) for key in _BACKUP_TABLES}})
+
+
+@app.route('/api/backup/restore', methods=['POST'])
+def backup_restore():
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered account required'}), 403
+    if request.form.get('confirm') != 'RESTORE' and (request.get_json(silent=True) or {}).get('confirm') != 'RESTORE':
+        return jsonify({'error': 'Type RESTORE to confirm'}), 400
+    payload = _read_backup_payload()
+    error = _validate_backup(payload)
+    if error:
+        return jsonify({'error': error}), 400
+
+    def parsed(value, column):
+        if value is None or not isinstance(column.type, (sa.Date, sa.DateTime, sa.Numeric)):
+            return value
+        if isinstance(column.type, sa.Numeric):
+            return Decimal(str(value))
+        return datetime.fromisoformat(value.replace('Z', '+00:00')) if isinstance(column.type, sa.DateTime) else date.fromisoformat(value)
+
+    try:
+        data = payload['data']
+        maps = {name: {} for name in ('categories', 'items', 'customers', 'suppliers', 'purchases', 'invoices')}
+        created = {name: 0 for name in _BACKUP_TABLES}
+
+        for row in data['categories']:
+            name = row.get('name')
+            obj = Category.query.filter_by(name=name).first() if name else None
+            if not obj:
+                obj = Category(name=name, created_at=parsed(row.get('created_at'), Category.created_at.property.columns[0]))
+                db.session.add(obj); db.session.flush(); created['categories'] += 1
+            maps['categories'][row.get('id')] = obj.id
+
+        def create_owned(name, model, extra=None, unique_field=None):
+            for row in data[name]:
+                source_id = row.get('id')
+                values = {c.name: parsed(row.get(c.name), c) for c in model.__table__.columns
+                          if c.name not in ('id', 'user_id') and row.get(c.name) is not None}
+                if extra: values.update(extra(row, values))
+                if unique_field and values.get(unique_field):
+                    base = str(values[unique_field]); candidate = base; n = 1
+                    while model.query.filter_by(user_id=uid, **{unique_field: candidate}).first():
+                        n += 1; candidate = f'{base}-R{n}'
+                    values[unique_field] = candidate
+                obj = model(user_id=uid, **values); db.session.add(obj); db.session.flush()
+                maps[name][source_id] = obj.id; created[name] += 1
+
+        create_owned('customers', Customer, unique_field='code')
+        create_owned('suppliers', Supplier, unique_field='code')
+        create_owned('items', Item, lambda row, values: {'category_id': maps['categories'].get(row.get('category_id'))}, unique_field='code')
+        create_owned('purchases', Purchase, lambda row, values: {'supplier_id': maps['suppliers'].get(row.get('supplier_id'))}, unique_field='purchase_number')
+        create_owned('invoices', Invoice, lambda row, values: {'customer_id': maps['customers'].get(row.get('customer_id'))}, unique_field='invoice_number')
+
+        for name, model, parent_key, parent_map in (
+            ('purchase_lines', PurchaseLine, 'purchase_id', maps['purchases']),
+            ('invoice_lines', InvoiceLine, 'invoice_id', maps['invoices']),
+        ):
+            for row in data[name]:
+                values = {c.name: parsed(row.get(c.name), c) for c in model.__table__.columns
+                          if c.name not in ('id', 'purchase_id', 'invoice_id') and row.get(c.name) is not None}
+                values[parent_key] = parent_map.get(row.get(parent_key))
+                if 'item_id' in values: values['item_id'] = maps['items'].get(row.get('item_id'))
+                db.session.add(model(**values)); created[name] += 1
+
+        for name, model in (('customer_payments', CustomerPayment), ('supplier_payments', SupplierPayment)):
+            for row in data[name]:
+                values = {c.name: parsed(row.get(c.name), c) for c in model.__table__.columns
+                          if c.name not in ('id', 'user_id') and row.get(c.name) is not None}
+                if 'customer_id' in values: values['customer_id'] = maps['customers'].get(row.get('customer_id'))
+                if 'supplier_id' in values: values['supplier_id'] = maps['suppliers'].get(row.get('supplier_id'))
+                db.session.add(model(user_id=uid, **values)); created[name] += 1
+
+        for name, model in (('user_item_discounts', UserItemDiscount), ('user_item_overrides', UserItemOverride)):
+            for row in data[name]:
+                item_id = maps['items'].get(row.get('item_id'))
+                if item_id:
+                    existing = model.query.filter_by(user_id=uid, item_id=item_id).first()
+                    values = {c.name: parsed(row.get(c.name), c) for c in model.__table__.columns
+                              if c.name not in ('id', 'user_id', 'item_id') and row.get(c.name) is not None}
+                    if existing:
+                        for key, value in values.items():
+                            setattr(existing, key, value)
+                    else:
+                        db.session.add(model(user_id=uid, item_id=item_id, **values)); created[name] += 1
+
+        settings_rows = data.get('settings') or []
+        if settings_rows:
+            settings = get_or_create_user_settings(uid)
+            settings_values = {c.name: parsed(settings_rows[0].get(c.name), c)
+                               for c in Settings.__table__.columns
+                               if c.name not in ('id', 'user_id') and c.name not in _BACKUP_SECRET_FIELDS
+                               and settings_rows[0].get(c.name) is not None}
+            for key, value in settings_values.items():
+                setattr(settings, key, value)
+        db.session.commit()
+        return jsonify({'success': True, 'created': created})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Backup could not be restored; no changes were saved'}), 400
+
+
 @app.route('/setup')
 def setup_page():
     return render_template('setup.html')
+
+@app.route('/backup')
+def backup_page():
+    return render_template('setup.html', backup_only=True)
 
 @app.route('/purchase')
 def purchase_page():
@@ -1964,13 +2193,48 @@ def bulk_delete_items():
         cutoff = datetime.utcnow() - timedelta(hours=24)
         query = query.filter(Item.created_at >= cutoff)
 
-    # Single bulk UPDATE — one round-trip to the DB instead of one per row.
-    # Row-by-row updates over a remote DB were slow enough to time out.
-    # (Soft delete only — historical invoice/purchase lines are untouched,
-    # exactly like the existing clear-all.)
-    count = query.update({Item.is_active: False}, synchronize_session=False)
+    # Vendor clears permanently remove items that have no historical references.
+    # Referenced items are retained as inactive so invoice/purchase history stays valid.
+    permanently_deleted = 0
+    preserved = 0
+    if scope in ('vendor', 'all'):
+        invoice_ref = db.session.query(InvoiceLine.id).filter(
+            InvoiceLine.item_id == Item.id
+        ).exists()
+        purchase_ref = db.session.query(PurchaseLine.id).filter(
+            PurchaseLine.item_id == Item.id
+        ).exists()
+        referenced = invoice_ref | purchase_ref
+
+        removable = query.filter(~referenced)
+        preserved = query.filter(referenced).update(
+            {Item.is_active: False}, synchronize_session=False
+        )
+        permanently_deleted = removable.count()
+        removable_ids = removable.with_entities(Item.id).subquery()
+
+        # Remove per-user item data before deleting the item rows.
+        db.session.query(UserItemDiscount).filter(
+            UserItemDiscount.item_id.in_(db.select(removable_ids.c.id))
+        ).delete(synchronize_session=False)
+        db.session.query(UserItemOverride).filter(
+            UserItemOverride.item_id.in_(db.select(removable_ids.c.id))
+        ).delete(synchronize_session=False)
+        removable.delete(synchronize_session=False)
+        count = permanently_deleted + preserved
+    else:
+        # Single bulk UPDATE — one round-trip to the DB instead of one per row.
+        # Row-by-row updates over a remote DB were slow enough to time out.
+        count = query.update({Item.is_active: False}, synchronize_session=False)
+
     db.session.commit()
-    return jsonify({'deleted': count, 'scope': scope, 'vendor': vendor if scope == 'vendor' else None})
+    return jsonify({
+        'deleted': count,
+        'permanently_deleted': permanently_deleted,
+        'preserved': preserved,
+        'scope': scope,
+        'vendor': vendor if scope == 'vendor' else None,
+    })
 
 
 @app.route('/api/items/import', methods=['POST'])

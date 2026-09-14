@@ -20,7 +20,11 @@
       "Bash(cp /mnt/e/billing_system/vercel.json /mnt/c/Users/lapto/Documents/billmate/)",
       "Bash(cp /mnt/e/billing_system/.gitignore /mnt/c/Users/lapto/Documents/billmate/)",
       "Bash(flask db:*)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npx vercel *)",
+      "Bash(echo \"exit: $?\")",
+      "Read(//tmp/**)",
+      "Bash(awk -F'|' '{gsub\\(/ /,\"\",$2\\); if\\($2+0>0\\) print $2, $3}')"
     ]
   }
 }

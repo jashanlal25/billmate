@@ -29,6 +29,8 @@ label{display:block;font-size:.85em;font-weight:600;color:var(--sub);margin-bott
 input,textarea{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.95em;outline:none;transition:border-color .2s}
 input:focus,textarea:focus{border-color:var(--accent)}
 textarea{resize:vertical;min-height:80px}
+.backup-inspect-btn{transition:background .2s,color .2s,border-color .2s}
+.backup-inspect-btn:hover{background:#667eea !important;color:#fff !important;border-color:#667eea !important}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .phone-wrap{display:flex;align-items:stretch;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;background:var(--inp);transition:border-color .2s}
 .phone-wrap:focus-within{border-color:var(--accent)}
@@ -68,10 +70,12 @@ textarea{resize:vertical;min-height:80px}
   <a href="/items" class="nav-link">💊 Items</a>
   <a href="/customers" class="nav-link">👥 Customers</a>
   <a href="/purchase" class="nav-link">🛒 Purchase</a>
+  <a href="/backup" class="nav-link">💾 Backup</a>
   <a href="/admin" class="nav-link">🛡️ Admin</a>
 </div>
 
 <div class="container">
+  {% if not backup_only %}
   <h1>Shop Setup</h1>
   <p class="subtitle">Your shop details will appear on every bill</p>
   <div class="card">
@@ -112,6 +116,24 @@ textarea{resize:vertical;min-height:80px}
       </div>
     </div>
     <button class="btn" onclick="save()">Save Settings</button>
+  </div>
+  {% endif %}
+
+  <div class="card" style="margin-top:20px">
+    <h2 style="color:var(--text);font-size:1.15em;margin-bottom:8px">Data Backup</h2>
+    <p style="color:var(--sub);font-size:.9em;line-height:1.5;margin-bottom:14px">Download a copy of your business data. Keep this file somewhere safe.</p>
+    <button class="btn" onclick="downloadBackup()">Download Backup</button>
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:18px">
+      <label>Restore Backup</label>
+      <input id="backupFile" type="file" accept="application/zip,application/json,.zip,.json">
+      <button id="inspectBackupBtn" class="btn backup-inspect-btn" onclick="inspectBackup()">Inspect Backup</button>
+      <div id="backupInfo" style="color:var(--sub);font-size:.85em;margin-top:10px"></div>
+      <div id="restoreProgress" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:.8em;color:var(--sub);margin-bottom:5px"><span id="restoreStatus">Preparing restore...</span><strong id="restorePercent">0%</strong></div>
+        <div style="height:10px;background:var(--border);border-radius:8px;overflow:hidden"><div id="restoreBar" style="height:100%;width:0%;background:linear-gradient(135deg,#667eea,#764ba2);transition:width .25s ease"></div></div>
+      </div>
+      <button class="btn" id="restoreBtn" style="display:none;background:linear-gradient(135deg,#dc2626,#b91c1c)" onclick="restoreBackup()">Restore Backup</button>
+    </div>
   </div>
 </div>
 
@@ -201,6 +223,59 @@ async function save(){
 }
 
 function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+
+async function downloadBackup(){
+  const r=await fetch('/api/backup/export');
+  if(!r.ok){toast('Could not create backup',true);return;}
+  const blob=await r.blob(), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='billmate-backup.zip'; a.click(); URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+
+let backupOperationInProgress=false;
+
+async function inspectBackup(){
+  if(backupOperationInProgress){toast('Backup operation already in progress',true);return;}
+  const file=document.getElementById('backupFile').files[0];
+  if(!file){toast('Choose a backup file first',true);return;}
+  const fd=new FormData(); fd.append('file',file);
+  const r=await fetch('/api/backup/inspect',{method:'POST',body:fd}), res=await r.json();
+  if(!r.ok){toast(res.error||'Invalid backup',true);return;}
+  document.getElementById('backupInfo').textContent='Valid backup created '+(res.created_at||'unknown')+'. Records: '+Object.entries(res.counts).map(([k,v])=>k+' '+v).join(', ');
+  document.getElementById('restoreBtn').style.display='block';
+}
+
+async function restoreBackup(){
+  if(backupOperationInProgress){toast('Restore already in progress — please wait',true);return;}
+  if(!confirm('Restore this backup? Existing data will remain and restored records may be added.')) return;
+  backupOperationInProgress=true;
+  const file=document.getElementById('backupFile').files[0];
+  if(!file){toast('Choose a backup file first',true);return;}
+  const fd=new FormData(); fd.append('file',file); fd.append('confirm','RESTORE');
+  const btn=document.getElementById('restoreBtn'), progress=document.getElementById('restoreProgress');
+  const bar=document.getElementById('restoreBar'), pct=document.getElementById('restorePercent'), status=document.getElementById('restoreStatus');
+  const setProgress=(value,label)=>{bar.style.width=value+'%';pct.textContent=value+'%';status.textContent=label;};
+  progress.style.display='block'; btn.disabled=true; document.getElementById('inspectBackupBtn').disabled=true; btn.textContent='Restoring...';
+  setProgress(10,'Uploading backup...');
+  const timer=setInterval(()=>{
+    const current=parseInt(pct.textContent,10);
+    if(current<88) setProgress(current+1, current<30?'Validating backup...':current<60?'Restoring business records...':'Restoring invoice and purchase history...');
+  },180);
+  try{
+    const r=await fetch('/api/backup/restore',{method:'POST',body:fd});
+    let res={}; try{res=await r.json();}catch(e){res.error='Server returned an invalid response';}
+    clearInterval(timer);
+    if(!r.ok){setProgress(0,res.error||'Restore failed');toast(res.error||'Restore failed',true);return;}
+    const total=Object.values(res.created||{}).reduce((sum,count)=>sum+count,0);
+    setProgress(100,'Restore completed successfully');
+    alert(`Backup restored successfully — ${total} records added.`);
+    toast(`Backup restored successfully — ${total} records added.`);
+    document.getElementById('backupInfo').textContent=`Restore complete: ${total} records added successfully.`;
+    btn.style.display='none';
+  }catch(e){
+    clearInterval(timer); setProgress(0,'Restore failed'); toast('Network error while restoring backup',true);
+  }finally{backupOperationInProgress=false;btn.disabled=false;document.getElementById('inspectBackupBtn').disabled=false;if(btn.style.display!=='none')btn.textContent='Restore Backup';}
+}
 
 load();
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name)document.getElementById('shopLogo').textContent=s.shop_name;});
