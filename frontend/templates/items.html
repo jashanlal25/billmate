@@ -109,6 +109,7 @@ input[type=number]{-moz-appearance:textfield}
   <div class="nav-links">
     <a href="/billing"   class="nav-link">🧾 Billing</a>
     <a href="/items"     class="nav-link active">💊 Items</a>
+    <a href="/demand-search" class="nav-link">🔎 Demand Search</a>
     <a href="/customers" class="nav-link">👥 Customers</a>
     <a href="/purchase"  class="nav-link">🛒 Purchase</a>
     <a href="/payments"  class="nav-link">💳 Payments</a>
@@ -129,6 +130,7 @@ input[type=number]{-moz-appearance:textfield}
 <div class="nav-mobile-menu" id="navMenu">
   <a href="/billing"   class="nav-link">🧾 Billing</a>
   <a href="/items"     class="nav-link active">💊 Items</a>
+    <a href="/demand-search" class="nav-link">🔎 Demand Search</a>
   <a href="/customers" class="nav-link">👥 Customers</a>
   <a href="/purchase"  class="nav-link">🛒 Purchase</a>
   <a href="/payments"  class="nav-link">💳 Payments</a>
@@ -921,6 +923,10 @@ async function _adoptPendingSharedFile(){
     const file = await ShareStore.takePendingSharedFile();
     _dbg('indexeddb-read-complete file=' + (file ? file.name : 'none'));
     if(!file) return;
+    if(new URLSearchParams(location.search).get('destination') !== 'inventory'){
+      location.replace('/demand-search?shared=1');
+      return;
+    }
     openImportModal();          // fresh modal state (resets file/vendor/btn)
     _dbg('modal-open');
     prepareImportFile(file);    // same path as manual selection/drag-drop

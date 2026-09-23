@@ -121,8 +121,8 @@ def serve_sw():
 
 @app.route('/share-target', methods=['GET'])
 def share_target_get():
-    # Browsers occasionally GET the action URL; just go to Items.
-    return redirect('/items')
+    # Browsers occasionally GET the action URL; open Demand Search.
+    return redirect('/demand-search')
 
 @app.route('/share-target', methods=['POST'])
 def share_target_post():
@@ -130,7 +130,7 @@ def share_target_post():
 
     Same-request browser transfer: the uploaded file is read, validated and
     echoed back base64-embedded in a small bridge page. The browser stores it
-    in IndexedDB and then navigates to /items. Nothing is written to server
+    in IndexedDB and then navigates to /demand-search. Nothing is written to server
     storage (serverless-safe: no /tmp between requests). The actual import
     still goes through the fully-authenticated /api/items/import endpoint.
     """
@@ -170,7 +170,7 @@ def share_target_post():
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
-GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/api/invoices', '/api/items',
+GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/demand-search', '/api/invoices', '/api/items',
                            '/api/settings', '/api/guest/', '/static']
 
 def get_client_ip():
@@ -340,7 +340,7 @@ def check_auth():
         if request.is_json:
             return jsonify({'error': 'Unauthorized'}), 401
         from urllib.parse import quote
-        return redirect('/?next=' + quote(path))
+        return redirect('/?next=' + quote(request.full_path.rstrip('?')))
     # Guest restrictions
     if is_guest:
         allowed = any(path.startswith(p) for p in GUEST_ALLOWED_PREFIXES)
@@ -425,7 +425,11 @@ def auth_guest():
     session.clear()
     session.permanent = True
     session['is_guest'] = True
-    return redirect('/billing')
+    target = request.args.get('next', '/billing')
+    # Only local, relative destinations are accepted after guest sign-in.
+    if not target.startswith('/') or target.startswith('//') or '\\' in target:
+        target = '/billing'
+    return redirect(target)
 
 @app.route('/auth/register', methods=['POST'])
 def auth_register():
@@ -1623,8 +1627,15 @@ def backup_page():
 def purchase_page():
     return render_template('purchase.html')
 
+@app.route('/demand-search')
+def demand_search_page():
+    return render_template('demand_search.html', is_guest=bool(session.get('is_guest')))
+
+
 @app.route('/items')
 def items_page():
+    if request.args.get('shared') == '1' and request.args.get('destination') != 'inventory':
+        return redirect('/demand-search?shared=1')
     _t0 = time.perf_counter() if os.environ.get('BILLMATE_SHARE_TIMING') == '1' else None
     resp = render_template('items.html',
         can_delete_global=bool(session.get('is_admin') or session.get('is_superadmin')),

@@ -15,6 +15,7 @@
   <div class="nav-links">
     <a href="/billing"   class="nav-link {% block nav_billing %}{% endblock %}">🧾 Billing</a>
     <a href="/items"     class="nav-link {% block nav_items %}{% endblock %}">💊 Items</a>
+    <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
     <a href="/customers" class="nav-link {% block nav_customers %}{% endblock %}">👥 Customers</a>
     <a href="/purchase"  class="nav-link {% block nav_purchase %}{% endblock %}">🛒 Purchase</a>
     <a href="/payments"  class="nav-link {% block nav_payments %}{% endblock %}">💳 Payments</a>
@@ -38,6 +39,7 @@
 <div class="nav-mobile-menu" id="navMenu">
   <a href="/billing" class="nav-link {% block mnav_billing %}{% endblock %}">🧾 Billing</a>
   <a href="/items" class="nav-link {% block mnav_items %}{% endblock %}">💊 Items</a>
+    <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
   <a href="/customers" class="nav-link {% block mnav_customers %}{% endblock %}">👥 Customers</a>
   <a href="/purchase" class="nav-link {% block mnav_purchase %}{% endblock %}">🛒 Purchase</a>
   <a href="/payments" class="nav-link {% block mnav_payments %}{% endblock %}">💳 Payments</a>

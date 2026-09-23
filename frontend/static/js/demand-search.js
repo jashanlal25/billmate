@@ -1,0 +1,124 @@
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  let demands=[],results=[],currentFile=null,version=0,busy=false;
+  const status=text=>{$('demandStatus').textContent=text;};
+  function controls(){
+    $('runDemand').disabled=busy||!demands.length;
+    $('inventoryInstead').disabled=busy||!currentFile;
+    $('clearDemand').disabled=busy||!currentFile;
+    $('demandFile').disabled=busy;
+    $('ignoreShelf').disabled=busy;
+  }
+  function parse(text){
+    // Detached document: uploaded scripts and styles never enter the app.
+    const doc=new DOMParser().parseFromString(text,'text/html');
+    const rows=[];
+    for(const table of doc.querySelectorAll('table')){
+      let columns=null;
+      for(const tr of table.querySelectorAll('tr')){
+        if(tr.closest('table')!==table) continue;
+        const cells=Array.from(tr.children).filter(c=>/^(TD|TH)$/.test(c.tagName));
+        const values=cells.map(c=>c.textContent.replace(/\s+/g,' ').trim());
+        const headers=values.map(v=>v.toLowerCase());
+        const name=headers.findIndex(v=>/^(item\s*name|product\s*name|description|item|product)$/.test(v));
+        if(name>=0){columns={name,code:headers.indexOf('code'),box:headers.indexOf('box'),pcs:headers.indexOf('pcs')};continue;}
+        if(!columns||!cells.length||cells.some(c=>c.querySelector('table'))) continue;
+        const item=values[columns.name];
+        if(!item||!/[a-z]/i.test(item)||cells.length<=columns.name||/^(total|grand total|sub total)\b/i.test(item)) continue;
+        if(cells.some(c=>c.querySelector('input,button,select'))) continue;
+        rows.push({name:item,code:values[columns.code]||'',box:values[columns.box]||'',pcs:values[columns.pcs]||''});
+      }
+    }
+    if(!rows.length) throw Error('No demand items found. Use an HTML table with an Item Name column.');
+    if(rows.length>2000) throw Error('Please split this demand into files of no more than 2,000 items.');
+    return rows;
+  }
+  async function load(file){
+    const ticket=++version;
+    demands=[];results=[];currentFile=file||null;
+    $('demandResults').hidden=true;$('demandPreview').hidden=true;controls();
+    if(!file){status('No demand loaded.');return;}
+    try{
+      if(!/\.html?$/i.test(file.name)) throw Error('Choose an HTM or HTML demand file.');
+      if(file.size>4*1024*1024) throw Error('Maximum file size is 4 MB.');
+      status('Reading demand…');
+      const parsed=parse(await file.text());
+      if(ticket!==version) return;
+      demands=parsed;
+      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td></tr>`).join('');
+      $('demandPreview').hidden=false;
+      status(`${file.name} — ${demands.length} demand items ready. Tap Run Search.`);
+    }catch(e){if(ticket===version) status(e.message);}
+    controls();
+  }
+  $('demandFile').addEventListener('change',async e=>{
+    await ShareStore.clearPendingSharedFile();
+    await load(e.target.files[0]);
+  });
+  $('ignoreShelf').addEventListener('change',()=>{
+    results=[];$('demandResults').hidden=true;
+    if(demands.length) status('Matching option changed. Tap Run Search to update results.');
+  });
+  $('clearDemand').addEventListener('click',async()=>{
+    await ShareStore.clearPendingSharedFile();$('demandFile').value='';await load(null);
+  });
+  $('inventoryInstead').addEventListener('click',async()=>{
+    if(!currentFile)return;
+    busy=true;controls();
+    try{await ShareStore.savePendingSharedFile(currentFile);location.assign('/items?shared=1&destination=inventory');}
+    catch(e){status('Could not transfer the file. Please open Items and select Import File.');busy=false;controls();}
+  });
+  $('runDemand').addEventListener('click',async()=>{
+    if(busy||!demands.length)return;
+    busy=true;controls();results=[];$('demandResults').hidden=true;
+    status('Loading all vendor inventory…');
+    try{
+      const response=await fetch('/api/items',{cache:'no-store',headers:{Accept:'application/json'}});
+      if(!response.ok||response.redirected) throw Error('Could not load inventory. Sign in again if your session expired, then retry.');
+      let inventory=await response.json();
+      if(!Array.isArray(inventory))throw Error('Could not read inventory. Please retry.');
+      if(document.querySelector('main.demand').dataset.guest==='true'){
+        const local=JSON.parse(localStorage.getItem('g_items')||'[]');
+        inventory=[...local,...inventory.filter(s=>!local.some(l=>l.name.toLowerCase()===s.name.toLowerCase()&&String(l.vendor||'').toLowerCase()===String(s.vendor||'').toLowerCase()))];
+      }
+      const ignore=$('ignoreShelf').checked;
+      const prepared=DemandMatcher.prepare(inventory,ignore);
+      for(let i=0;i<demands.length;i++){
+        results.push(DemandMatcher.match(demands[i],prepared,ignore));
+        if(i%10===0){status(`Searching ${i+1} of ${demands.length} demand items…`);await new Promise(resolve=>setTimeout(resolve,0));}
+      }
+      $('demandPreview').open=false;$('demandResults').hidden=false;
+      status(`Search complete across ${inventory.length} inventory entries. No inventory was changed.`);
+      render();
+    }catch(e){results=[];status(e.message||'Search failed. Please retry.');}
+    finally{busy=false;controls();}
+  });
+  const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
+  function render(){
+    const counts={match:0,review:0,missing:0};
+    results.forEach(r=>counts[r.status]++);
+    $('resultSummary').textContent=`${results.length} demand items · ${counts.match} with matching offers · ${counts.review} with possible matches only · ${counts.missing} not found`;
+    const filter=$('resultFilter').value,sort=$('resultSort').value;
+    const rows=[];
+    for(const result of results){
+      let offers=result.offers.slice();
+      if(filter==='missing'&&offers.length)continue;
+      if(filter==='match'||filter==='review') offers=offers.filter(o=>o.status===filter);
+      if(!offers.length&&filter!=='all'&&!(filter==='missing'&&result.status==='missing'))continue;
+      offers.sort((a,b)=>{
+        if(sort==='vendor')return String(a.item.vendor||'').localeCompare(String(b.item.vendor||''));
+        if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
+        return (DemandMatcher.price(a.item)??Infinity)-(DemandMatcher.price(b.item)??Infinity);
+      });
+      if(!offers.length){rows.push(`<tr class="group-start"><td class="names">${esc(result.demand.name)}</td><td colspan="6">Not found — no compatible inventory entry</td></tr>`);continue;}
+      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.tp)}</td><td>${money(o.item.discount_pct)}</td><td>${money(DemandMatcher.price(o.item))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
+    }
+    $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="7">No results in this view.</td></tr>';
+  }
+  $('resultFilter').addEventListener('change',render);$('resultSort').addEventListener('change',render);
+  (async()=>{
+    try{await ShareStore.pruneStale();const file=await ShareStore.takePendingSharedFile();if(file&&!currentFile)await load(file);}
+    catch(e){status('Could not restore the shared file. Use Upload Demand to select it.');}
+  })();
+})();
