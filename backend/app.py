@@ -6,7 +6,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
-from flask import Flask, render_template, request, jsonify, redirect, session, url_for, send_file
+from flask import Flask, render_template, request, jsonify, redirect, session, url_for, send_file, Response
 import base64
 import io
 import json
@@ -85,6 +85,25 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment
 db.init_app(app)
 migrate = Migrate(app, db)
+
+# Public APK download proxy. Keeps GitHub/repository URLs out of the browser.
+@app.route('/download/android')
+def download_android_apk():
+    import urllib.request
+    upstream = 'https://github.com/jashanlal25/billmate/releases/download/native-latest/BillMate-Native.apk'
+    try:
+        req = urllib.request.Request(upstream, headers={'User-Agent': 'BillMate-APK-Downloader'})
+        resp = urllib.request.urlopen(req, timeout=30)
+        data = resp.read()
+        return Response(data, status=200, headers={
+            'Content-Type': 'application/vnd.android.package-archive',
+            'Content-Disposition': 'attachment; filename="BillMate.apk"',
+            'Content-Length': str(len(data)),
+            'Cache-Control': 'public, max-age=300',
+            'X-Content-Type-Options': 'nosniff',
+        })
+    except Exception:
+        return 'APK is temporarily unavailable. Please try again shortly.', 503
 
 # ── PWA / Web Share Target ────────────────────────────────────────────────────
 # Share Target size/extension limits mirror the Items import API (4 MB, .htm/.html).
