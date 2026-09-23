@@ -20,6 +20,10 @@
          padding:16px;color:#fca5a5;font-size:.9em;margin-bottom:16px;line-height:1.5}
     .btn{display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#0d6efd,#4f46e5);
          border:none;border-radius:10px;color:#fff;font-weight:700;cursor:pointer;text-decoration:none}
+    .choices{display:none;gap:12px;flex-direction:column;margin-top:18px}
+    .choices .btn{display:block;font-size:1em}
+    .choices .btn-secondary{background:#30345b;border:1px solid rgba(255,255,255,.3)}
+    .hint{font-size:.88em;color:#cbd5e1;line-height:1.45;margin:0}
   </style>
 </head>
 <body>
@@ -28,7 +32,12 @@
     <div id="spin" class="spin"></div>
     <div class="name" id="fname">Receiving shared file…</div>
     <div class="err" id="err"></div>
-    <a class="btn" id="cont" href="/demand-search" style="display:none">Open Demand Search</a>
+    <div class="choices" id="choices">
+      <p class="hint">Where should this file go?</p>
+      <a class="btn" href="/items?shared=1&amp;destination=inventory">Add to Inventory</a>
+      <a class="btn btn-secondary" href="/demand-search?shared=1">Search Demand</a>
+    </div>
+    <a class="btn" id="cont" href="/items" style="display:none">Open Inventory</a>
   </div>
 
   <!-- Must load BEFORE the inline script below — it uses ShareStore. -->
@@ -60,7 +69,7 @@
     document.getElementById('fname').textContent = payload.filename;
 
     if(typeof indexedDB === 'undefined'){
-      fail('This browser cannot store shared files. Please use the Upload Demand button on the Demand Search page instead.');
+      fail('This browser cannot store shared files. Please open Inventory or Demand Search and select the file there.');
       return;
     }
 
@@ -84,13 +93,19 @@
         .then(() => {
           _dbg('indexeddb-save-complete');
           // Stale shared files older than 24h get pruned by the receiving page on load.
-          document.getElementById('fname').textContent = payload.filename + ' received ✓';
-          setTimeout(() => { _dbg('navigate-start'); location.replace('/demand-search?shared=1'); }, 250);
+          document.getElementById('fname').textContent = payload.filename;
+          if(ShareStore.directInventoryEnabled()){
+            _dbg('direct-inventory');
+            location.replace('/items?shared=1&destination=inventory');
+          }else{
+            document.getElementById('spin').style.display = 'none';
+            document.getElementById('choices').style.display = 'flex';
+          }
         })
         .catch(() => fail('Could not store the file on this device.'));
     }catch(e){
       console.error('Shared file decode failed:', e);
-      fail('Could not decode the shared file. Please use the Upload Demand button on the Demand Search page instead.');
+      fail('Could not decode the shared file. Please open Inventory or Demand Search and select it there.');
     }
   })();
   </script>

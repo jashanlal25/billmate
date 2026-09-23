@@ -150,6 +150,10 @@ input[type=number]{-moz-appearance:textfield}
     <button class="btn" style="background:linear-gradient(135deg,#10b981,#059669)" onclick="openImportModal()">⬆ Import File</button>
     <button class="btn" onclick="openModal()">+ Add Item</button>
   </div>
+  <label for="directInventoryShares" style="display:flex;align-items:center;gap:10px;width:fit-content;max-width:100%;color:#fff;font-size:.9em;margin:0 0 18px;cursor:pointer;line-height:1.4">
+    <input type="checkbox" id="directInventoryShares" style="width:20px;height:20px;flex:none;accent-color:#667eea">
+    Send WhatsApp-shared files straight to Inventory (off: ask Inventory or Demand Search)
+  </label>
   <div class="card">
     <table>
       <thead>
@@ -898,6 +902,14 @@ function loadSupplierList(){
 loadCategories();
 loadItems();
 loadSupplierList();
+const directInventoryShares = document.getElementById('directInventoryShares');
+directInventoryShares.checked = ShareStore.directInventoryEnabled();
+directInventoryShares.addEventListener('change', () => {
+  if(!ShareStore.setDirectInventory(directInventoryShares.checked)){
+    directInventoryShares.checked = false;
+    toast('Could not save this setting on this device.', true);
+  }
+});
 
 // ── WhatsApp shared-file adoption (Web Share Target) ─────────────────────────
 // Only the INSTALLED standalone PWA automatically adopts a pending shared

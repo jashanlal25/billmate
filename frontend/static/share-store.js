@@ -7,6 +7,19 @@
   const DB_NAME = 'billmate-share';
   const STORE = 'pending_import';
   const RECORD_ID = 'pending';
+  const DIRECT_INVENTORY_KEY = 'billmate-share-direct-inventory';
+
+  function directInventoryEnabled(){
+    try{ return localStorage.getItem(DIRECT_INVENTORY_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+
+  function setDirectInventory(enabled){
+    try{
+      localStorage.setItem(DIRECT_INVENTORY_KEY, enabled ? '1' : '0');
+      return true;
+    }catch(e){ return false; }
+  }
 
   function _open(){
     return new Promise((resolve, reject) => {
@@ -105,5 +118,7 @@
     takePendingSharedFile,
     clearPendingSharedFile,
     pruneStale,
+    directInventoryEnabled,
+    setDirectInventory,
   };
 })(window);

@@ -130,7 +130,7 @@ def share_target_post():
 
     Same-request browser transfer: the uploaded file is read, validated and
     echoed back base64-embedded in a small bridge page. The browser stores it
-    in IndexedDB and then navigates to /demand-search. Nothing is written to server
+    in IndexedDB and chooses the requested destination. Nothing is written to server
     storage (serverless-safe: no /tmp between requests). The actual import
     still goes through the fully-authenticated /api/items/import endpoint.
     """
@@ -143,7 +143,7 @@ def share_target_post():
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'No file was shared with BillMate.'})
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in SHARE_TARGET_ALLOWED_EXT:
-        return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm / .html offer-list files can be imported.'})
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm / .html files can be shared.'})
     data = f.read()
     if _t: _t['read'] = time.perf_counter()
     if not data:
