@@ -314,7 +314,7 @@ def check_auth():
     # Public, no-session-needed PWA endpoints: the service worker and the
     # share-target bridge (transfers the shared file to the requester's own
     # browser only — inventory writes still require an authenticated session).
-    if path in ('/sw.js', '/share-target'):
+    if path in ('/sw.js', '/share-target', '/download/android'):
         return
     if path == '/api/forgot-password-request':
         return
