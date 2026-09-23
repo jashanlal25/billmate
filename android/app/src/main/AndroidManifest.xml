@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <application android:label="BillMate Native" android:icon="@drawable/ic_launcher"
+    <application android:label="BillMate Native"
         android:theme="@style/AppTheme" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:supportsRtl="true">
         <provider android:name="androidx.core.content.FileProvider"
