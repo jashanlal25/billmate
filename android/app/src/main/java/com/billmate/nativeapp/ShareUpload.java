@@ -7,7 +7,7 @@ import java.util.*;
 
 /** Native multipart transport; never goes through Chrome or a service worker. */
 final class ShareUpload {
-    static final String ORIGIN = "https://billmate-new.vercel.app";
+    static final String ORIGIN = "https://billmate-med.vercel.app";
     static final int MAX_FILE_BYTES = 15 * 1024 * 1024; // Leave room in the server's 16 MiB request limit.
     static final int MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
 
@@ -15,7 +15,7 @@ final class ShareUpload {
         try {
             URI uri = new URI(value);
             return "https".equalsIgnoreCase(uri.getScheme())
-                && "billmate-new.vercel.app".equalsIgnoreCase(uri.getHost())
+                && "billmate-med.vercel.app".equalsIgnoreCase(uri.getHost())
                 && (uri.getPort() == -1 || uri.getPort() == 443)
                 && uri.getRawUserInfo() == null;
         } catch (Exception e) { return false; }
