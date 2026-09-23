@@ -227,28 +227,27 @@ public final class MainActivity extends Activity {
         busy = true;
         retry.setVisibility(View.GONE);
         toolbar.setVisibility(View.VISIBLE);
-        status.setText("Preparing file…");
+        status.setText("Sending to BillMate inventory…");
         File file = pendingShare;
         String name = pendingName;
+        String cookie = CookieManager.getInstance().getCookie(ShareUpload.ORIGIN);
         worker.execute(() -> {
             try {
-                byte[] bytes = LocalShare.readDocument(file);
-                ByteArrayOutputStream template = new ByteArrayOutputStream();
-                try (InputStream input = getAssets().open("share.html")) {
-                    ShareUpload.copyLimited(input, template, 1024 * 1024);
+                ShareUpload.Response response = ShareUpload.upload(file, name, cookie);
+                for (String setCookie : response.cookies) {
+                    CookieManager.getInstance().setCookie(ShareUpload.ORIGIN, setCookie);
                 }
-                String html = LocalShare.render(template.toString("UTF-8"), name, bytes);
+                CookieManager.getInstance().flush();
                 runOnUiThread(() -> {
                     if (isDestroyed()) return;
                     busy = false;
                     toolbar.setVisibility(View.GONE);
-                    // No network request: all chooser assets and document bytes are local.
-                    // HTTPS base keeps the same IndexedDB as the online processing tools.
-                    web.loadDataWithBaseURL(ShareUpload.ORIGIN + "/native-share", html,
-                        "text/html", "UTF-8", ShareUpload.ORIGIN + "/native-share");
-                    // Keep the private copy for retry/recreation; expire it after 24h.
+                    web.loadDataWithBaseURL(ShareUpload.ORIGIN + "/share-target", response.html,
+                        "text/html", "UTF-8", ShareUpload.ORIGIN + "/share-target");
                 });
-            } catch (Exception e) { fail("Could not prepare file: " + safeMessage(e) + " Tap Retry."); }
+            } catch (Exception e) {
+                fail("Could not send file to BillMate: " + safeMessage(e) + " Tap Retry.");
+            }
         });
     }
 
