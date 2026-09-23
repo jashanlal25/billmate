@@ -57,7 +57,7 @@ final class ShareUpload {
     }
 
     static Response upload(File file, String name, String cookie) throws IOException {
-        String boundary = "MedList-" + UUID.randomUUID();
+        String boundary = "BillMate-" + UUID.randomUUID();
         byte[] prefix = prefix(boundary, name), suffix = suffix(boundary);
         HttpURLConnection connection = (HttpURLConnection) new URL(ORIGIN + "/share-target").openConnection();
         try {
@@ -68,7 +68,7 @@ final class ShareUpload {
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
             connection.setRequestProperty("Accept", "text/html");
-            connection.setRequestProperty("X-Medlist-Share-Client", "android-native-1");
+            connection.setRequestProperty("X-BillMate-Share-Client", "android-native-1");
             if (cookie != null && !cookie.isEmpty()) connection.setRequestProperty("Cookie", cookie);
             connection.setFixedLengthStreamingMode(prefix.length + file.length() + suffix.length);
             try (OutputStream output = connection.getOutputStream(); InputStream input = new FileInputStream(file)) {
@@ -79,10 +79,10 @@ final class ShareUpload {
             int status = connection.getResponseCode();
             if (status == 413) throw new IOException("The hosting server rejected this file as too large (HTTP 413).");
             if (status != 200 && status != 400)
-                throw new IOException("MedList returned HTTP " + status + ". Try again when the site is available.");
+                throw new IOException("BillMate returned HTTP " + status + ". Try again when the site is available.");
             String type = connection.getContentType();
             if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("text/html"))
-                throw new IOException("MedList returned an unexpected response. Please retry.");
+                throw new IOException("BillMate returned an unexpected response. Please retry.");
             ByteArrayOutputStream body = new ByteArrayOutputStream();
             try (InputStream input = status >= 400 ? connection.getErrorStream() : connection.getInputStream()) {
                 if (input == null) throw new IOException("The server returned an empty response.");
