@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Item Catalog</title>
-<link rel="manifest" href="/static/manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
 :root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row:#f9f9f9;--row-hover:#f0f0ff}
@@ -902,16 +901,20 @@ loadSupplierList();
 // Only the INSTALLED standalone PWA automatically adopts a pending shared
 // file. Normal browser mode never restores it and keeps behaving exactly as
 // before; the pending record stays untouched for a later PWA session.
-function isStandalonePWA(){
-  return window.matchMedia('(display-mode: standalone)').matches ||
+function isNativeOrSharedLaunch(){
+  // Native Android WebView identifies itself with the query used by the
+  // native share handoff. Keep ?shared=1 as the explicit adoption signal.
+  return new URLSearchParams(location.search).get('shared') === '1' ||
+         /; wv\)/i.test(navigator.userAgent) ||
+         window.matchMedia('(display-mode: standalone)').matches ||
          window.navigator.standalone === true;
 }
 async function _adoptPendingSharedFile(){
   const _t0 = performance.now();
   const _dbg = (label) => console.debug('[billmate-share-timing] items ' + label,
     Math.round(performance.now() - _t0) + 'ms');
-  _dbg('js-start standalone=' + isStandalonePWA());
-  if(!isStandalonePWA()) return;
+  _dbg('js-start native/shared=' + isNativeOrSharedLaunch());
+  if(!isNativeOrSharedLaunch()) return;
   try{
     _dbg('indexeddb-read-start');
     await ShareStore.pruneStale();
@@ -927,10 +930,7 @@ async function _adoptPendingSharedFile(){
 }
 _adoptPendingSharedFile();
 
-// Keep the service worker fresh across the whole app scope.
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').catch(()=>{});
-}
+// Native APK replaces the old PWA; no service-worker registration here.
 (function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
