@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}BillMate{% endblock %}</title>
-  <link rel="manifest" href="/static/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/static/icon-192.png">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
@@ -23,6 +22,7 @@
     <a href="/admin"     class="nav-link {% block nav_admin %}{% endblock %}">🛡️ Admin</a>
   </div>
   <div class="nav-right">
+    <a href="https://github.com/jashanlal25/billmate/releases/latest/download/BillMate-Native.apk" class="nav-link" title="Download BillMate Android APK">📱 Install App</a>
     {% block nav_right_extra %}
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
     <div class="user-menu" onclick="this.classList.toggle('open')">
@@ -52,8 +52,17 @@
 <script src="{{ url_for('static', filename='js/common.js') }}"></script>
 {% block scripts %}{% endblock %}
 <script>
+// BillMate now uses the native Android APK instead of the legacy PWA.
+// Remove any service worker/cache left by an older PWA installation.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(e => console.log('SW registration failed:', e));
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => registration.unregister());
+  });
+}
+if ('caches' in window) {
+  caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith('billmate-')).map(key => caches.delete(key))
+  ));
 }
 </script>
 </body>
