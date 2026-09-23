@@ -7,13 +7,13 @@ import java.nio.charset.StandardCharsets;
 
 public class ShareUploadTest {
     @Test public void originIsExactAndHttpsOnly() {
-        assertTrue(ShareUpload.isTrusted("https://billmate-new.vercel.app/make_html"));
-        assertTrue(ShareUpload.isTrusted("https://billmate-new.vercel.app:443/"));
-        assertFalse(ShareUpload.isTrusted("https://billmate-new.vercel.app.evil.example/"));
-        assertFalse(ShareUpload.isTrusted("https://billmate-new.vercel.app@evil.example/"));
-        assertFalse(ShareUpload.isTrusted("https://user@billmate-new.vercel.app/"));
-        assertFalse(ShareUpload.isTrusted("http://billmate-new.vercel.app/"));
-        assertFalse(ShareUpload.isTrusted("https://billmate-new.vercel.app:444/"));
+        assertTrue(ShareUpload.isTrusted("https://billmate-med.vercel.app/make_html"));
+        assertTrue(ShareUpload.isTrusted("https://billmate-med.vercel.app:443/"));
+        assertFalse(ShareUpload.isTrusted("https://billmate-med.vercel.app.evil.example/"));
+        assertFalse(ShareUpload.isTrusted("https://billmate-med.vercel.app@evil.example/"));
+        assertFalse(ShareUpload.isTrusted("https://user@billmate-med.vercel.app/"));
+        assertFalse(ShareUpload.isTrusted("http://billmate-med.vercel.app/"));
+        assertFalse(ShareUpload.isTrusted("https://billmate-med.vercel.app:444/"));
         assertFalse(ShareUpload.isTrusted("file:///private/data"));
         assertFalse(ShareUpload.isTrusted(null));
     }
