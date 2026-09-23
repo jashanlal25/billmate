@@ -83,7 +83,7 @@ public final class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.4");
         // The existing website gates its persistent file batch on standalone mode.
-        // Set this before page scripts run, only on the exact MedList origin.
+        // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(web,
                 "window.__BILLMATE_NATIVE__=true;Object.defineProperty(navigator,'standalone',{get:()=>true});",
@@ -329,7 +329,7 @@ public final class MainActivity extends Activity {
         toolbar.setVisibility(View.VISIBLE);
         status.setText("Preparing download…");
         // Read only the requested same-origin blob; no persistent JavaScript-to-native bridge.
-        String token = "__medlistDownload" + UUID.randomUUID().toString().replace("-", "");
+        String token = "__billmateDownload" + UUID.randomUUID().toString().replace("-", "");
         String script = "(async()=>{try{const b=await(await fetch(" + JSONObject.quote(url)
             + ")).blob();if(b.size>15728640)throw Error('File too large');const r=new FileReader();"
             + "r.onload=()=>window['" + token + "']={data:r.result};r.onerror=()=>window['" + token
@@ -419,7 +419,7 @@ public final class MainActivity extends Activity {
     private void fail(String message) { runOnUiThread(() -> { if (!isDestroyed()) { busy = false; showError(message); } }); }
     private void showError(String message) {
         toolbar.setVisibility(View.GONE);
-        new AlertDialog.Builder(this).setTitle("MedList").setMessage(message)
+        new AlertDialog.Builder(this).setTitle("BillMate").setMessage(message)
             .setPositiveButton("Retry", (dialog, which) -> {
                 if (pendingShare != null && pendingShare.exists()) openPending(); else web.reload();
             }).setNegativeButton("Close", null).show();
