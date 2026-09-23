@@ -89,14 +89,21 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
     <div class="divider">or</div>
     <button class="btn-guest" onclick="location.href='/auth/guest'">👤 Continue as Guest</button>
     <div class="guest-note">Guest: billing &amp; items only &nbsp;·&nbsp; max 4 invoices / 12 hrs</div>
-    <a href="https://github.com/jashanlal25/billmate/releases/latest/download/BillMate-Native.apk"
-       style="display:block;margin-top:16px;padding:14px 18px;border-radius:12px;text-align:center;text-decoration:none;font-weight:700;color:#fff;background:linear-gradient(135deg,#10b981,#059669)">
-      📱 Download BillMate Android App
+    <a id="apkDownload" href="https://github.com/jashanlal25/billmate/releases/latest/download/BillMate-Native.apk"
+       style="display:inline-block;margin-top:12px;padding:7px 12px;border-radius:8px;text-align:center;text-decoration:none;font-size:.76em;font-weight:600;color:#667eea;border:1px solid #d9ddf5;background:#f8f9ff">
+      📱 Download Android App
     </a>
   </div>
 </div>
 
 <script>
+(function(){
+  // Hide the APK download inside the installed Android WebView.
+  if (/; wv\)/i.test(navigator.userAgent)) {
+    const el=document.getElementById('apkDownload');
+    if(el) el.style.display='none';
+  }
+})();
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['login','register'][i]===tab));
   document.getElementById('formLogin').classList.toggle('active',tab==='login');
