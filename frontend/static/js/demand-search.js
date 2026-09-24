@@ -94,6 +94,7 @@
       status(`Search complete across ${inventory.length} inventory entries. No inventory was changed.`);
       $('resultFilter').value=results.some(r=>r.offers.length)?'found':'missing';
       render();
+      requestAnimationFrame(()=>$('demandResults').scrollIntoView({block:'start',behavior:'smooth'}));
     }catch(e){results=[];status(e.message||'Search failed. Please retry.');}
     finally{busy=false;controls();}
   });
@@ -101,23 +102,33 @@
   function render(){
     const counts={match:0,review:0,missing:0};
     results.forEach(r=>counts[r.status]++);
-    $('resultSummary').textContent=`${results.length} demand items · ${counts.match} with matching offers · ${counts.review} with possible matches only · ${counts.missing} not found`;
+    const found=results.filter(r=>r.offers.length).length;
+    const offers=results.reduce((total,r)=>total+r.offers.length,0);
+    const matchItems=results.filter(r=>r.offers.some(o=>o.status==='match')).length;
+    const reviewItems=results.filter(r=>r.offers.some(o=>o.status==='review')).length;
+    $('resultSummary').textContent=`${results.length} demand items · ${found} found (${offers} vendor offers) · ${counts.missing} not found`;
+    for(const [value,label,count] of [['found','Found offers',found],['all','All demand items',results.length],['match','Matching offers',matchItems],['review','Needs review',reviewItems],['missing','Not found',counts.missing]]){
+      $('resultFilter').querySelector(`option[value="${value}"]`).textContent=`${label} (${count})`;
+    }
     const filter=$('resultFilter').value,sort=$('resultSort').value;
     const rows=[];
+    let visibleItems=0,visibleOffers=0;
     for(const result of results){
       let offers=result.offers.slice();
       if(filter==='found'&&!offers.length)continue;
       if(filter==='missing'&&offers.length)continue;
       if(filter==='match'||filter==='review') offers=offers.filter(o=>o.status===filter);
       if(!offers.length&&filter!=='all'&&!(filter==='missing'&&result.status==='missing'))continue;
+      visibleItems++;visibleOffers+=offers.length;
       offers.sort((a,b)=>{
         if(sort==='vendor')return String(a.item.vendor||'').localeCompare(String(b.item.vendor||''));
         if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
         return (DemandMatcher.price(a.item)??Infinity)-(DemandMatcher.price(b.item)??Infinity);
       });
       if(!offers.length){rows.push(`<tr class="group-start"><td class="names">${esc(result.demand.name)}</td><td colspan="6">Not found — no compatible inventory entry</td></tr>`);continue;}
-      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.tp)}</td><td>${money(o.item.discount_pct)}</td><td>${money(DemandMatcher.price(o.item))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
+      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${money(DemandMatcher.price(o.item))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
     }
+    $('visibleResultCount').textContent=`Showing ${visibleItems} demand item${visibleItems===1?'':'s'}${visibleOffers?` and ${visibleOffers} vendor offer${visibleOffers===1?'':'s'}`:''} below.`;
     $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="7">No results in this view.</td></tr>';
   }
   $('resultFilter').addEventListener('change',render);$('resultSort').addEventListener('change',render);

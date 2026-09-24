@@ -41,10 +41,12 @@
 </section>
 <section id="demandResults" class="panel" hidden>
   <h2>Vendor results</h2><p id="resultSummary" class="muted"></p>
+  <p class="muted note">Found offers includes matching offers and offers that need your review.</p>
   <div class="controls"><label for="resultFilter">Show</label><select id="resultFilter"><option value="found">Found offers</option><option value="all">All demand items</option><option value="match">Matching offers</option><option value="review">Needs review</option><option value="missing">Not found</option></select><label for="resultSort">Sort offers</label><select id="resultSort"><option value="net">Lowest net price</option><option value="discount">Highest discount</option><option value="vendor">Vendor name</option></select></div>
+  <p id="visibleResultCount" class="muted note" role="status" aria-live="polite"></p>
   <p class="muted note">Net price = TP after discount, before tax and bonus adjustments. Compare pack sizes before ordering. “Not found” means no compatible name was found in the uploaded inventory, not a stock guarantee.</p>
   <p class="muted note swipe-note">Swipe the table sideways to see vendor prices and verification details.</p>
-  <div class="scroll"><table><thead><tr><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>TP</th><th>Discount %</th><th>Net price</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Discount %</th><th>TP</th><th>Net price</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
 </section>
 </main>
 {% endblock %}
