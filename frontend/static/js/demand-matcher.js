@@ -17,15 +17,15 @@
       .replace(/(\d),(?=\d{3}\b)/g,'$1').replace(/(\d)\s*[x×]\s*(\d)/g,'$1x$2');
     const tokens=(text.match(/[a-z0-9]+(?:[.][0-9]+)?%?/g)||[]).map(t=>forms[t]||t);
     const form=[...new Set(tokens.filter(t=>Object.values(forms).includes(t)))].sort();
-    const numbers=tokens.filter(t=>/\d/.test(t)).sort();
-    const words=[...new Set(tokens.filter(t=>!form.includes(t)&&!/[0-9]/.test(t)))].sort();
+    const numbers=tokens.filter(t=>/^\d/.test(t)).sort();
+    const words=[...new Set(tokens.filter(t=>!form.includes(t)&&!/^\d/.test(t)))].sort();
     const specs={};
     for(const token of numbers){
       const unit=token.match(/(?:mg|mcg|ml|iu|g|%)$/);
       const group=unit?unit[0]:/^\d/.test(token)?'count':'name';
       (specs[group] ||= []).push(token);
     }
-    return {form,numbers,specs,words,key:[...new Set(tokens)].sort().join(' ')};
+    return {form,numbers,specs,words,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
   }
   function distance(a,b){
     let prev=Array.from({length:b.length+1},(_,i)=>i);
@@ -40,8 +40,20 @@
   function compare(d,v){
     // An explicit conflicting form or strength/pack never becomes an offer.
     if(d.form.length&&v.form.length&&!same(d.form,v.form)) return null;
-    for(const group of Object.keys(d.specs)){
-      if(v.specs[group]&&!same(d.specs[group],v.specs[group])) return null;
+    if(d.numbers.length&&v.numbers.length){
+      const numberPart=t=>Number((t.match(/^\d+(?:\.\d+)?/)||[])[0]);
+      const left=d.numbers.map(numberPart),right=v.numbers.map(numberPart);
+      // An explicit different strength or pack size must never be suggested.
+      if(!left.some(x=>right.includes(x))) return null;
+      if(left.length===right.length&&!same(left.slice().sort((a,b)=>a-b),right.slice().sort((a,b)=>a-b))) return null;
+      if(left.length!==right.length && !(left.every(x=>right.includes(x))||right.every(x=>left.includes(x)))) return null;
+      for(const a of d.numbers)for(const b of v.numbers){
+        if(numberPart(a)===numberPart(b)){
+          const ua=a.replace(/^\d+(?:\.\d+)?/,'');
+          const ub=b.replace(/^\d+(?:\.\d+)?/,'');
+          if(ua&&ub&&ua!==ub) return null;
+        }
+      }
     }
     if(!d.words.length||!v.words.length) return null;
     const exactWords=same(d.words,v.words);
@@ -60,7 +72,8 @@
     if(!exactWords) reasons.push('Spelling differs');
     if(!d.form.length) reasons.push('Choose / verify form');
     else if(!v.form.length) reasons.push('Vendor form missing');
-    if(!same(d.numbers,v.numbers)) reasons.push('Strength / pack size missing on one side');
+    if(!same(d.numbers,v.numbers)) reasons.push('Check strength / pack size and units');
+    if(d.plus!==v.plus) reasons.push('Plus sign differs in item names');
     if(d.key!==v.key&&!reasons.length) reasons.push('Name details differ');
     return {status:reasons.length?'review':'match',reason:reasons.join('; ')||'Name and stated details match'};
   }

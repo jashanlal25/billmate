@@ -33,13 +33,13 @@
   <label for="demandFile"><strong>Upload Demand</strong></label>
   <div class="controls"><input id="demandFile" type="file" accept=".htm,.html,text/html"><button id="runDemand" class="btn" disabled>Run Search</button><button id="inventoryInstead" class="btn btn-outline" disabled>Add to Inventory instead</button><button id="clearDemand" class="btn btn-outline" disabled>Clear</button></div>
   <p class="muted">Upload an HTM / HTML demand file, review the items, then search all vendors in your inventory.</p>
-  <div class="controls"><label><input id="ignoreShelf" type="checkbox"> Ignore trailing shelf codes (such as C-55) — select only if these are shelf references.</label></div>
+  <div class="controls"><label><input id="ignoreShelf" type="checkbox" checked> Ignore trailing shelf codes (such as C-55) when comparing names. Uncheck if these are part of the product name.</label></div>
   <p id="demandStatus" role="status" aria-live="polite">No demand loaded.</p>
   <details id="demandPreview" hidden open><summary>Demand item preview</summary><div class="scroll"><table><thead><tr><th>Code</th><th>Demand item name</th><th>Box</th><th>Pcs</th></tr></thead><tbody id="previewRows"></tbody></table></div></details>
 </section>
 <section id="demandResults" class="panel" hidden>
   <h2>Vendor results</h2><p id="resultSummary" class="muted"></p>
-  <div class="controls"><label for="resultFilter">Show</label><select id="resultFilter"><option value="all">All demand items</option><option value="match">Matching offers</option><option value="review">Needs review</option><option value="missing">Not found</option></select><label for="resultSort">Sort offers</label><select id="resultSort"><option value="net">Lowest net price</option><option value="discount">Highest discount</option><option value="vendor">Vendor name</option></select></div>
+  <div class="controls"><label for="resultFilter">Show</label><select id="resultFilter"><option value="found">Found offers</option><option value="all">All demand items</option><option value="match">Matching offers</option><option value="review">Needs review</option><option value="missing">Not found</option></select><label for="resultSort">Sort offers</label><select id="resultSort"><option value="net">Lowest net price</option><option value="discount">Highest discount</option><option value="vendor">Vendor name</option></select></div>
   <p class="muted note">Net price = TP after discount, before tax and bonus adjustments. Compare pack sizes before ordering. “Not found” means no compatible name was found in the uploaded inventory, not a stock guarantee.</p>
   <p class="muted note swipe-note">Swipe the table sideways to see vendor prices and verification details.</p>
   <div class="scroll"><table><thead><tr><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>TP</th><th>Discount %</th><th>Net price</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>

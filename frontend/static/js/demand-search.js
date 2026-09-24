@@ -90,6 +90,7 @@
       }
       $('demandPreview').open=false;$('demandResults').hidden=false;
       status(`Search complete across ${inventory.length} inventory entries. No inventory was changed.`);
+      $('resultFilter').value=results.some(r=>r.offers.length)?'found':'missing';
       render();
     }catch(e){results=[];status(e.message||'Search failed. Please retry.');}
     finally{busy=false;controls();}
@@ -103,6 +104,7 @@
     const rows=[];
     for(const result of results){
       let offers=result.offers.slice();
+      if(filter==='found'&&!offers.length)continue;
       if(filter==='missing'&&offers.length)continue;
       if(filter==='match'||filter==='review') offers=offers.filter(o=>o.status===filter);
       if(!offers.length&&filter!=='all'&&!(filter==='missing'&&result.status==='missing'))continue;

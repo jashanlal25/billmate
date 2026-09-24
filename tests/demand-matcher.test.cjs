@@ -19,6 +19,15 @@ test('strength and pack conflicts excluded; missing details flagged',()=>{
  assert.equal(m.compare(m.profile('PANADOL 500MG TAB 20'),m.profile('PANADOL 500MG TAB 100')),null);
  assert.equal(m.compare(m.profile('MED 120MG/5ML SYP'),m.profile('MED 250MG/5ML SYP')),null);
 });
+test('real demand and vendor naming: shelf code, omitted mg unit and variant differences',()=>{
+ const stock=m.prepare([offer('TERBISIL 250MG TAB','C'),offer('TERBISIL 125MG TAB','C'),offer('GEN-M 30 INJ','A'),offer('GEN-M 60 INJ','A'),offer('CHEWCAL TAB.','B'),offer('ALDACTONE 100 TAB +','C')],true);
+ assert.deepEqual(m.match({name:'TERBISIL 250MG TAB A-16'},stock,true).offers.map(o=>o.item.name),['TERBISIL 250MG TAB']);
+ assert.equal(m.match({name:'GEN-M 120MG INJ H-43'},stock,true).offers.length,0);
+ assert.equal(m.match({name:'GEN-M 60MG INJ'},stock,true).offers[0].status,'review');
+ assert.equal(m.match({name:'CHEWCAL TAB A-52'},stock,true).offers[0].status,'match');
+ const plus=m.match({name:'ALDACTONE TAB 100 A-35'},stock,true).offers;
+ assert.equal(plus.length,1);assert.equal(plus[0].status,'review');
+});
 test('unspecified form offers are choices; shelf stripping is opt-in',()=>{
  const result=m.match({name:'PANADOL'},m.prepare([offer('PANADOL TAB','A'),offer('PANADOL SYP','B')]));
  assert.equal(result.offers.length,2);assert(result.offers.every(o=>o.status==='review'));
