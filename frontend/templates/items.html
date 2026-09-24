@@ -939,6 +939,7 @@ async function _adoptPendingSharedFile(){
       location.replace('/demand-search?shared=1');
       return;
     }
+    await ShareStore.clearPendingSharedFile();
     openImportModal();          // fresh modal state (resets file/vendor/btn)
     _dbg('modal-open');
     prepareImportFile(file);    // same path as manual selection/drag-drop

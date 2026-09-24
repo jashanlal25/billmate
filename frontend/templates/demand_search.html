@@ -23,6 +23,7 @@
 .demand .group-start td{border-top:2px solid var(--accent)}
 .demand .note{font-size:14px;margin-top:6px}
 .demand input[type=file]{max-width:100%;font-size:16px}
+.demand .selected-file{overflow-wrap:anywhere;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--inp)}
 @media(max-width:1100px){.nav-links{display:none}.nav-hamburger{display:flex}}
 @media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand .swipe-note{display:block}.demand select{width:100%}}
 {% endblock %}
@@ -31,7 +32,8 @@
 <h1>Demand Search</h1>
 <section class="panel">
   <label for="demandFile"><strong>Upload Demand</strong></label>
-  <div class="controls"><input id="demandFile" type="file" accept=".htm,.html,text/html"><button id="runDemand" class="btn" disabled>Run Search</button><button id="inventoryInstead" class="btn btn-outline" disabled>Add to Inventory instead</button><button id="clearDemand" class="btn btn-outline" disabled>Clear</button></div>
+  <div class="controls"><input id="demandFile" type="file" accept=".htm,.html,text/html"><button id="runDemand" class="btn" disabled>Run Search</button><button id="inventoryInstead" class="btn btn-outline" disabled>Add to Inventory instead</button><button id="clearDemand" class="btn btn-outline" disabled>Clear</button><a class="btn btn-outline" href="/items">Back to Items</a></div>
+  <p id="selectedDemandFile" class="selected-file" role="status" aria-live="polite" hidden></p>
   <p class="muted">Upload an HTM / HTML demand file, review the items, then search all vendors in your inventory.</p>
   <div class="controls"><label><input id="ignoreShelf" type="checkbox" checked> Ignore trailing shelf codes (such as C-55) when comparing names. Uncheck if these are part of the product name.</label></div>
   <p id="demandStatus" role="status" aria-live="polite">No demand loaded.</p>

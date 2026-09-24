@@ -37,6 +37,8 @@
   async function load(file){
     const ticket=++version;
     demands=[];results=[];currentFile=file||null;
+    $('selectedDemandFile').hidden=!file;
+    $('selectedDemandFile').textContent=file?`Attached demand file: ${file.name} (${(file.size/1024).toFixed(1)} KB)` : '';
     $('demandResults').hidden=true;$('demandPreview').hidden=true;controls();
     if(!file){status('No demand loaded.');return;}
     try{
@@ -120,7 +122,16 @@
   }
   $('resultFilter').addEventListener('change',render);$('resultSort').addEventListener('change',render);
   (async()=>{
-    try{await ShareStore.pruneStale();const file=await ShareStore.takePendingSharedFile();if(file&&!currentFile)await load(file);}
+    try{
+      await ShareStore.pruneStale();
+      const file=await ShareStore.takePendingSharedFile();
+      if(file){
+        // The shared file belongs to this page now. Leaving for Items must
+        // not send the user straight back here with the same pending file.
+        await ShareStore.clearPendingSharedFile();
+        if(!currentFile)await load(file);
+      }
+    }
     catch(e){status('Could not restore the shared file. Use Upload Demand to select it.');}
   })();
 })();
