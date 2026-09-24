@@ -3,6 +3,9 @@
   const $=id=>document.getElementById(id);
   let demands=[],results=[],currentFile=null,currentPasted=false,version=0,busy=false;
   let copyOffers=[];
+  const selectedOffers=new Map(),vendorPhones=new Map();
+  let suppliers=[];
+  const billingTransferKey='billmate-demand-billing-selection';
   const status=text=>{$('demandStatus').textContent=text;};
   function controls(){
     $('runDemand').disabled=busy||!demands.length;
@@ -40,6 +43,7 @@
   async function load(file,pasted=false){
     const ticket=++version;
     demands=[];results=[];currentFile=file||null;currentPasted=pasted;
+    selectedOffers.clear();updateSelectionPanel();
     $('selectedDemandFile').hidden=!file;
     $('selectedDemandFile').textContent=file?(pasted?'Pasted text demand':`Attached demand file: ${file.name} (${(file.size/1024).toFixed(1)} KB)`):'';
     $('demandResults').hidden=true;$('demandPreview').hidden=true;controls();
@@ -93,6 +97,7 @@
   $('runDemand').addEventListener('click',async()=>{
     if(busy||!demands.length)return;
     busy=true;controls();results=[];$('demandResults').hidden=true;
+    selectedOffers.clear();updateSelectionPanel();
     status('Loading all vendor inventory…');
     try{
       const response=await fetch('/api/items',{cache:'no-store',headers:{Accept:'application/json'}});
@@ -142,7 +147,7 @@
     $('copyFeedback').textContent='';
     copyOffers=[];
     let visibleItems=0,visibleOffers=0;
-    for(const result of results){
+    for(const [dIndex,result] of results.entries()){
       let offers=result.offers.slice();
       if(filter==='found'&&!offers.length)continue;
       if(filter==='missing'&&offers.length)continue;
@@ -154,15 +159,133 @@
         if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
         return tpValue(a.item.tp)-tpValue(b.item.tp);
       });
-      if(!offers.length){rows.push(`<tr class="group-start"><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
+      if(!offers.length){rows.push(`<tr class="group-start"><td class="mark-col"></td><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
       offers.forEach((o,i)=>{
         const copyIndex=copyOffers.push(`${String(o.item.name||'').trim()}-----${discountForCopy(o.item.discount_pct)}`)-1;
-        rows.push(`<tr class="${i===0?'group-start':''}"><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}<button type="button" class="copy-offer" data-copy-offer="${copyIndex}" aria-label="Copy ${esc(o.item.name)} and discount">Copy</button></td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`);
+        const key=`${dIndex}:${result.offers.indexOf(o)}`;
+        rows.push(`<tr class="${i===0?'group-start':''}"><td class="mark-col"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(o.item.name)} from ${esc(o.item.vendor||'unspecified vendor')}" ${selectedOffers.has(key)?'checked':''}></td><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}<button type="button" class="copy-offer" data-copy-offer="${copyIndex}" aria-label="Copy ${esc(o.item.name)} and discount">Copy</button></td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`);
       });
     }
     $('visibleResultCount').textContent=`Showing ${visibleItems} demand item${visibleItems===1?'':'s'}${visibleOffers?` and ${visibleOffers} vendor offer${visibleOffers===1?'':'s'}`:''} below.`;
-    $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="8">No results in this view.</td></tr>';
+    $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="9">No results in this view.</td></tr>';
   }
+  const validQty=value=>value!==''&&Number.isFinite(Number(value))&&Number(value)>0&&Number(value)<=10000;
+  function initialQty(d){
+    // Box and Pcs together need an explicit unit choice before billing.
+    if(d.box&&d.pcs)return '';
+    return String(d.qty||d.box||d.pcs||'');
+  }
+  function updateSelectionPanel(){
+    const enabled=$('enableDemandMarks').checked;
+    document.querySelector('main.demand').classList.toggle('selecting',enabled);
+    $('selectedOffersPanel').hidden=!enabled;
+    $('jumpToMarked').hidden=!enabled;
+    if(!enabled)return;
+    const entries=[...selectedOffers.entries()];
+    $('selectedOffersCount').textContent=entries.length
+      ?`${entries.length} vendor offer${entries.length===1?'':'s'} marked. Check each quantity and any “Needs review” match before proceeding.`
+      :'Mark the vendor offers you want. Unmatched items cannot be marked.';
+    $('reviewInBilling').disabled=!entries.length||entries.some(([,s])=>!validQty(s.qty));
+    $('selectedOffersList').innerHTML=entries.map(([key,s])=>`<div class="selected-row"><span>${esc(s.demand.name)} → <strong>${esc(s.offer.item.name)}</strong> · ${esc(s.offer.item.vendor||'Vendor missing')}${s.offer.status==='review'?' · Needs review':''}${s.demand.required?' · Lazmi':''}</span><label>Qty <input type="number" min="0.01" max="10000" step="any" inputmode="decimal" data-selected-qty="${key}" value="${esc(s.qty)}" aria-label="Quantity for ${esc(s.offer.item.name)}"></label></div>`).join('');
+    const groups=new Map();
+    for(const [,s] of entries){
+      const vendor=String(s.offer.item.vendor||'').trim();
+      if(vendor){if(!groups.has(vendor))groups.set(vendor,[]);groups.get(vendor).push(s);}
+    }
+    $('selectedVendorList').innerHTML=[...groups].map(([vendor,list])=>`<div class="vendor-send"><strong>${esc(vendor)} · ${list.length} item${list.length===1?'':'s'}</strong><p class="muted note">WhatsApp message will include these items and their selected quantities.</p><div class="controls"><label>Vendor phone (optional) <input type="tel" inputmode="tel" placeholder="Country code + number" data-vendor-phone="${esc(vendor)}" value="${esc(vendorPhones.get(vendor)||'')}"></label><button type="button" class="btn btn-outline" data-copy-vendor="${esc(vendor)}" ${list.some(s=>!validQty(s.qty))?'disabled':''}>Copy order text</button><button type="button" class="btn btn-outline" data-send-vendor="${esc(vendor)}" ${list.some(s=>!validQty(s.qty))?'disabled':''}>WhatsApp this vendor</button></div></div>`).join('');
+  }
+  $('enableDemandMarks').addEventListener('change',()=>{
+    if(!$('enableDemandMarks').checked)selectedOffers.clear();
+    updateSelectionPanel();render();
+    if($('enableDemandMarks').checked){
+      fetch('/api/suppliers').then(r=>r.ok?r.json():[]).then(list=>{
+        suppliers=list;
+        for(const selected of selectedOffers.values()){
+          const vendor=String(selected.offer.item.vendor||'').trim();
+          const supplier=list.find(s=>String(s.name||'').trim().toLowerCase()===vendor.toLowerCase());
+          if(vendor&&supplier&&!vendorPhones.has(vendor))vendorPhones.set(vendor,String(supplier.phone||''));
+        }
+        for(const input of $('selectedVendorList').querySelectorAll('input[data-vendor-phone]')){
+          if(!input.value)input.value=vendorPhones.get(input.dataset.vendorPhone)||'';
+        }
+      }).catch(()=>{});
+    }
+  });
+  $('resultRows').addEventListener('change',e=>{
+    const mark=e.target.closest('input[data-offer-key]');
+    if(!mark)return;
+    const key=mark.dataset.offerKey;
+    const [dIndex,oIndex]=key.split(':').map(Number);
+    const result=results[dIndex],offer=result&&result.offers[oIndex];
+    if(!offer)return;
+    if(mark.checked){
+      selectedOffers.set(key,{demand:result.demand,offer,qty:initialQty(result.demand)});
+      const vendor=String(offer.item.vendor||'').trim();
+      if(vendor&&!vendorPhones.has(vendor)){
+        const supplier=suppliers.find(s=>String(s.name||'').trim().toLowerCase()===vendor.toLowerCase());
+        if(supplier)vendorPhones.set(vendor,String(supplier.phone||''));
+      }
+    }
+    else selectedOffers.delete(key);
+    updateSelectionPanel();
+  });
+  $('selectedOffersList').addEventListener('input',e=>{
+    const input=e.target.closest('input[data-selected-qty]');
+    if(!input)return;
+    const selected=selectedOffers.get(input.dataset.selectedQty);
+    if(!selected)return;
+    selected.qty=input.value;
+    const invalid=[...selectedOffers.values()].some(s=>!validQty(s.qty));
+    $('reviewInBilling').disabled=invalid;
+    for(const button of $('selectedVendorList').querySelectorAll('button[data-send-vendor],button[data-copy-vendor]')){
+      const vendor=button.dataset.sendVendor||button.dataset.copyVendor;
+      button.disabled=[...selectedOffers.values()].some(s=>String(s.offer.item.vendor||'').trim()===vendor&&!validQty(s.qty));
+    }
+  });
+  $('selectedVendorList').addEventListener('change',e=>{
+    const input=e.target.closest('input[data-vendor-phone]');
+    if(input)vendorPhones.set(input.dataset.vendorPhone,input.value.trim());
+  });
+  function vendorOrder(vendor){
+    const entries=[...selectedOffers.values()].filter(s=>String(s.offer.item.vendor||'').trim()===vendor);
+    if(!entries.length||entries.some(s=>!validQty(s.qty)))return null;
+    return [`Order request for ${vendor}`, '',...entries.map((s,i)=>`${i+1}. ${s.offer.item.name} ×${s.qty}${s.demand.required?' (lazmi)':''}${s.offer.status==='review'?` — check against ${s.demand.name}`:''}`)].join('\n');
+  }
+  $('selectedVendorList').addEventListener('click',async e=>{
+    const button=e.target.closest('button[data-send-vendor],button[data-copy-vendor]');
+    if(!button)return;
+    const vendor=button.dataset.sendVendor||button.dataset.copyVendor;
+    const message=vendorOrder(vendor);
+    if(!message)return;
+    if(button.dataset.copyVendor){
+      try{
+        if(!await copyText(message))throw Error('Copy failed');
+        button.textContent='Copied!';
+        setTimeout(()=>{if(button.isConnected)button.textContent='Copy order text';},2000);
+      }catch(error){$('selectedOffersCount').textContent='Could not copy the vendor order. Please try WhatsApp instead.';}
+      return;
+    }
+    let phone=String(vendorPhones.get(vendor)||'').replace(/\D/g,'');
+    if(/^03\d{9}$/.test(phone))phone='92'+phone.slice(1);
+    if(phone&&!/^\d{8,15}$/.test(phone)){
+      $('selectedOffersCount').textContent='Enter a valid vendor phone with country code, or leave it blank to choose a WhatsApp contact.';
+      return;
+    }
+    const url=`https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const chat=window.open(url,'_blank');
+    if(chat)chat.opener=null;
+    else{
+      $('selectedOffersCount').textContent='WhatsApp could not open. Allow pop-ups or use Copy order text.';
+    }
+  });
+  $('reviewInBilling').addEventListener('click',()=>{
+    const entries=[...selectedOffers.values()];
+    if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
+    try{
+      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review'}))));
+      location.assign('/billing?demand_selection=1');
+    }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
+  });
   async function copyText(value){
     if(navigator.clipboard && window.isSecureContext){
       try{await navigator.clipboard.writeText(value);return true;}catch(e){/* Android WebViews may need the fallback below. */}

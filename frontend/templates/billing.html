@@ -250,6 +250,7 @@ input[type=number]{-moz-appearance:textfield}
 </div>
 
 <div style="max-width:1300px;margin:0 auto">
+<div id="demandImportNotice" role="status" style="display:none;background:var(--card);color:var(--text);padding:14px 18px;border:1.5px solid var(--accent);border-radius:12px;margin-bottom:14px;line-height:1.5"></div>
 <div class="layout">
   <!-- LEFT: Bill Builder -->
   <div>
@@ -972,7 +973,10 @@ if(preselEdit){
 } else if(!preselCust){
   // No specific invoice/customer requested → restore an unsaved auto-draft if any.
   // Deferred so the const declarations further down have initialised (avoids TDZ).
-  window.addEventListener('load', ()=>{ try{ restoreAutoDraft(); }catch(e){} });
+  window.addEventListener('load', async()=>{
+    try{await restoreAutoDraft();}catch(e){}
+    if(urlParams.get('demand_selection')==='1')await importDemandSelection();
+  });
 }
 
 function toTitleCase(str){
@@ -1635,6 +1639,41 @@ async function restoreAutoDraft(){
     renderLines(); recalc();
     toast('Restored your unsaved bill');
   }catch(e){ /* ignore */ }
+}
+async function importDemandSelection(){
+  const notice=document.getElementById('demandImportNotice');
+  const key='billmate-demand-billing-selection';
+  let raw;
+  try{raw=sessionStorage.getItem(key);}catch(e){}
+  if(!raw){notice.style.display='block';notice.textContent='No marked demand offers were found. Return to Demand Search and mark the offers you want.';return;}
+  let selected;
+  try{selected=JSON.parse(raw);if(!Array.isArray(selected))throw Error('Invalid selection');}
+  catch(e){sessionStorage.removeItem(key);notice.style.display='block';notice.textContent='The demand selection could not be read. Please select the offers again.';return;}
+  let catalog;
+  try{catalog=await _fetchItems('');if(!Array.isArray(catalog))throw Error('Inventory unavailable');}
+  catch(e){notice.style.display='block';notice.textContent='Could not load Inventory to check the selected offers. Reload Billing to retry; your selection is still saved on this tab.';return;}
+  const byId=new Map(catalog.map(item=>[String(item.id),item]));
+  let added=0,skipped=0,reviewed=0;
+  for(const entry of selected){
+    const item=entry&&entry.item&&byId.get(String(entry.item.id));
+    const qty=Number(entry&&entry.qty);
+    if(!item||!Number.isFinite(qty)||qty<=0||qty>10000||
+       String(item.name||'').toLowerCase()!==String(entry.item.name||'').toLowerCase()||
+       String(item.vendor||'').toLowerCase()!==String(entry.item.vendor||'').toLowerCase()||
+       lines.some(line=>String(line.item_id)===String(item.id))){skipped++;continue;}
+    const line={item_id:item.id,item_name:item.name,item_code:item.code||'',qty,
+      retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
+      bonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
+      vendor:item.vendor||'',is_global:!!item.is_global,lineNet:0};
+    calcLine(line);lines.push(line);added++;
+    if(entry.review)reviewed++;
+  }
+  sessionStorage.removeItem(key);
+  if(added){renderLines();recalc();}
+  notice.style.display='block';
+  notice.textContent=`${added} selected offer${added===1?'':'s'} added to this Billing draft. Review items, quantities and prices, then tap Save Invoice to bill.`+
+    (reviewed?` ${reviewed} marked offer${reviewed===1?'':'s'} need${reviewed===1?'s':''} name or strength verification.`:'')+
+    (skipped?` ${skipped} skipped because the item changed, was removed, or was already on this bill.`:'');
 }
 // Promote the live auto-draft into the invoice the user is explicitly saving,
 // so Save/Draft updates that same record instead of creating a duplicate.
