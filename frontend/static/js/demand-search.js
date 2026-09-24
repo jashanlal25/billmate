@@ -6,11 +6,12 @@
   const selectedOffers=new Map(),vendorPhones=new Map();
   let suppliers=[];
   const billingTransferKey='billmate-demand-billing-selection';
+  const demandOwner=document.querySelector('main.demand').dataset.owner;
   const status=text=>{$('demandStatus').textContent=text;};
   function controls(){
     $('runDemand').disabled=busy||!demands.length;
     $('inventoryInstead').disabled=busy||!currentFile||!/\.html?$/i.test(currentFile.name);
-    $('clearDemand').disabled=busy||(!currentFile&&!$('pastedDemand').value.trim());
+    $('clearDemand').disabled=busy||(!demands.length&&!currentFile&&!$('pastedDemand').value.trim());
     $('demandFile').disabled=busy;
     $('pastedDemand').disabled=busy;
     $('loadTextDemand').disabled=busy||!$('pastedDemand').value.trim();
@@ -40,7 +41,7 @@
     if(rows.length>2000) throw Error('Please split this demand into files of no more than 2,000 items.');
     return rows;
   }
-  async function load(file,pasted=false){
+  async function load(file,pasted=false,restored=false){
     const ticket=++version;
     demands=[];results=[];currentFile=file||null;currentPasted=pasted;
     selectedOffers.clear();updateSelectionPanel();
@@ -56,24 +57,25 @@
       const parsed=/\.txt$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content);
       if(ticket!==version) return;
       demands=parsed;
+      let saved=true;
+      if(!restored){
+        try{await ShareStore.saveDemand(file,demandOwner);}
+        catch(e){saved=false;}
+      }
+      if(ticket!==version)return;
+      if(pasted)$('pastedDemand').value=content;
       $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td></tr>`).join('');
       $('demandPreview').hidden=false;
-      status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.`);
+      status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.${saved?'':' This device could not save the demand for later.'}`);
     }catch(e){if(ticket===version) status(e.message);}
     controls();
   }
   $('demandFile').addEventListener('change',async e=>{
+    if(!e.target.files.length)return;
     await ShareStore.clearPendingSharedFile();
     await load(e.target.files[0]);
   });
-  $('pastedDemand').addEventListener('input',()=>{
-    if(currentPasted){
-      ++version;demands=[];results=[];currentFile=null;currentPasted=false;
-      $('selectedDemandFile').hidden=true;$('demandPreview').hidden=true;$('demandResults').hidden=true;
-      status('Text changed. Tap Load text demand to update the items.');
-    }
-    controls();
-  });
+  $('pastedDemand').addEventListener('input',controls);
   $('loadTextDemand').addEventListener('click',async()=>{
     const text=$('pastedDemand').value;
     if(!text.trim()||busy)return;
@@ -86,7 +88,11 @@
     if(demands.length) status('Matching option changed. Tap Run Search to update results.');
   });
   $('clearDemand').addEventListener('click',async()=>{
-    await ShareStore.clearPendingSharedFile();$('demandFile').value='';$('pastedDemand').value='';await load(null);
+    await load(null);
+    $('demandFile').value='';$('pastedDemand').value='';
+    try{await Promise.all([ShareStore.clearPendingSharedFile(),ShareStore.clearDemand()]);}
+    catch(e){status('Demand cleared here, but could not be removed from device storage. Please try Clear again.');}
+    controls();
   });
   $('inventoryInstead').addEventListener('click',async()=>{
     if(!currentFile)return;
@@ -318,6 +324,9 @@
         // not send the user straight back here with the same pending file.
         await ShareStore.clearPendingSharedFile();
         if(!currentFile)await load(file);
+      }else{
+        const saved=await ShareStore.getDemand(demandOwner);
+        if(saved&&!currentFile)await load(saved,/^Pasted demand\.txt$/.test(saved.name),true);
       }
     }
     catch(e){status('Could not restore the shared file. Use Upload Demand to select it.');}

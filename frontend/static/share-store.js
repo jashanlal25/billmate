@@ -6,6 +6,7 @@
 
   const DB_NAME = 'billmate-share';
   const STORE = 'pending_import';
+  const DEMAND_STORE = 'saved_demand';
   const RECORD_ID = 'pending';
   const DIRECT_INVENTORY_KEY = 'billmate-share-direct-inventory';
 
@@ -23,11 +24,14 @@
 
   function _open(){
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if(!db.objectStoreNames.contains(STORE)){
           db.createObjectStore(STORE, {keyPath: 'id'});
+        }
+        if(!db.objectStoreNames.contains(DEMAND_STORE)){
+          db.createObjectStore(DEMAND_STORE, {keyPath: 'id'});
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -37,6 +41,42 @@
 
   function _tx(db, mode){
     return db.transaction(STORE, mode).objectStore(STORE);
+  }
+
+  async function saveDemand(file, owner){
+    const db = await _open();
+    try{
+      await new Promise((resolve, reject) => {
+        const req = db.transaction(DEMAND_STORE, 'readwrite').objectStore(DEMAND_STORE)
+          .put({id: 'current', owner, blob: file, filename: file.name, type: file.type, created: Date.now()});
+        req.onsuccess = resolve;
+        req.onerror = () => reject(req.error);
+      });
+    }finally{db.close();}
+  }
+
+  async function getDemand(owner){
+    const db = await _open();
+    try{
+      const rec = await new Promise((resolve, reject) => {
+        const req = db.transaction(DEMAND_STORE, 'readonly').objectStore(DEMAND_STORE).get('current');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      if(!rec || rec.owner !== owner || !rec.blob)return null;
+      return new File([rec.blob], rec.filename, {type: rec.type, lastModified: rec.created});
+    }finally{db.close();}
+  }
+
+  async function clearDemand(){
+    const db = await _open();
+    try{
+      await new Promise((resolve, reject) => {
+        const req = db.transaction(DEMAND_STORE, 'readwrite').objectStore(DEMAND_STORE).delete('current');
+        req.onsuccess = resolve;
+        req.onerror = () => reject(req.error);
+      });
+    }finally{db.close();}
   }
 
   // Save a shared file as the pending import. A previous pending file that
@@ -120,5 +160,8 @@
     pruneStale,
     directInventoryEnabled,
     setDirectInventory,
+    saveDemand,
+    getDemand,
+    clearDemand,
   };
 })(window);
