@@ -99,6 +99,7 @@
     finally{busy=false;controls();}
   });
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
+  const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
   const demandQty=d=>[d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`].filter(Boolean).join(' · ')||'—';
   function offerLetter(index){
     let letters='';
@@ -129,13 +130,13 @@
       offers.sort((a,b)=>{
         if(sort==='vendor')return String(a.item.vendor||'').localeCompare(String(b.item.vendor||''));
         if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
-        return (DemandMatcher.price(a.item)??Infinity)-(DemandMatcher.price(b.item)??Infinity);
+        return tpValue(a.item.tp)-tpValue(b.item.tp);
       });
-      if(!offers.length){rows.push(`<tr class="group-start"><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="5">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
-      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${money(DemandMatcher.price(o.item))}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
+      if(!offers.length){rows.push(`<tr class="group-start"><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
+      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
     }
     $('visibleResultCount').textContent=`Showing ${visibleItems} demand item${visibleItems===1?'':'s'}${visibleOffers?` and ${visibleOffers} vendor offer${visibleOffers===1?'':'s'}`:''} below.`;
-    $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="9">No results in this view.</td></tr>';
+    $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="8">No results in this view.</td></tr>';
   }
   $('resultFilter').addEventListener('change',render);$('resultSort').addEventListener('change',render);
   (async()=>{
