@@ -2,6 +2,7 @@
   'use strict';
   const $=id=>document.getElementById(id);
   let demands=[],results=[],currentFile=null,version=0,busy=false;
+  let copyOffers=[];
   const status=text=>{$('demandStatus').textContent=text;};
   function controls(){
     $('runDemand').disabled=busy||!demands.length;
@@ -101,6 +102,7 @@
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
   const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
   const demandQty=d=>[d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`].filter(Boolean).join(' · ')||'—';
+  const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
   function offerLetter(index){
     let letters='';
     for(let n=index+1;n>0;n=Math.floor((n-1)/26))letters=String.fromCharCode(97+(n-1)%26)+letters;
@@ -119,6 +121,8 @@
     }
     const filter=$('resultFilter').value,sort=$('resultSort').value;
     const rows=[];
+    $('copyFeedback').textContent='';
+    copyOffers=[];
     let visibleItems=0,visibleOffers=0;
     for(const result of results){
       let offers=result.offers.slice();
@@ -133,11 +137,36 @@
         return tpValue(a.item.tp)-tpValue(b.item.tp);
       });
       if(!offers.length){rows.push(`<tr class="group-start"><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
-      offers.forEach((o,i)=>rows.push(`<tr class="${i===0?'group-start':''}"><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}</td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`));
+      offers.forEach((o,i)=>{
+        const copyIndex=copyOffers.push(`${String(o.item.name||'').trim()}-----${discountForCopy(o.item.discount_pct)}`)-1;
+        rows.push(`<tr class="${i===0?'group-start':''}"><td>${visibleItems}.${offerLetter(i)}</td><td class="names">${esc(result.demand.name)}</td><td class="names">${esc(o.item.name)}<button type="button" class="copy-offer" data-copy-offer="${copyIndex}" aria-label="Copy ${esc(o.item.name)} and discount">Copy</button></td><td>${esc(o.item.vendor||'Not specified')}</td><td>${money(o.item.discount_pct)}</td><td>${money(o.item.tp)}</td><td>${esc(demandQty(result.demand))}</td><td><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`);
+      });
     }
     $('visibleResultCount').textContent=`Showing ${visibleItems} demand item${visibleItems===1?'':'s'}${visibleOffers?` and ${visibleOffers} vendor offer${visibleOffers===1?'':'s'}`:''} below.`;
     $('resultRows').innerHTML=rows.join('')||'<tr><td colspan="8">No results in this view.</td></tr>';
   }
+  async function copyText(value){
+    if(navigator.clipboard && window.isSecureContext){
+      try{await navigator.clipboard.writeText(value);return true;}catch(e){/* Android WebViews may need the fallback below. */}
+    }
+    const input=document.createElement('textarea');
+    input.value=value;input.setAttribute('readonly','');
+    input.style.cssText='position:fixed;left:-9999px;top:0';
+    document.body.appendChild(input);input.select();
+    try{return document.execCommand('copy');}finally{input.remove();}
+  }
+  $('resultRows').addEventListener('click',async e=>{
+    const button=e.target.closest('button[data-copy-offer]');
+    if(!button)return;
+    const value=copyOffers[Number(button.dataset.copyOffer)];
+    if(!value)return;
+    try{
+      if(!await copyText(value))throw Error('Copy failed');
+      button.textContent='Copied!';
+      $('copyFeedback').textContent=`Copied: ${value}`;
+      setTimeout(()=>{if(button.isConnected)button.textContent='Copy';},2000);
+    }catch(e){$('copyFeedback').textContent='Could not copy. Please select the vendor item name and discount manually.';}
+  });
   $('resultFilter').addEventListener('change',render);$('resultSort').addEventListener('change',render);
   (async()=>{
     try{
