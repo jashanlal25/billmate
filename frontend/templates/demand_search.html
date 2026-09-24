@@ -9,7 +9,7 @@
 .demand label{text-transform:none;letter-spacing:normal;font-weight:400;margin:0}
 .demand input[type=checkbox]{width:auto;display:inline-block;margin-right:6px;vertical-align:middle}
 .demand select{width:auto;min-width:190px}
-#demandResults table{min-width:1000px;table-layout:fixed}
+#demandResults table{min-width:1180px;table-layout:fixed}
 #demandResults th{white-space:normal}
 .demand .swipe-note{display:none}
 .demand .muted{color:var(--sub)}
@@ -46,7 +46,7 @@
   <p id="visibleResultCount" class="muted note" role="status" aria-live="polite"></p>
   <p class="muted note">Net price = TP after discount, before tax and bonus adjustments. Compare pack sizes before ordering. “Not found” means no compatible name was found in the uploaded inventory, not a stock guarantee.</p>
   <p class="muted note swipe-note">Swipe the table sideways to see vendor prices and verification details.</p>
-  <div class="scroll"><table><thead><tr><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Discount %</th><th>TP</th><th>Net price</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th style="width:55px">No.</th><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Discount %</th><th>TP</th><th>Net price</th><th>Demand qty</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
 </section>
 </main>
 {% endblock %}
