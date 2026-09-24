@@ -13,6 +13,7 @@
   function profile(name, ignoreShelf=false){
     let text=String(name||'').toLowerCase().normalize('NFKC');
     if(ignoreShelf) text=text.replace(/\s+[a-z]-\d+\s*$/i,'');
+    text=text.replace(/^\s*sp\.(?=\s)/,'syp');
     text=text.replace(/(\d)\s+(mg|mcg|g|ml|iu)\b/g,'$1$2')
       .replace(/(\d),(?=\d{3}\b)/g,'$1').replace(/(\d)\s*[x×]\s*(\d)/g,'$1x$2');
     const tokens=(text.match(/[a-z0-9]+(?:[.][0-9]+)?%?/g)||[]).map(t=>forms[t]||t);
@@ -25,7 +26,9 @@
       const group=unit?unit[0]:/^\d/.test(token)?'count':'name';
       (specs[group] ||= []).push(token);
     }
-    return {form,numbers,specs,words,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
+    const combinedStrength=(text.match(/\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g)||[])
+      .map(value=>value.replace(/\s+/g,'')).sort();
+    return {form,numbers,specs,words,combinedStrength,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
   }
   function distance(a,b){
     let prev=Array.from({length:b.length+1},(_,i)=>i);
@@ -40,6 +43,7 @@
   function compare(d,v){
     // An explicit conflicting form or strength/pack never becomes an offer.
     if(d.form.length&&v.form.length&&!same(d.form,v.form)) return null;
+    if(!same(d.combinedStrength,v.combinedStrength))return null;
     if(d.numbers.length&&v.numbers.length){
       const numberPart=t=>Number((t.match(/^\d+(?:\.\d+)?/)||[])[0]);
       const left=d.numbers.map(numberPart),right=v.numbers.map(numberPart);

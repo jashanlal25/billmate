@@ -34,6 +34,14 @@ test('unspecified form offers are choices; shelf stripping is opt-in',()=>{
  assert.equal(m.profile('ANAGROW SHAMPOO C-55',true).key,m.profile('ANAGROW SHAMPOO').key);
  assert.notEqual(m.profile('ANAGROW SHAMPOO C-55').key,m.profile('ANAGROW SHAMPOO').key);
 });
+test('Sp. syrup shorthand matches syrup and never tablet',()=>{
+ const stock=m.prepare([offer('RAPICORT SYP','A'),offer('RAPICORT TAB','B')]);
+ assert.deepEqual(m.match({name:'Sp. Rapicort',qty:'2'},stock).offers.map(o=>o.item.vendor),['A']);
+});
+test('one strength cannot suggest a two-strength combination',()=>{
+ assert.equal(m.compare(m.profile('SOFVASC 5'),m.profile('SOFVASC 5/80')),null);
+ assert.equal(m.compare(m.profile('EXTOR 5/160'),m.profile('EXTOR 5/160 MG TAB')).status,'review');
+});
 test('unknown products do not acquire unrelated offers; no inventory mutations',()=>{
  const source=[offer('PANADOL TAB','A')],before=JSON.stringify(source);
  assert.equal(m.match({name:'AMOXIL CAP'},m.prepare(source)).status,'missing');

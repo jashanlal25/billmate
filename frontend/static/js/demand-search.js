@@ -1,17 +1,19 @@
 (function(){
   'use strict';
   const $=id=>document.getElementById(id);
-  let demands=[],results=[],currentFile=null,version=0,busy=false;
+  let demands=[],results=[],currentFile=null,currentPasted=false,version=0,busy=false;
   let copyOffers=[];
   const status=text=>{$('demandStatus').textContent=text;};
   function controls(){
     $('runDemand').disabled=busy||!demands.length;
-    $('inventoryInstead').disabled=busy||!currentFile;
-    $('clearDemand').disabled=busy||!currentFile;
+    $('inventoryInstead').disabled=busy||!currentFile||!/\.html?$/i.test(currentFile.name);
+    $('clearDemand').disabled=busy||(!currentFile&&!$('pastedDemand').value.trim());
     $('demandFile').disabled=busy;
+    $('pastedDemand').disabled=busy;
+    $('loadTextDemand').disabled=busy||!$('pastedDemand').value.trim();
     $('ignoreShelf').disabled=busy;
   }
-  function parse(text){
+  function parseHtml(text){
     // Detached document: uploaded scripts and styles never enter the app.
     const doc=new DOMParser().parseFromString(text,'text/html');
     const rows=[];
@@ -35,23 +37,24 @@
     if(rows.length>2000) throw Error('Please split this demand into files of no more than 2,000 items.');
     return rows;
   }
-  async function load(file){
+  async function load(file,pasted=false){
     const ticket=++version;
-    demands=[];results=[];currentFile=file||null;
+    demands=[];results=[];currentFile=file||null;currentPasted=pasted;
     $('selectedDemandFile').hidden=!file;
-    $('selectedDemandFile').textContent=file?`Attached demand file: ${file.name} (${(file.size/1024).toFixed(1)} KB)` : '';
+    $('selectedDemandFile').textContent=file?(pasted?'Pasted text demand':`Attached demand file: ${file.name} (${(file.size/1024).toFixed(1)} KB)`):'';
     $('demandResults').hidden=true;$('demandPreview').hidden=true;controls();
     if(!file){status('No demand loaded.');return;}
     try{
-      if(!/\.html?$/i.test(file.name)) throw Error('Choose an HTM or HTML demand file.');
+      if(!/\.(?:html?|txt)$/i.test(file.name)) throw Error('Choose an HTM, HTML, or TXT demand file.');
       if(file.size>4*1024*1024) throw Error('Maximum file size is 4 MB.');
       status('Reading demand…');
-      const parsed=parse(await file.text());
+      const content=await file.text();
+      const parsed=/\.txt$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content);
       if(ticket!==version) return;
       demands=parsed;
-      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td></tr>`).join('');
+      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td></tr>`).join('');
       $('demandPreview').hidden=false;
-      status(`${file.name} — ${demands.length} demand items ready. Tap Run Search.`);
+      status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.`);
     }catch(e){if(ticket===version) status(e.message);}
     controls();
   }
@@ -59,12 +62,27 @@
     await ShareStore.clearPendingSharedFile();
     await load(e.target.files[0]);
   });
+  $('pastedDemand').addEventListener('input',()=>{
+    if(currentPasted){
+      ++version;demands=[];results=[];currentFile=null;currentPasted=false;
+      $('selectedDemandFile').hidden=true;$('demandPreview').hidden=true;$('demandResults').hidden=true;
+      status('Text changed. Tap Load text demand to update the items.');
+    }
+    controls();
+  });
+  $('loadTextDemand').addEventListener('click',async()=>{
+    const text=$('pastedDemand').value;
+    if(!text.trim()||busy)return;
+    await ShareStore.clearPendingSharedFile();
+    $('demandFile').value='';
+    await load(new File([text],'Pasted demand.txt',{type:'text/plain'}),true);
+  });
   $('ignoreShelf').addEventListener('change',()=>{
     results=[];$('demandResults').hidden=true;
     if(demands.length) status('Matching option changed. Tap Run Search to update results.');
   });
   $('clearDemand').addEventListener('click',async()=>{
-    await ShareStore.clearPendingSharedFile();$('demandFile').value='';await load(null);
+    await ShareStore.clearPendingSharedFile();$('demandFile').value='';$('pastedDemand').value='';await load(null);
   });
   $('inventoryInstead').addEventListener('click',async()=>{
     if(!currentFile)return;
@@ -101,7 +119,7 @@
   });
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
   const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
-  const demandQty=d=>[d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`].filter(Boolean).join(' · ')||'—';
+  const demandQty=d=>[d.qty,d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`,d.required&&'Lazmi'].filter(Boolean).join(' · ')||'—';
   const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
   function offerLetter(index){
     let letters='';
