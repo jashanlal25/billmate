@@ -87,7 +87,7 @@ public final class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.5");
+        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.6");
         // The existing website gates its persistent file batch on standalone mode.
         // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -102,8 +102,7 @@ public final class MainActivity extends Activity {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(web, "BillMateNativeShare",
                 Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
-                    if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) ||
-                        !ShareUpload.isTrusted(view.getUrl()) || message.getData() == null) return;
+                    if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) || message.getData() == null) return;
                     receiveGeneratedFile(message.getData());
                 });
         }
@@ -502,7 +501,14 @@ public final class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     @Override public void onBackPressed() {
         if (busy) { toast("Please wait for the transfer to finish."); return; }
-        if (web.canGoBack()) web.goBack(); else super.onBackPressed();
+        if (web.canGoBack()) { web.goBack(); return; }
+        // Keep BillMate open at its home page instead of closing the APK.
+        String current = web.getUrl();
+        if (current != null && !current.equals(ShareUpload.ORIGIN + "/") && !current.equals(ShareUpload.ORIGIN)) {
+            web.loadUrl(ShareUpload.ORIGIN + "/");
+        } else {
+            toast("Already at BillMate home.");
+        }
     }
     @Override protected void onDestroy() {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
