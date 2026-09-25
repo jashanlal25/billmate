@@ -442,7 +442,7 @@ public final class MainActivity extends Activity {
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
-                conn.setRequestProperty("User-Agent", "BillMateNative/" + BuildConfig.VERSION_NAME);
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + "1.7");
                 if (conn.getResponseCode() != 200) throw new IOException("Update check failed");
                 String body;
                 try (InputStream in = conn.getInputStream()) {
@@ -454,13 +454,13 @@ public final class MainActivity extends Activity {
                 String path = meta.optString("download_url", "/download/android");
                 runOnUiThread(() -> {
                     busy = false; toolbar.setVisibility(View.GONE);
-                    if (latestCode <= BuildConfig.VERSION_CODE) {
-                        if (userInitiated) toast("BillMate v" + BuildConfig.VERSION_NAME + " is up to date.");
+                    if (latestCode <= 8) {
+                        if (userInitiated) toast("BillMate v" + "1.7" + " is up to date.");
                         return;
                     }
                     new AlertDialog.Builder(this)
                         .setTitle("BillMate update available")
-                        .setMessage("Installed: v" + BuildConfig.VERSION_NAME + "\nAvailable: v" + latestVersion)
+                        .setMessage("Installed: v" + "1.7" + "\nAvailable: v" + latestVersion)
                         .setPositiveButton("Update", (d,w) -> downloadAndInstallUpdate(path, latestVersion))
                         .setNegativeButton("Later", null).show();
                 });
@@ -487,7 +487,7 @@ public final class MainActivity extends Activity {
                 conn.setInstanceFollowRedirects(true);
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000);
-                conn.setRequestProperty("User-Agent", "BillMateNative/" + BuildConfig.VERSION_NAME);
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + "1.7");
                 if (conn.getResponseCode() != 200) throw new IOException("Download failed");
                 File folder = new File(getCacheDir(), "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IOException("Could not prepare update");
