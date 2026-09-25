@@ -87,7 +87,7 @@ public final class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.6");
+        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.7");
         // The existing website gates its persistent file batch on standalone mode.
         // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -266,6 +266,13 @@ public final class MainActivity extends Activity {
             try {
                 JSONObject request = new JSONObject(data);
                 String action = request.getString("action");
+                if ("print_html".equals(action)) {
+                    String html = request.getString("html");
+                    String title = ShareUpload.safeName(request.optString("filename", "BillMate Invoice"));
+                    if (html.length() > 2 * 1024 * 1024) throw new IOException("Invoice is too large to print.");
+                    runOnUiThread(() -> printHtml(html, title));
+                    return;
+                }
                 String filename = ShareUpload.safeName(request.getString("filename"));
                 String mime = request.optString("mime", "text/html");
                 byte[] bytes = android.util.Base64.decode(request.getString("data_b64"), android.util.Base64.DEFAULT);
@@ -317,6 +324,28 @@ public final class MainActivity extends Activity {
                 }
             } catch (Exception e) { fail("Could not prepare file: " + safeMessage(e)); }
         });
+    }
+
+    private void printHtml(String html, String filename) {
+        busy = true;
+        toolbar.setVisibility(View.VISIBLE);
+        status.setText("Opening Android print…");
+        WebView printView = new WebView(this);
+        printView.getSettings().setJavaScriptEnabled(false);
+        printView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                PrintManager manager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (manager == null) {
+                    busy = false; toolbar.setVisibility(View.GONE); printView.destroy();
+                    toast("Android print service is unavailable."); return;
+                }
+                manager.print(filename, printView.createPrintDocumentAdapter(filename),
+                    new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
+                busy = false; toolbar.setVisibility(View.GONE);
+                web.postDelayed(printView::destroy, 120000);
+            }
+        });
+        printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
     }
 
     private void sharePdf(File output, String filename) {
