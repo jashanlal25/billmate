@@ -8,6 +8,12 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.os.CancellationSignal;
+import android.os.ParcelFileDescriptor;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintDocumentInfo;
+import android.print.PrintManager;
 import android.webkit.*;
 import android.view.*;
 import android.widget.*;
@@ -253,21 +259,40 @@ public final class MainActivity extends Activity {
 
     private void receiveGeneratedFile(String data) {
         if (busy || pendingDownload != null) { toast("Finish the current transfer first."); return; }
-        if (data.length() > 22 * 1024 * 1024) { toast("Generated file is too large to share."); return; }
+        if (data.length() > 30 * 1024 * 1024) { toast("Generated file is too large to share."); return; }
         busy = true;
         toolbar.setVisibility(View.VISIBLE);
-        status.setText("Preparing HTML…");
+        status.setText("Preparing file…");
         worker.execute(() -> {
             try {
                 JSONObject request = new JSONObject(data);
                 String action = request.getString("action");
-                if (!"share".equals(action) && !"save".equals(action)) throw new IOException("Unknown action");
                 String filename = ShareUpload.safeName(request.getString("filename"));
+                String mime = request.optString("mime", "text/html");
+                byte[] bytes = android.util.Base64.decode(request.getString("data_b64"), android.util.Base64.DEFAULT);
+                if (bytes.length == 0 || bytes.length > ShareUpload.MAX_RESPONSE_BYTES)
+                    throw new IOException("Generated file exceeds the file size limit.");
+
+                if ("share_pdf".equals(action) || "print_pdf".equals(action)) {
+                    if (!filename.toLowerCase(Locale.ROOT).endsWith(".pdf") || !"application/pdf".equals(mime))
+                        throw new IOException("Invalid PDF request.");
+                    File folder = new File(getCacheDir(), "shares/" + UUID.randomUUID());
+                    if (!folder.mkdirs()) throw new IOException("Could not prepare the PDF.");
+                    File output = new File(folder, filename);
+                    try (OutputStream out = new FileOutputStream(output)) { out.write(bytes); }
+                    runOnUiThread(() -> {
+                        if (isDestroyed()) { output.delete(); return; }
+                        busy = false;
+                        toolbar.setVisibility(View.GONE);
+                        if ("print_pdf".equals(action)) printPdf(output, filename);
+                        else sharePdf(output, filename);
+                    });
+                    return;
+                }
+
+                if (!"share".equals(action) && !"save".equals(action)) throw new IOException("Unknown action");
                 if (!filename.toLowerCase(Locale.ROOT).endsWith(".htm") &&
                     !filename.toLowerCase(Locale.ROOT).endsWith(".html")) throw new IOException("Only HTML files can be shared.");
-                byte[] bytes = android.util.Base64.decode(request.getString("data_b64"), android.util.Base64.DEFAULT);
-                if (bytes.length == 0 || bytes.length > ShareUpload.MAX_FILE_BYTES)
-                    throw new IOException("Generated HTML exceeds the file size limit.");
                 if ("save".equals(action)) {
                     File staged = File.createTempFile("billmate-download-", ".htm", getCacheDir());
                     try (OutputStream out = new FileOutputStream(staged)) { out.write(bytes); }
@@ -291,8 +316,53 @@ public final class MainActivity extends Activity {
                         catch (ActivityNotFoundException e) { toast("No app can share this file."); }
                     });
                 }
-            } catch (Exception e) { fail("Could not prepare HTML: " + safeMessage(e)); }
+            } catch (Exception e) { fail("Could not prepare file: " + safeMessage(e)); }
         });
+    }
+
+    private void sharePdf(File output, String filename) {
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", output);
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("application/pdf");
+        send.putExtra(Intent.EXTRA_STREAM, uri);
+        send.setClipData(ClipData.newRawUri(filename, uri));
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(Intent.createChooser(send, "Share invoice PDF")); }
+        catch (ActivityNotFoundException e) { toast("No app can share PDF files."); }
+    }
+
+    private void printPdf(File pdf, String filename) {
+        PrintManager manager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+        if (manager == null) { toast("Android print service is unavailable."); return; }
+        PrintDocumentAdapter adapter = new PrintDocumentAdapter() {
+            @Override public void onLayout(PrintAttributes oldAttributes, PrintAttributes newAttributes,
+                    CancellationSignal cancellationSignal, LayoutResultCallback callback, Bundle extras) {
+                if (cancellationSignal.isCanceled()) { callback.onLayoutCancelled(); return; }
+                PrintDocumentInfo info = new PrintDocumentInfo.Builder(filename)
+                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                    .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN).build();
+                callback.onLayoutFinished(info, true);
+            }
+            @Override public void onWrite(android.print.PageRange[] pages, ParcelFileDescriptor destination,
+                    CancellationSignal cancellationSignal, WriteResultCallback callback) {
+                try (InputStream in = new FileInputStream(pdf);
+                     OutputStream out = new FileOutputStream(destination.getFileDescriptor())) {
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        if (cancellationSignal.isCanceled()) { callback.onWriteCancelled(); return; }
+                        out.write(buffer, 0, count);
+                    }
+                    callback.onWriteFinished(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES});
+                } catch (IOException e) { callback.onWriteFailed("Could not send invoice to printer."); }
+            }
+            @Override public void onFinish() {
+                pdf.delete();
+                File parent = pdf.getParentFile();
+                if (parent != null) parent.delete();
+            }
+        };
+        manager.print("BillMate " + filename, adapter, new PrintAttributes.Builder().build());
     }
 
     private void downloadFile(String url, String name, String mime) {
