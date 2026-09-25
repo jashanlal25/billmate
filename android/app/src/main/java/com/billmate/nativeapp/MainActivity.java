@@ -382,49 +382,8 @@ public final class MainActivity extends Activity {
                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
                 CancellationSignal cancel = new CancellationSignal();
                 adapter.onStart();
-                adapter.onLayout(attrs, attrs, cancel, new PrintDocumentAdapter.LayoutResultCallback() {
-                    @Override public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                        try {
-                            ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
-                                ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
-                            adapter.onWrite(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES}, pfd, cancel,
-                                new PrintDocumentAdapter.WriteResultCallback() {
-                                    @Override public void onWriteFinished(android.print.PageRange[] pages) {
-                                        try { pfd.close(); } catch (IOException ignored) {}
-                                        adapter.onFinish();
-                                        printView.destroy();
-                                        busy = false;
-                                        toolbar.setVisibility(View.GONE);
-                                        sharePdf(output, safe);
-                                    }
-                                    @Override public void onWriteFailed(CharSequence error) {
-                                        try { pfd.close(); } catch (IOException ignored) {}
-                                        adapter.onFinish(); printView.destroy(); output.delete();
-                                        busy = false; toolbar.setVisibility(View.GONE);
-                                        toast("PDF creation failed (v1.7).");
-                                    }
-                                    @Override public void onWriteCancelled() {
-                                        try { pfd.close(); } catch (IOException ignored) {}
-                                        adapter.onFinish(); printView.destroy(); output.delete();
-                                        busy = false; toolbar.setVisibility(View.GONE);
-                                    }
-                                });
-                        } catch (IOException e) {
-                            adapter.onFinish(); printView.destroy(); output.delete();
-                            busy = false; toolbar.setVisibility(View.GONE);
-                            toast("Could not create PDF.");
-                        }
-                    }
-                    @Override public void onLayoutFailed(CharSequence error) {
-                        adapter.onFinish(); printView.destroy(); output.delete();
-                        busy = false; toolbar.setVisibility(View.GONE);
-                        toast("Could not lay out invoice PDF.");
-                    }
-                    @Override public void onLayoutCancelled() {
-                        adapter.onFinish(); printView.destroy(); output.delete();
-                        busy = false; toolbar.setVisibility(View.GONE);
-                    }
-                }, null);
+                PrintManager pm = (PrintManager) getSystemService(PRINT_SERVICE);
+                pm.print(safe.replace(".pdf", ""), adapter, attrs);
             }
         });
         printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
