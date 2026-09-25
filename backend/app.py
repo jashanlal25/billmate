@@ -119,117 +119,108 @@ def download_android_apk():
 
 @app.route('/api/invoice/pdf', methods=['POST'])
 def invoice_pdf():
-    """Generate the same branded BillMate invoice layout as the browser PDF."""
+    """Server Share-PDF renderer mirroring buildInvoicePrintHtml()."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 
-    data = request.get_json(silent=True) or {}
-    inv = data.get('invoice') or {}
-    lines = inv.get('lines') or []
-    if not inv or not lines:
-        return jsonify({'error':'Invoice data is required'}), 400
+    data=request.get_json(silent=True) or {}
+    inv=data.get('invoice') or {}; lines=inv.get('lines') or []
+    if not inv or not lines: return jsonify({'error':'Invoice data is required'}),400
+    def n(v):
+        try:return float(v or 0)
+        except:return 0.0
+    def m(v): return f"Rs.{n(v):.2f}"
+    def p(v,d='—'):
+        s=str(v or '').strip(); return s if s else d
 
-    def num(v):
-        try: return float(v or 0)
-        except Exception: return 0.0
-    def money(v): return f"Rs.{num(v):,.2f}"
-    def txt(v, fallback='—'):
-        s=str(v or '').strip()
-        return s if s else fallback
+    accent=colors.HexColor('#4f46e5'); dark=colors.HexColor('#1a1a2e')
+    gray=colors.HexColor('#555555'); light=colors.HexColor('#ececec')
+    buf=io.BytesIO(); number=p(inv.get('invoice_number'),'invoice')
+    doc=SimpleDocTemplate(buf,pagesize=A4,leftMargin=10*mm,rightMargin=10*mm,topMargin=8*mm,bottomMargin=10*mm)
+    ss=getSampleStyleSheet()
+    shop=ParagraphStyle('shop',parent=ss['Normal'],fontName='Helvetica-Bold',fontSize=19,leading=22,textColor=accent,alignment=TA_CENTER)
+    info=ParagraphStyle('info',parent=ss['Normal'],fontSize=8.5,leading=12,textColor=gray,alignment=TA_CENTER)
+    body=ParagraphStyle('body',parent=ss['Normal'],fontSize=8.5,leading=11,textColor=dark)
+    bodyb=ParagraphStyle('bodyb',parent=body,fontName='Helvetica-Bold')
+    tiny=ParagraphStyle('tiny',parent=body,fontSize=6.5,leading=8,textColor=colors.HexColor('#888888'))
+    th=ParagraphStyle('th',parent=tiny,fontName='Helvetica-Bold',textColor=accent)
+    story=[]
 
-    accent=colors.HexColor('#4f46e5')
-    dark=colors.HexColor('#1a1a2e')
-    muted=colors.HexColor('#666666')
-    green=colors.HexColor('#166534')
-    buf=io.BytesIO()
-    number=str(inv.get('invoice_number') or 'invoice')
-    doc=SimpleDocTemplate(buf,pagesize=A4,rightMargin=15*mm,leftMargin=15*mm,topMargin=13*mm,bottomMargin=13*mm)
-    styles=getSampleStyleSheet()
-    shop_style=ParagraphStyle('shop',parent=styles['Title'],fontName='Helvetica-Bold',fontSize=20,leading=23,textColor=accent,alignment=TA_CENTER,spaceAfter=3)
-    center=ParagraphStyle('center',parent=styles['Normal'],fontSize=9,textColor=muted,alignment=TA_CENTER)
-    label=ParagraphStyle('label',parent=styles['Normal'],fontName='Helvetica-Bold',fontSize=7,textColor=colors.HexColor('#888888'))
-    normal=ParagraphStyle('normal2',parent=styles['Normal'],fontSize=9,textColor=dark,leading=12)
-    bold=ParagraphStyle('bold2',parent=normal,fontName='Helvetica-Bold')
-    small=ParagraphStyle('small2',parent=normal,fontSize=8,leading=10)
-    right=ParagraphStyle('right2',parent=normal,alignment=TA_RIGHT)
-    right_bold=ParagraphStyle('rightbold',parent=bold,alignment=TA_RIGHT)
-
-    shop=txt(data.get('shop_name'),'BillMate')
-    address=str(data.get('shop_address') or '').strip()
-    phone=str(data.get('shop_phone') or '').strip() if data.get('show_phone', True) else ''
-    story=[Paragraph(shop,shop_style)]
-    info=' &nbsp; · &nbsp; '.join(x for x in [address, ('Tel: '+phone if phone else '')] if x)
-    if info: story.append(Paragraph(info,center))
-    story += [Spacer(1,5*mm), HRFlowable(width='100%',thickness=2,color=accent), Spacer(1,5*mm)]
+    shop_name=p(data.get('shop_name'),'Your Shop'); phone=p(data.get('shop_phone'),'') if data.get('show_phone',True) else ''
+    address=p(data.get('shop_address'),''); ntn=p(data.get('shop_ntn'),'')
+    story.append(Paragraph(shop_name,shop))
+    shop_bits=[x for x in [address, ('Tel: '+phone if phone else ''), ('NTN: '+ntn if ntn else '')] if x]
+    if shop_bits: story.append(Paragraph(' &nbsp; · &nbsp; '.join(shop_bits),info))
+    story += [Spacer(1,3*mm),HRFlowable(width='100%',thickness=2.2,color=accent),Spacer(1,4*mm)]
 
     cust=[
-      [Paragraph('BILL TO',label),''],
-      [Paragraph('Customer Name',bold),Paragraph(txt(inv.get('customer_name'),'Walk-in Customer'),bold)],
-      [Paragraph('Phone No',bold),Paragraph(txt(inv.get('customer_phone') or inv.get('customer_phone_snap') or inv.get('customer_whatsapp')),normal)],
-      [Paragraph('Address',bold),Paragraph(txt(inv.get('customer_address')),normal)]
+      [Paragraph('BILL TO',tiny),''],
+      [Paragraph('Customer Name',bodyb),Paragraph(p(inv.get('customer_name'),'Walk-in Customer'),bodyb)],
+      [Paragraph('Phone No',bodyb),Paragraph(p(inv.get('customer_phone') or inv.get('customer_phone_snap') or inv.get('customer_whatsapp')),body)],
+      [Paragraph('Address',bodyb),Paragraph(p(inv.get('customer_address')),body)]
     ]
-    cust_t=Table(cust,colWidths=[35*mm,55*mm],rowHeights=[5*mm,7*mm,7*mm,7*mm])
-    cust_t.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),3)]))
-    status=str(inv.get('status') or 'posted').upper()
-    if status=='POSTED': status='INVOICED'
-    meta=[
-      [Paragraph('INVOICE #',label),Paragraph('DATE',label)],
-      [Paragraph(number,bold),Paragraph(txt(inv.get('invoice_date'),''),bold)],
-      [Paragraph('TIME',label),Paragraph('STATUS',label)],
-      [Paragraph(txt(data.get('invoice_time'),''),bold),Paragraph(status,ParagraphStyle('status',parent=bold,textColor=green))]
+    ct=Table(cust,colWidths=[34*mm,60*mm],rowHeights=[4*mm,6*mm,6*mm,6*mm])
+    ct.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),2),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
+    status=str(inv.get('status') or '').lower()
+    status_label={'posted':'INVOICED','cancelled':'CANCELLED','draft':'DRAFT'}.get(status,status.upper() or 'DRAFT')
+    status_border=colors.HexColor('#16a34a' if status=='posted' else '#dc2626' if status=='cancelled' else '#d97706')
+    status_bg=colors.HexColor('#f0fdf4' if status=='posted' else '#fef2f2' if status=='cancelled' else '#fefce8')
+    status_fg=colors.HexColor('#166534' if status=='posted' else '#991b1b' if status=='cancelled' else '#854d0e')
+    boxdata=[
+      [Paragraph('INVOICE #',tiny),Paragraph('DATE',tiny)],
+      [Paragraph(number,bodyb),Paragraph(p(inv.get('invoice_date'),''),bodyb)],
+      [Paragraph('TIME',tiny),Paragraph('STATUS',tiny)],
+      [Paragraph(p(data.get('invoice_time'),''),bodyb),Paragraph(status_label,ParagraphStyle('st',parent=bodyb,textColor=status_fg))]
     ]
-    meta_t=Table(meta,colWidths=[36*mm,36*mm],rowHeights=[5*mm,8*mm,5*mm,8*mm],hAlign='RIGHT')
-    meta_t.setStyle(TableStyle([
+    mt=Table(boxdata,colWidths=[25*mm,25*mm],rowHeights=[4*mm,7*mm,4*mm,7*mm])
+    mt.setStyle(TableStyle([
       ('ALIGN',(0,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
       ('BOX',(0,0),(0,1),1,colors.HexColor('#dddddd')),('BOX',(1,0),(1,1),1,colors.HexColor('#dddddd')),
-      ('BOX',(0,2),(0,3),1,colors.HexColor('#dddddd')),('BOX',(1,2),(1,3),1,colors.HexColor('#16a34a')),
-      ('BACKGROUND',(1,2),(1,3),colors.HexColor('#f0fdf4'))
+      ('BOX',(0,2),(0,3),1,colors.HexColor('#dddddd')),('BOX',(1,2),(1,3),1,status_border),('BACKGROUND',(1,2),(1,3),status_bg),
+      ('LEFTPADDING',(0,0),(-1,-1),3),('RIGHTPADDING',(0,0),(-1,-1),3)
     ]))
-    head=Table([[cust_t,meta_t]],colWidths=[105*mm,75*mm])
+    head=Table([[ct,mt]],colWidths=[124*mm,50*mm])
     head.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
-    story += [head,Spacer(1,7*mm)]
+    story += [head,Spacer(1,5*mm)]
 
-    rows=[[Paragraph('#',label),Paragraph('ITEM DESCRIPTION',label),Paragraph('RATE (TP)',label),Paragraph('DISC%',label),Paragraph('QTY',label),Paragraph('NET AMOUNT',label)]]
-    show_vendor=bool(data.get('show_vendor'))
-    for i,line in enumerate(lines,1):
-        name=txt(line.get('item_name'),'')
-        if show_vendor and line.get('vendor'): name += '<br/><font color="#6366f1" size="7">'+str(line.get('vendor'))+'</font>'
-        disc=num(line.get('discount_pct') if line.get('discount_pct') is not None else line.get('disc_pct'))
-        qty=num(line.get('qty'))
-        line_total=num(line.get('line_net')) + qty*num(line.get('tax_pct'))
-        rows.append([str(i),Paragraph(name,bold),money(line.get('tp')),('%.1f%%'%disc if disc else '—'),('%g'%qty),money(line_total)])
-    items=Table(rows,colWidths=[10*mm,58*mm,30*mm,22*mm,18*mm,35*mm],repeatRows=1)
-    items.setStyle(TableStyle([
-      ('TEXTCOLOR',(0,0),(-1,0),accent),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-      ('LINEBELOW',(0,0),(-1,0),2,accent),('LINEBELOW',(0,1),(-1,-1),.35,colors.HexColor('#e5e7eb')),
-      ('FONTSIZE',(0,0),(-1,-1),8),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-      ('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(-1,-1),'RIGHT'),
-      ('TOPPADDING',(0,0),(-1,-1),7),('BOTTOMPADDING',(0,0),(-1,-1),7)
-    ]))
-    story += [items,Spacer(1,7*mm)]
+    rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
+    for i,l in enumerate(lines,1):
+        desc=f"<b>{p(l.get('item_name'),'')}</b>"
+        if l.get('bonus_text'): desc+=f"<br/><font color='#16a34a' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
+        if data.get('show_rate_source') and l.get('rate_source'): desc+=f"<br/><font color='#888888' size='6'>by {p(l.get('rate_source'),'')}</font>"
+        if data.get('show_vendor') and l.get('vendor'): desc+=f"<br/><font color='#6366f1' size='6'><b>{p(l.get('vendor'),'')}</b></font>"
+        disc=n(l.get('discount_pct'))
+        qty=n(l.get('qty')); line_total=n(l.get('line_net'))+qty*n(l.get('tax_pct'))
+        rows.append([str(i),Paragraph(desc,body),m(l.get('tp')),f"{disc:.1f}%" if disc else '—',f"{qty:.2f}".rstrip('0').rstrip('.'),m(line_total)])
+    it=Table(rows,colWidths=[9*mm,66*mm,28*mm,20*mm,18*mm,33*mm],repeatRows=1)
+    ts=[('TEXTCOLOR',(0,0),(-1,0),accent),('LINEBELOW',(0,0),(-1,0),1.6,accent),('FONTSIZE',(0,0),(-1,-1),8),
+        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(2,-1),'RIGHT'),
+        ('ALIGN',(3,0),(4,-1),'CENTER'),('ALIGN',(5,0),(5,-1),'RIGHT'),('LINEBELOW',(0,1),(-1,-1),.35,light),
+        ('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]
+    for r in range(2,len(rows),2): ts.append(('BACKGROUND',(0,r),(-1,r),colors.HexColor('#f8f8ff')))
+    it.setStyle(TableStyle(ts)); story += [it,Spacer(1,5*mm)]
 
-    totals=[['Subtotal',money(inv.get('subtotal'))]]
-    if num(inv.get('discount_amount'))>0: totals.append(['Discount','- '+money(inv.get('discount_amount'))])
-    if num(inv.get('tax_amount'))>0: totals.append(['Tax',money(inv.get('tax_amount'))])
-    totals.append(['Total',money(inv.get('total'))])
-    if data.get('show_previous_balance') and num(inv.get('previous_balance'))>0 and inv.get('customer_id'):
-        totals.append(['Previous Balance',money(inv.get('previous_balance'))])
-        totals.append(['Grand Total',money(num(inv.get('previous_balance'))+num(inv.get('total')))])
-    tt=Table(totals,colWidths=[45*mm,38*mm],hAlign='RIGHT')
-    tt.setStyle(TableStyle([
-      ('ALIGN',(0,0),(-1,-1),'RIGHT'),('TEXTCOLOR',(0,0),(-1,-2),muted),
-      ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('TEXTCOLOR',(0,-1),(-1,-1),accent),
-      ('LINEABOVE',(0,-1),(-1,-1),2,accent),('FONTSIZE',(0,0),(-1,-1),10),
-      ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)
-    ]))
-    story += [tt,Spacer(1,15*mm),HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#cccccc'),dash=(2,2)),Spacer(1,3*mm),
-              Paragraph(f"{shop}{' · '+phone if phone else ''} · Thank you for your business!",center)]
-    doc.build(story)
-    buf.seek(0)
+    totals=[['Subtotal',m(inv.get('subtotal'))]]
+    if n(inv.get('discount_amount'))>0: totals.append(['Discount','- '+m(inv.get('discount_amount'))])
+    if n(inv.get('tax_amount'))>0: totals.append(['Tax',m(inv.get('tax_amount'))])
+    totals.append(['Total',m(inv.get('total'))]); total_idx=len(totals)-1
+    if data.get('show_previous_balance') and n(inv.get('previous_balance')) and inv.get('customer_id'):
+        totals += [['Previous Balance',m(inv.get('previous_balance'))],['Grand Total',m(n(inv.get('previous_balance'))+n(inv.get('total')))]]
+    tt=Table(totals,colWidths=[42*mm,33*mm],hAlign='RIGHT')
+    sty=[('ALIGN',(1,0),(1,-1),'RIGHT'),('TEXTCOLOR',(0,0),(-1,-1),gray),('FONTSIZE',(0,0),(-1,-1),8.5),
+         ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+         ('LINEABOVE',(0,total_idx),(-1,total_idx),1.5,accent),('FONTNAME',(0,total_idx),(-1,total_idx),'Helvetica-Bold'),('TEXTCOLOR',(0,total_idx),(-1,total_idx),accent)]
+    if len(totals)>total_idx+2:
+        sty += [('TEXTCOLOR',(0,total_idx+1),(-1,total_idx+1),colors.HexColor('#92400e')),
+                ('LINEABOVE',(0,-1),(-1,-1),1.5,accent),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('TEXTCOLOR',(0,-1),(-1,-1),accent)]
+    tt.setStyle(TableStyle(sty)); story += [tt,Spacer(1,10*mm),HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#cccccc'),dash=(2,2)),Spacer(1,3*mm)]
+    footer=shop_name + ((' · '+phone) if phone else '') + ' · Thank you for your business!'
+    story.append(Paragraph(footer,ParagraphStyle('foot',parent=tiny,alignment=TA_CENTER)))
+    doc.build(story); buf.seek(0)
     return send_file(buf,mimetype='application/pdf',as_attachment=True,download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
 
 # ── PWA / Web Share Target ────────────────────────────────────────────────────
