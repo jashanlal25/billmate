@@ -66,6 +66,13 @@ public final class MainActivity extends Activity {
             else web.reload();
         });
         toolbar.addView(retry);
+        Button update = new Button(this);
+        update.setText("Update");
+        update.setOnClickListener(view -> {
+            Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(ShareUpload.ORIGIN + "/download/android"));
+            try { startActivity(browser); } catch (ActivityNotFoundException e) { toast("Could not open the BillMate update page."); }
+        });
+        toolbar.addView(update);
         toolbar.setVisibility(View.GONE);
 
         web = new WebView(this);
