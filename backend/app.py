@@ -2637,6 +2637,159 @@ def delete_customer(cid):
     return jsonify({'success': True})
 
 
+
+# ── POS backup synchronization ────────────────────────────────────────────────
+def _dbf_rows(raw):
+    """Minimal dBase III/IV reader for legacy POS backup files."""
+    import struct
+    if len(raw) < 33:
+        return []
+    count = struct.unpack('<I', raw[4:8])[0]
+    header_len = struct.unpack('<H', raw[8:10])[0]
+    record_len = struct.unpack('<H', raw[10:12])[0]
+    fields=[]; pos=32
+    while pos+32 <= header_len and raw[pos] != 0x0d:
+        fd=raw[pos:pos+32]
+        name=fd[:11].split(b'\0',1)[0].decode('latin1','ignore').strip()
+        fields.append((name, chr(fd[11]), fd[16], fd[17]))
+        pos += 32
+    out=[]
+    for n in range(count):
+        rec=raw[header_len+n*record_len:header_len+(n+1)*record_len]
+        if len(rec)<record_len or rec[:1]==b'*':
+            continue
+        p=1; row={}
+        for name,typ,size,dec in fields:
+            s=rec[p:p+size].decode('latin1','ignore').strip(); p+=size
+            row[name]=s
+        out.append(row)
+    return out
+
+def _pos_num(v):
+    try: return float(str(v or '').strip() or 0)
+    except (ValueError,TypeError): return 0.0
+
+def _pos_key(v):
+    return re.sub(r'[^A-Z0-9]+',' ',str(v or '').upper()).strip()
+
+def _zip_dbf(zf, wanted):
+    wanted=wanted.upper()
+    for name in zf.namelist():
+        base=os.path.basename(name).replace('\xa0',' ').strip().upper()
+        if base==wanted:
+            return _dbf_rows(zf.read(name))
+    return []
+
+@app.route('/api/pos-backup/import', methods=['POST'])
+def import_pos_backup():
+    """Upsert POS customers/suppliers/stock. POS wins only for records present in backup."""
+    uid=session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error':'Registered account required'}),403
+    upload=request.files.get('backup')
+    if not upload or not (upload.filename or '').lower().endswith('.zip'):
+        return jsonify({'error':'Select the original POS backup ZIP file'}),400
+    raw=upload.read()
+    if len(raw)>16*1024*1024:
+        return jsonify({'error':'Backup ZIP is too large'}),413
+    try:
+        zf=zipfile.ZipFile(io.BytesIO(raw))
+        customers=_zip_dbf(zf,'MCTMR.DBF')
+        suppliers=_zip_dbf(zf,'MSPLR.DBF')
+        items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
+        purchases=_zip_dbf(zf,'PUR1.DBF')
+        sopen=_zip_dbf(zf,'SOPEN.DBF')
+    except (zipfile.BadZipFile,RuntimeError):
+        return jsonify({'error':'Invalid POS backup ZIP'}),400
+    if not customers and not suppliers and not items:
+        return jsonify({'error':'POS customer, supplier and stock DBF files were not found'}),400
+
+    stats={'customers_created':0,'customers_updated':0,'suppliers_created':0,'suppliers_updated':0,
+           'items_created':0,'items_updated':0,'untouched_billmate_records':True}
+
+    # POS customer TOTRCV is authoritative current receivable. Adjust opening so
+    # BillMate's own invoice/payment activity does not get added on top of it.
+    existing_customers=Customer.query.filter_by(user_id=uid).all()
+    cust_by_name={_pos_key(x.name):x for x in existing_customers}
+    for r in customers:
+        name=(r.get('CNM') or '').strip()
+        if not name: continue
+        target=round(_pos_num(r.get('TOTRCV')),2)
+        obj=cust_by_name.get(_pos_key(name))
+        if obj:
+            activity=round(customer_balance(obj.id,uid)-float(obj.opening_balance or 0),2)
+            obj.opening_balance=round(target-activity,2)
+            obj.balance=target; obj.is_active=True
+            stats['customers_updated']+=1
+        else:
+            obj=Customer(user_id=uid,code=_next_entity_code(Customer,'CUST',uid),name=name,
+                         opening_balance=target,balance=target,is_active=True,
+                         notes=('POS customer code: '+str(r.get('CCOD') or '').strip()))
+            db.session.add(obj); db.session.flush()
+            cust_by_name[_pos_key(name)]=obj; stats['customers_created']+=1
+
+    # Current supplier payable reconstructed from non-cancelled POS purchases/opening:
+    # outstanding = invoice amount - paid. Only suppliers present in backup are touched.
+    payable={}
+    for r in purchases+sopen:
+        if str(r.get('CAN') or '').strip().upper() in ('Y','1','T'): continue
+        sc=str(r.get('SCODE') or '').strip().lstrip('0') or '0'
+        payable[sc]=payable.get(sc,0.0)+_pos_num(r.get('AMOUNT'))-_pos_num(r.get('PAID'))
+    existing_suppliers=Supplier.query.filter_by(user_id=uid).all()
+    sup_by_name={_pos_key(x.name):x for x in existing_suppliers}
+    for r in suppliers:
+        name=(r.get('NAME') or '').strip()
+        if not name: continue
+        sc=str(r.get('CODE') or '').strip().lstrip('0') or '0'
+        target=round(payable.get(sc,0.0),2)
+        obj=sup_by_name.get(_pos_key(name))
+        if obj:
+            activity=round(supplier_balance(obj.id,uid)-float(obj.opening_balance or 0),2)
+            obj.opening_balance=round(target-activity,2)
+            obj.balance=target; obj.is_active=True
+            stats['suppliers_updated']+=1
+        else:
+            obj=Supplier(user_id=uid,code=_next_entity_code(Supplier,'SUPP',uid),name=name,
+                         opening_balance=target,balance=target,is_active=True,
+                         notes=('POS supplier code: '+str(r.get('CODE') or '').strip()))
+            db.session.add(obj); db.session.flush()
+            sup_by_name[_pos_key(name)]=obj; stats['suppliers_created']+=1
+
+    # Stock master: POS values replace matching BillMate values; BillMate-only items remain.
+    existing_items=Item.query.filter_by(user_id=uid,is_global=False).all()
+    item_by_name={_pos_key(x.name):x for x in existing_items}
+    for r in items:
+        name=(r.get('NAME') or '').strip(); pos_code=(r.get('CODE') or '').strip()
+        if not name or not pos_code or (r.get('MODE') and str(r.get('MODE')).strip().upper()!='I'):
+            continue
+        retail=_pos_num(r.get('RETAIL')); tp=_pos_num(r.get('TRP1'))
+        if retail<=0 and tp<=0: continue
+        if retail<=0: retail=round(tp/0.85,2)
+        if tp<=0: tp=round(retail*0.85,2)
+        qty=_pos_num(r.get('TDBAL'))
+        obj=item_by_name.get(_pos_key(name))
+        if obj:
+            obj.name=name; obj.retail_price=retail; obj.tp=tp; obj.qty=qty
+            obj.discount_pct=_pos_num(r.get('LDISC')); obj.tax_pct=_pos_num(r.get('TAX'))
+            obj.bonus_text=(r.get('BONUS') or '')[:100]; obj.is_active=True
+            stats['items_updated']+=1
+        else:
+            code='POS-'+pos_code
+            if Item.query.filter_by(user_id=uid,code=code).first():
+                code=_next_entity_code(Item,'ITM',uid)
+            obj=Item(user_id=uid,is_global=False,code=code,name=name,retail_price=retail,tp=tp,
+                     qty=qty,discount_pct=_pos_num(r.get('LDISC')),tax_pct=_pos_num(r.get('TAX')),
+                     bonus_text=(r.get('BONUS') or '')[:100],is_active=True)
+            db.session.add(obj); db.session.flush()
+            item_by_name[_pos_key(name)]=obj; stats['items_created']+=1
+
+    db.session.commit()
+    stats['customers_total']=stats['customers_created']+stats['customers_updated']
+    stats['suppliers_total']=stats['suppliers_created']+stats['suppliers_updated']
+    stats['items_total']=stats['items_created']+stats['items_updated']
+    return jsonify({'success':True,'message':'POS backup synchronized. BillMate-only records were left untouched.',**stats})
+
+
 # ── Guest claim endpoint ───────────────────────────────────────────────────────
 
 @app.route('/api/guest/claim-invoice', methods=['POST'])
