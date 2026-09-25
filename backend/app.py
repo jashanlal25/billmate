@@ -160,7 +160,7 @@ def invoice_pdf():
 
     shop=txt(data.get('shop_name'),'BillMate')
     address=str(data.get('shop_address') or '').strip()
-    phone=str(data.get('shop_phone') or '').strip()
+    phone=str(data.get('shop_phone') or '').strip() if data.get('show_phone', True) else ''
     story=[Paragraph(shop,shop_style)]
     info=' &nbsp; · &nbsp; '.join(x for x in [address, ('Tel: '+phone if phone else '')] if x)
     if info: story.append(Paragraph(info,center))
@@ -216,6 +216,9 @@ def invoice_pdf():
     if num(inv.get('discount_amount'))>0: totals.append(['Discount','- '+money(inv.get('discount_amount'))])
     if num(inv.get('tax_amount'))>0: totals.append(['Tax',money(inv.get('tax_amount'))])
     totals.append(['Total',money(inv.get('total'))])
+    if data.get('show_previous_balance') and num(inv.get('previous_balance'))>0 and inv.get('customer_id'):
+        totals.append(['Previous Balance',money(inv.get('previous_balance'))])
+        totals.append(['Grand Total',money(num(inv.get('previous_balance'))+num(inv.get('total')))])
     tt=Table(totals,colWidths=[45*mm,38*mm],hAlign='RIGHT')
     tt.setStyle(TableStyle([
       ('ALIGN',(0,0),(-1,-1),'RIGHT'),('TEXTCOLOR',(0,0),(-1,-2),muted),
