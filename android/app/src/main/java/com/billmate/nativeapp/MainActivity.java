@@ -401,7 +401,7 @@ public final class MainActivity extends Activity {
                                         try { pfd.close(); } catch (IOException ignored) {}
                                         adapter.onFinish(); printView.destroy(); output.delete();
                                         busy = false; toolbar.setVisibility(View.GONE);
-                                        toast("PDF creation failed.");
+                                        toast("PDF creation failed (v1.7).");
                                     }
                                     @Override public void onWriteCancelled() {
                                         try { pfd.close(); } catch (IOException ignored) {}
