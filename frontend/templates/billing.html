@@ -1790,7 +1790,7 @@ async function pdfSavedBill(){
   try{
     if(await _sendNativeInvoice('print_html', inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone())) return;
   }catch(e){ toast('Could not open Android Save PDF',true); return; }
-  _invoicePdfBlob(inv,false,_psShowVendor(),_psShowBalance(),_psShowPhone()).then(blob=>{ const u=URL.createObjectURL(blob); window.open(u,'_blank'); setTimeout(()=>URL.revokeObjectURL(u),120000); }).catch(()=>toast('Could not create PDF',true));
+  _openInvoiceWindow(buildInvoicePrintHtml(inv, true, false, _psShowVendor(), _psShowBalance(), _psShowPhone()));
 }
 
 function pdfToCustomer(){
@@ -2451,7 +2451,7 @@ async function pdfInvoiceModal(){
   try{
     if(await _sendNativeInvoice('print_html', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref())) return;
   }catch(e){ toast('Could not open Android Save PDF',true); return; }
-  _invoicePdfBlob(currentInv,_showRateSourcePref(),_showVendorPref(),_mShowBalancePref(),_mShowPhonePref()).then(blob=>{ const u=URL.createObjectURL(blob); window.open(u,'_blank'); setTimeout(()=>URL.revokeObjectURL(u),120000); }).catch(()=>toast('Could not create PDF',true));
+  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref()));
 }
 
 function pdfToCustomerModal(){
