@@ -29,14 +29,14 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends Activity {
-    private static final int PICK_FILE = 10, SAVE_FILE = 11;
+    private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private WebView web;
     private TextView status;
     private LinearLayout toolbar;
     private Button retry;
     private ValueCallback<Uri[]> fileCallback;
-    private File pendingShare, pendingDownload;
+    private File pendingShare, pendingDownload, pendingUpdateApk;
     private String pendingName;
     private boolean busy;
 
@@ -264,6 +264,13 @@ public final class MainActivity extends Activity {
     }
 
     private void receiveGeneratedFile(String data) {
+        try {
+            JSONObject quick = new JSONObject(data);
+            if ("check_update".equals(quick.optString("action"))) {
+                checkForUpdate(true);
+                return;
+            }
+        } catch (JSONException ignored) {}
         if (busy || pendingDownload != null) { toast("Finish the current transfer first."); return; }
         if (data.length() > 30 * 1024 * 1024) { toast("Generated file is too large to share."); return; }
         busy = true;
@@ -273,11 +280,12 @@ public final class MainActivity extends Activity {
             try {
                 JSONObject request = new JSONObject(data);
                 String action = request.getString("action");
-                if ("print_html".equals(action)) {
+                if ("print_html".equals(action) || "share_pdf_html".equals(action)) {
                     String html = request.getString("html");
-                    String title = ShareUpload.safeName(request.optString("filename", "BillMate Invoice"));
-                    if (html.length() > 2 * 1024 * 1024) throw new IOException("Invoice is too large to print.");
-                    runOnUiThread(() -> printHtml(html, title));
+                    String title = ShareUpload.safeName(request.optString("filename", "BillMate Invoice.pdf"));
+                    if (html.length() > 2 * 1024 * 1024) throw new IOException("Invoice is too large.");
+                    if ("print_html".equals(action)) runOnUiThread(() -> printHtml(html, title));
+                    else runOnUiThread(() -> shareHtmlAsPdf(html, title));
                     return;
                 }
                 String filename = ShareUpload.safeName(request.getString("filename"));
@@ -353,6 +361,178 @@ public final class MainActivity extends Activity {
             }
         });
         printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
+    }
+
+    private void shareHtmlAsPdf(String html, String filename) {
+        busy = true;
+        toolbar.setVisibility(View.VISIBLE);
+        status.setText("Preparing PDF…");
+        File folder = new File(getCacheDir(), "shares/" + UUID.randomUUID());
+        if (!folder.mkdirs()) { busy = false; toolbar.setVisibility(View.GONE); toast("Could not prepare PDF."); return; }
+        String safe = filename.toLowerCase(Locale.ROOT).endsWith(".pdf") ? filename : filename + ".pdf";
+        File output = new File(folder, safe);
+        WebView printView = new WebView(this);
+        printView.getSettings().setJavaScriptEnabled(false);
+        printView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                PrintDocumentAdapter adapter = printView.createPrintDocumentAdapter(safe);
+                PrintAttributes attrs = new PrintAttributes.Builder()
+                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                    .setResolution(new PrintAttributes.Resolution("billmate", "BillMate", 300, 300))
+                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
+                CancellationSignal cancel = new CancellationSignal();
+                adapter.onStart();
+                adapter.onLayout(null, attrs, cancel, new PrintDocumentAdapter.LayoutResultCallback() {
+                    @Override public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                        try {
+                            ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
+                                ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
+                            adapter.onWrite(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES}, pfd, cancel,
+                                new PrintDocumentAdapter.WriteResultCallback() {
+                                    @Override public void onWriteFinished(android.print.PageRange[] pages) {
+                                        try { pfd.close(); } catch (IOException ignored) {}
+                                        adapter.onFinish();
+                                        printView.destroy();
+                                        busy = false;
+                                        toolbar.setVisibility(View.GONE);
+                                        sharePdf(output, safe);
+                                    }
+                                    @Override public void onWriteFailed(CharSequence error) {
+                                        try { pfd.close(); } catch (IOException ignored) {}
+                                        adapter.onFinish(); printView.destroy(); output.delete();
+                                        busy = false; toolbar.setVisibility(View.GONE);
+                                        toast("PDF creation failed.");
+                                    }
+                                    @Override public void onWriteCancelled() {
+                                        try { pfd.close(); } catch (IOException ignored) {}
+                                        adapter.onFinish(); printView.destroy(); output.delete();
+                                        busy = false; toolbar.setVisibility(View.GONE);
+                                    }
+                                });
+                        } catch (IOException e) {
+                            adapter.onFinish(); printView.destroy(); output.delete();
+                            busy = false; toolbar.setVisibility(View.GONE);
+                            toast("Could not create PDF.");
+                        }
+                    }
+                    @Override public void onLayoutFailed(CharSequence error) {
+                        adapter.onFinish(); printView.destroy(); output.delete();
+                        busy = false; toolbar.setVisibility(View.GONE);
+                        toast("Could not lay out invoice PDF.");
+                    }
+                    @Override public void onLayoutCancelled() {
+                        adapter.onFinish(); printView.destroy(); output.delete();
+                        busy = false; toolbar.setVisibility(View.GONE);
+                    }
+                }, null);
+            }
+        });
+        printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
+    }
+
+    private void checkForUpdate(boolean userInitiated) {
+        if (busy) { if (userInitiated) toast("Finish the current transfer first."); return; }
+        busy = true;
+        toolbar.setVisibility(View.VISIBLE);
+        status.setText("Checking for update…");
+        worker.execute(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(ShareUpload.ORIGIN + "/api/android/latest");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + BuildConfig.VERSION_NAME);
+                if (conn.getResponseCode() != 200) throw new IOException("Update check failed");
+                String body;
+                try (InputStream in = conn.getInputStream()) {
+                    body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                }
+                JSONObject meta = new JSONObject(body);
+                int latestCode = meta.getInt("version_code");
+                String latestVersion = meta.getString("version");
+                String path = meta.optString("download_url", "/download/android");
+                runOnUiThread(() -> {
+                    busy = false; toolbar.setVisibility(View.GONE);
+                    if (latestCode <= BuildConfig.VERSION_CODE) {
+                        if (userInitiated) toast("BillMate v" + BuildConfig.VERSION_NAME + " is up to date.");
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                        .setTitle("BillMate update available")
+                        .setMessage("Installed: v" + BuildConfig.VERSION_NAME + "\nAvailable: v" + latestVersion)
+                        .setPositiveButton("Update", (d,w) -> downloadAndInstallUpdate(path, latestVersion))
+                        .setNegativeButton("Later", null).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    busy = false; toolbar.setVisibility(View.GONE);
+                    if (userInitiated) toast("Could not check for updates.");
+                });
+            } finally { if (conn != null) conn.disconnect(); }
+        });
+    }
+
+    private void downloadAndInstallUpdate(String path, String version) {
+        if (busy) return;
+        busy = true;
+        toolbar.setVisibility(View.VISIBLE);
+        status.setText("Downloading v" + version + "…");
+        worker.execute(() -> {
+            HttpURLConnection conn = null;
+            File output = null;
+            try {
+                URL url = new URL(path.startsWith("http") ? path : ShareUpload.ORIGIN + path);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(60000);
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + BuildConfig.VERSION_NAME);
+                if (conn.getResponseCode() != 200) throw new IOException("Download failed");
+                File folder = new File(getCacheDir(), "updates");
+                if (!folder.exists() && !folder.mkdirs()) throw new IOException("Could not prepare update");
+                output = new File(folder, "BillMate-v" + version + ".apk");
+                long total = 0;
+                try (InputStream in = conn.getInputStream(); OutputStream out = new FileOutputStream(output)) {
+                    byte[] buffer = new byte[16384];
+                    int n;
+                    while ((n = in.read(buffer)) != -1) {
+                        total += n;
+                        if (total > 80L * 1024L * 1024L) throw new IOException("Update is too large");
+                        out.write(buffer, 0, n);
+                    }
+                }
+                if (total < 1024) throw new IOException("Invalid update");
+                File ready = output;
+                runOnUiThread(() -> {
+                    busy = false; toolbar.setVisibility(View.GONE);
+                    installUpdate(ready);
+                });
+            } catch (Exception e) {
+                if (output != null) output.delete();
+                runOnUiThread(() -> { busy = false; toolbar.setVisibility(View.GONE); toast("Update download failed."); });
+            } finally { if (conn != null) conn.disconnect(); }
+        });
+    }
+
+    private void installUpdate(File apk) {
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            pendingUpdateApk = apk;
+            try {
+                Intent settings = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName()));
+                startActivityForResult(settings, UPDATE_PERMISSION);
+                toast("Allow BillMate to install updates, then return.");
+            } catch (ActivityNotFoundException e) { toast("Allow app installs for BillMate in Android settings."); }
+            return;
+        }
+        pendingUpdateApk = null;
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", apk);
+        Intent install = new Intent(Intent.ACTION_VIEW);
+        install.setDataAndType(uri, "application/vnd.android.package-archive");
+        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(install); }
+        catch (ActivityNotFoundException e) { toast("Android installer is unavailable."); }
     }
 
     private void sharePdf(File output, String filename) {
@@ -556,6 +736,12 @@ public final class MainActivity extends Activity {
                 finally { file.delete(); }
             });
         }
+        if (request == UPDATE_PERMISSION && pendingUpdateApk != null) {
+            File apk = pendingUpdateApk;
+            if (android.os.Build.VERSION.SDK_INT < 26 || getPackageManager().canRequestPackageInstalls()) installUpdate(apk);
+            else toast("Update permission was not enabled.");
+        }
+
     }
 
     private void openExternal(Uri uri) {
