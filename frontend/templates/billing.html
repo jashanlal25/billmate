@@ -1764,9 +1764,13 @@ function _psShowBalance(){
   return !!(c && c.checked);
 }
 
-function printSavedBill(){
+async function printSavedBill(){
   if(!lastSavedInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), false, false, _psShowVendor(), _psShowBalance()));
+  const inv=_invWithPhone(lastSavedInv);
+  try{
+    if(await _sendPdfToNative('print_pdf', inv, false, _psShowVendor(), _psShowBalance())) return;
+  }catch(e){ toast('Could not open Android print',true); return; }
+  _openInvoiceWindow(buildInvoicePrintHtml(inv, false, false, _psShowVendor(), _psShowBalance()));
 }
 
 function pdfSavedBill(){
@@ -1778,34 +1782,24 @@ function pdfToCustomer(){
   if(!lastSavedInv) return;
   const cphone = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
   if(!cphone){ toast('No customer phone number',true); return; }
-  const html = buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true, false, _psShowVendor(), _psShowBalance());
-  const container = document.createElement('div');
-  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px';
-  document.body.appendChild(container);
-  const fileName = `${lastSavedInv.invoice_number}.pdf`;
-  html2pdf().set({
-    margin: [10,10,10,10],
-    filename: fileName,
-    image: {type:'jpeg',quality:0.95},
-    html2canvas: {scale:2,useCORS:true},
-    jsPDF: {unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(container).outputPdf('blob').then(blob=>{
-    document.body.removeChild(container);
-    const file = new File([blob], fileName, {type:'application/pdf'});
+  const inv=_invWithPhone(lastSavedInv);
+  const fileName=`${inv.invoice_number}.pdf`;
+  if(_isBillMateNative()){
+    _sendPdfToNative('share_pdf', inv, false, _psShowVendor(), _psShowBalance())
+      .catch(()=>toast('PDF sharing failed',true));
+    return;
+  }
+  _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance()).then(blob=>{
+    const file=new File([blob],fileName,{type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file], title:fileName}).catch(()=>{});
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName; a.click();
-      URL.revokeObjectURL(url);
+      navigator.share({files:[file],title:fileName}).catch(()=>{});
+    }else{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=fileName; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
       toast('PDF downloaded — attach it manually in WhatsApp');
     }
-  }).catch(()=>{
-    document.body.removeChild(container);
-    toast('PDF generation failed',true);
-  });
+  }).catch(()=>toast('PDF generation failed',true));
 }
 
 // Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
@@ -2179,7 +2173,7 @@ async function viewInvoice(id){
     <button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
-    ${custPh?`<button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 PDF to Customer</button>`:''}
+    ${custPh?`<button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 Share PDF</button>`:''}
     ${hasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   const sc=setupCompleted;
   if(inv.status === 'draft'){
@@ -2276,7 +2270,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
     <div class="cust-block">
       <div class="lbl">Bill To</div>
       <div class="cust-row-item"><span class="k">Customer Name</span><span class="v cust-name-val">${inv.customer_name||'Walk-in Customer'}</span></div>
-      <div class="cust-row-item"><span class="k">Phone No</span><span class="v">${inv.customer_phone||'—'}</span></div>
+      <div class="cust-row-item"><span class="k">Phone No</span><span class="v">${inv.customer_phone||inv.customer_phone_snap||inv.customer_whatsapp||'—'}</span></div>
       <div class="cust-row-item"><span class="k">Address</span><span class="v">${inv.customer_address||'—'}</span></div>
     </div>
     <div class="meta-boxes">
@@ -2374,8 +2368,49 @@ function _initShowSourceToggle(inv){
   }
 }
 
-function printInvoiceModal(){
+function _isBillMateNative(){
+  return !!(window.__BILLMATE_NATIVE__ && window.BillMateNativeShare && typeof window.BillMateNativeShare.postMessage==='function');
+}
+
+function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
+  const html = buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal);
+  const container = document.createElement('div');
+  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px;background:#fff';
+  document.body.appendChild(container);
+  return html2pdf().set({
+    margin:[10,10,10,10],
+    filename:`${inv.invoice_number}.pdf`,
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2,useCORS:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).from(container).outputPdf('blob').finally(()=>{ try{document.body.removeChild(container);}catch(e){} });
+}
+
+function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal){
+  if(!_isBillMateNative()) return Promise.resolve(false);
+  return _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal).then(blob=>new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const data=String(reader.result||'');
+        window.BillMateNativeShare.postMessage(JSON.stringify({
+          action:action, filename:`${inv.invoice_number}.pdf`, mime:'application/pdf',
+          data_b64:data.substring(data.indexOf(',')+1)
+        }));
+        resolve(true);
+      }catch(e){reject(e);}
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  }));
+}
+
+async function printInvoiceModal(){
   if(!currentInv) return;
+  try{
+    if(await _sendPdfToNative('print_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())) return;
+  }catch(e){ toast('Could not open Android print',true); return; }
   _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()));
 }
 
@@ -2386,22 +2421,15 @@ function pdfInvoiceModal(){
 
 function pdfToCustomerModal(){
   if(!currentInv) return;
-  const cphone = (currentInv.customer_whatsapp||currentInv.customer_phone||'').replace(/[^\d]/g,'');
+  const cphone = (currentInv.customer_whatsapp||currentInv.customer_phone||currentInv.customer_phone_snap||'').replace(/[^\d]/g,'');
   if(!cphone){ toast('No customer phone number',true); return; }
-  const html = buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref());
-  const container = document.createElement('div');
-  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:210mm;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px';
-  document.body.appendChild(container);
   const fileName = `${currentInv.invoice_number}.pdf`;
-  html2pdf().set({
-    margin: [10,10,10,10],
-    filename: fileName,
-    image: {type:'jpeg',quality:0.95},
-    html2canvas: {scale:2,useCORS:true},
-    jsPDF: {unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(container).outputPdf('blob').then(blob=>{
-    document.body.removeChild(container);
+  if(_isBillMateNative()){
+    _sendPdfToNative('share_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())
+      .catch(()=>toast('PDF sharing failed',true));
+    return;
+  }
+  _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()).then(blob=>{
     const file = new File([blob], fileName, {type:'application/pdf'});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       navigator.share({files:[file], title:fileName}).catch(()=>{});
@@ -2409,13 +2437,10 @@ function pdfToCustomerModal(){
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = fileName; a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
       toast('PDF downloaded — attach it manually in WhatsApp');
     }
-  }).catch(()=>{
-    document.body.removeChild(container);
-    toast('PDF generation failed',true);
-  });
+  }).catch(()=>toast('PDF generation failed',true));
 }
 
 async function postInvoice(id){
