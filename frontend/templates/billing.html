@@ -1773,9 +1773,13 @@ async function printSavedBill(){
   _openInvoiceWindow(buildInvoicePrintHtml(inv, false, false, _psShowVendor(), _psShowBalance()));
 }
 
-function pdfSavedBill(){
+async function pdfSavedBill(){
   if(!lastSavedInv) return;
-  _openInvoiceWindow(buildInvoicePrintHtml(_invWithPhone(lastSavedInv), true, false, _psShowVendor(), _psShowBalance()));
+  const inv=_invWithPhone(lastSavedInv);
+  try{
+    if(await _sendNativeInvoice('print_html', inv, false, _psShowVendor(), _psShowBalance())) return;
+  }catch(e){ toast('Could not open Android Save PDF',true); return; }
+  _openInvoiceWindow(buildInvoicePrintHtml(inv, true, false, _psShowVendor(), _psShowBalance()));
 }
 
 function pdfToCustomer(){
@@ -1789,14 +1793,15 @@ function pdfToCustomer(){
   }
   _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance()).then(blob=>{
     const file=new File([blob],fileName,{type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file],title:fileName}).catch(()=>{});
-    }else{
+    const downloadFallback=()=>{
       const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=fileName; a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      toast('PDF downloaded — attach it manually in WhatsApp');
-    }
+      const a=document.createElement('a'); a.href=url; a.download=fileName; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),3000);
+      toast('Share is unavailable here — PDF downloaded instead');
+    };
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      navigator.share({files:[file],title:fileName}).catch(err=>{ if(!err || err.name!=='AbortError') downloadFallback(); });
+    }else downloadFallback();
   }).catch(()=>toast('PDF generation failed',true));
 }
 
@@ -2423,8 +2428,11 @@ async function printInvoiceModal(){
   _openInvoiceWindow(buildInvoicePrintHtml(currentInv, false, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()));
 }
 
-function pdfInvoiceModal(){
+async function pdfInvoiceModal(){
   if(!currentInv) return;
+  try{
+    if(await _sendNativeInvoice('print_html', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())) return;
+  }catch(e){ toast('Could not open Android Save PDF',true); return; }
   _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()));
 }
 
