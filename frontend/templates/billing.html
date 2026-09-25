@@ -1798,7 +1798,7 @@ function pdfToCustomer(){
   const inv=_invWithPhone(lastSavedInv);
   const fileName=`${inv.invoice_number}.pdf`;
   if(_isBillMateNative()){
-    _sendPdfToNative('share_pdf', inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone())
+    _shareServerPdfToNative(inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone())
       .catch(()=>toast('PDF sharing failed',true));
     return;
   }
@@ -2418,6 +2418,27 @@ function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal, showPhone
 
 
 
+function _shareServerPdfToNative(inv, showRateSource, showVendor, showPrevBal, showPhone){
+  if(!_isBillMateNative()) return Promise.resolve(false);
+  return _invoicePdfBlob(inv,showRateSource,showVendor,showPrevBal,showPhone).then(blob=>new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Could not read PDF'));
+    reader.onload=()=>{
+      try{
+        const data=String(reader.result||'');
+        const comma=data.indexOf(',');
+        if(comma<0) throw new Error('Invalid PDF data');
+        window.BillMateNativeShare.postMessage(JSON.stringify({
+          action:'share_pdf', filename:`${inv.invoice_number}.pdf`,
+          mime:'application/pdf', data_b64:data.slice(comma+1)
+        }));
+        resolve(true);
+      }catch(e){ reject(e); }
+    };
+    reader.readAsDataURL(blob);
+  }));
+}
+
 function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal, showPhone){
   if(!_isBillMateNative()) return Promise.resolve(false);
   try{
@@ -2461,7 +2482,7 @@ function pdfToCustomerModal(){
   if(!currentInv) return;
   const fileName = `${currentInv.invoice_number}.pdf`;
   if(_isBillMateNative()){
-    _sendPdfToNative('share_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref())
+    _shareServerPdfToNative(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref())
       .catch(()=>toast('PDF sharing failed',true));
     return;
   }
