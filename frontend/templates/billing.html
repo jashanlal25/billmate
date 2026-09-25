@@ -463,6 +463,10 @@ input[type=number]{-moz-appearance:textfield}
         <input type="checkbox" id="psShowVendorChk" style="margin:0;cursor:pointer">
         <span>🏷 Show vendor on bill (print / PDF / WhatsApp)</span>
       </label>
+      <label id="psShowPhoneRow" style="display:flex;align-items:center;gap:7px;padding:8px 12px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.25);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
+        <input type="checkbox" id="psShowPhoneChk" checked style="margin:0;cursor:pointer">
+        <span>📞 Show shop number on PDF</span>
+      </label>
       <label id="psShowBalanceRow" style="display:none;align-items:center;gap:7px;padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
         <input type="checkbox" id="psShowBalanceChk" style="margin:0;cursor:pointer">
         <span>💰 Show previous balance on bill</span>
@@ -600,6 +604,10 @@ input[type=number]{-moz-appearance:textfield}
     <label id="mShowVendorRow" style="display:none;align-items:center;gap:7px;margin-top:10px;padding:8px 12px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
       <input type="checkbox" id="mShowVendorChk" style="margin:0;cursor:pointer">
       <span>🏷 Show vendor on print/PDF</span>
+    </label>
+    <label id="mShowPhoneRow" style="display:flex;align-items:center;gap:7px;margin-top:10px;padding:8px 12px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.25);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
+      <input type="checkbox" id="mShowPhoneChk" checked style="margin:0;cursor:pointer">
+      <span>📞 Show shop number on PDF</span>
     </label>
     <label id="mShowBalanceRow" style="display:none;align-items:center;gap:7px;margin-top:10px;padding:8px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:8px;font-size:.85em;color:var(--sub);cursor:pointer;user-select:none">
       <input type="checkbox" id="mShowBalanceChk" checked style="margin:0;cursor:pointer">
@@ -1760,6 +1768,8 @@ function _psShowVendor(){
   return !!(c && c.checked);
 }
 
+function _psShowPhone(){ const c=document.getElementById('psShowPhoneChk'); return !c || c.checked; }
+
 function _psShowBalance(){
   const c = document.getElementById('psShowBalanceChk');
   return !!(c && c.checked);
@@ -1778,9 +1788,9 @@ async function pdfSavedBill(){
   if(!lastSavedInv) return;
   const inv=_invWithPhone(lastSavedInv);
   try{
-    if(await _sendNativeInvoice('print_html', inv, false, _psShowVendor(), _psShowBalance())) return;
+    if(await _sendNativeInvoice('print_html', inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone())) return;
   }catch(e){ toast('Could not open Android Save PDF',true); return; }
-  _openInvoiceWindow(buildInvoicePrintHtml(inv, true, false, _psShowVendor(), _psShowBalance()));
+  _invoicePdfBlob(inv,false,_psShowVendor(),_psShowBalance(),_psShowPhone()).then(blob=>{ const u=URL.createObjectURL(blob); window.open(u,'_blank'); setTimeout(()=>URL.revokeObjectURL(u),120000); }).catch(()=>toast('Could not create PDF',true));
 }
 
 function pdfToCustomer(){
@@ -1788,11 +1798,11 @@ function pdfToCustomer(){
   const inv=_invWithPhone(lastSavedInv);
   const fileName=`${inv.invoice_number}.pdf`;
   if(_isBillMateNative()){
-    _sendPdfToNative('share_pdf', inv, false, _psShowVendor(), _psShowBalance())
+    _sendPdfToNative('share_pdf', inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone())
       .catch(()=>toast('PDF sharing failed',true));
     return;
   }
-  _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance()).then(blob=>
+  _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance(), _psShowPhone()).then(blob=>
     _sharePreparedPdf(blob, fileName)
   ).catch(err=>{ if(!err || err.name!=='AbortError') toast('Could not share PDF',true); });
 }
@@ -2193,7 +2203,8 @@ async function viewInvoice(id){
 function closeInvModal(){ document.getElementById('invModal').classList.remove('open'); }
 function closeInvModalBg(e){ if(e.target===document.getElementById('invModal')) closeInvModal(); }
 
-function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrevBal){
+function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrevBal, showPhone){
+  if(showPhone===undefined) showPhone=true;
   if(showPrevBal===undefined) showPrevBal=true;
   const s = settings;
   const now = new Date();
@@ -2256,7 +2267,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
   <div class="shop-header">
     <div class="shop-name">${s.shop_name||'Your Shop'}</div>
     <div class="shop-info">
-      ${s.address?`${s.address}`:''}${s.address&&(s.phone||s.ntn)?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.phone?`Tel: ${s.phone}`:''}${s.phone&&s.ntn?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.ntn?`NTN: ${s.ntn}`:''}
+      ${s.address?`${s.address}`:''}${s.address&&((showPhone&&s.phone)||s.ntn)?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${showPhone&&s.phone?`Tel: ${s.phone}`:''}${showPhone&&s.phone&&s.ntn?'&nbsp;&nbsp;·&nbsp;&nbsp;':''}${s.ntn?`NTN: ${s.ntn}`:''}
     </div>
   </div>
   <hr class="divider">
@@ -2299,7 +2310,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
       <tr class="grand-row"><td>Grand Total</td><td style="text-align:right">Rs.${((+inv.previous_balance)+(+inv.total)).toFixed(2)}</td></tr>`:''}
     </table>
   </div>
-  <div class="footer">${s.shop_name||''} ${s.phone?'· '+s.phone:''} · Thank you for your business!</div>
+  <div class="footer">${s.shop_name||''} ${showPhone&&s.phone?'· '+s.phone:''} · Thank you for your business!</div>
   <div id="_printBar" class="no-print" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:14px 16px;background:#fff;border-top:2px solid #4f46e5;text-align:center;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,.12)">
     <button onclick="window.print()" style="width:100%;max-width:400px;padding:14px;background:#4f46e5;color:#fff;border:none;border-radius:12px;font-size:1.05em;font-weight:700;cursor:pointer;letter-spacing:.3px">${forPdf?'📄 Save as PDF':'🖨️ Print'}</button>
   </div>
@@ -2325,6 +2336,8 @@ function _showVendorPref(){
   const c = document.getElementById('mShowVendorChk');
   return !!(c && c.checked);
 }
+
+function _mShowPhonePref(){ const c=document.getElementById('mShowPhoneChk'); return !c || c.checked; }
 
 function _mShowBalancePref(){
   const c = document.getElementById('mShowBalanceChk');
@@ -2378,7 +2391,7 @@ function _sharePreparedPdf(blob, fileName){
   return Promise.resolve();
 }
 
-function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
+function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal, showPhone){
   return fetch('/api/invoice/pdf',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -2386,12 +2399,13 @@ function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
     body:JSON.stringify({
       invoice:inv,
       shop_name:settings.shop_name||'BillMate',
-      shop_phone:settings.phone||'',
+      shop_phone:(showPhone===false?'':(settings.phone||'')),
       shop_address:settings.address||'',
       invoice_time:new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true}),
       show_vendor:!!showVendor,
       show_rate_source:!!showRateSource,
-      show_previous_balance:!!showPrevBal
+      show_previous_balance:!!showPrevBal,
+      show_phone:showPhone!==false
     })
   }).then(async r=>{
     if(!r.ok) throw new Error((await r.text())||('PDF server error '+r.status));
@@ -2401,10 +2415,10 @@ function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
   });
 }
 
-function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal){
+function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal, showPhone){
   if(!_isBillMateNative()) return Promise.resolve(false);
   try{
-    const html=buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal);
+    const html=buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal, showPhone);
     window.BillMateNativeShare.postMessage(JSON.stringify({
       action:action, filename:`${inv.invoice_number}.pdf`, html:html
     }));
@@ -2412,10 +2426,10 @@ function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal
   }catch(e){ return Promise.reject(e); }
 }
 
-function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal){
+function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal, showPhone){
   if(!_isBillMateNative()) return Promise.resolve(false);
-  if(action==='print_pdf') return _sendNativeInvoice('print_html', inv, showRateSource, showVendor, showPrevBal);
-  if(action==='share_pdf') return _sendNativeInvoice('share_pdf_html', inv, showRateSource, showVendor, showPrevBal);
+  if(action==='print_pdf') return _sendNativeInvoice('print_html', inv, showRateSource, showVendor, showPrevBal, showPhone);
+  if(action==='share_pdf') return _sendNativeInvoice('share_pdf_html', inv, showRateSource, showVendor, showPrevBal, showPhone);
   return Promise.reject(new Error('Unsupported native PDF action'));
 }
 
@@ -2435,20 +2449,20 @@ async function printInvoiceModal(){
 async function pdfInvoiceModal(){
   if(!currentInv) return;
   try{
-    if(await _sendNativeInvoice('print_html', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())) return;
+    if(await _sendNativeInvoice('print_html', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref())) return;
   }catch(e){ toast('Could not open Android Save PDF',true); return; }
-  _openInvoiceWindow(buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()));
+  _invoicePdfBlob(currentInv,_showRateSourcePref(),_showVendorPref(),_mShowBalancePref(),_mShowPhonePref()).then(blob=>{ const u=URL.createObjectURL(blob); window.open(u,'_blank'); setTimeout(()=>URL.revokeObjectURL(u),120000); }).catch(()=>toast('Could not create PDF',true));
 }
 
 function pdfToCustomerModal(){
   if(!currentInv) return;
   const fileName = `${currentInv.invoice_number}.pdf`;
   if(_isBillMateNative()){
-    _sendPdfToNative('share_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())
+    _sendPdfToNative('share_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref())
       .catch(()=>toast('PDF sharing failed',true));
     return;
   }
-  _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()).then(blob=>
+  _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref()).then(blob=>
     _sharePreparedPdf(blob, fileName)
   ).catch(err=>{ if(!err || err.name!=='AbortError') toast('Could not share PDF',true); });
 }
