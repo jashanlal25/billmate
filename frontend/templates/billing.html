@@ -2387,6 +2387,8 @@ function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
       invoice:inv,
       shop_name:settings.shop_name||'BillMate',
       shop_phone:settings.phone||'',
+      shop_address:settings.address||'',
+      invoice_time:new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true}),
       show_vendor:!!showVendor,
       show_rate_source:!!showRateSource,
       show_previous_balance:!!showPrevBal
