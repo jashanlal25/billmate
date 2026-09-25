@@ -87,7 +87,7 @@ public final class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.4");
+        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.5");
         // The existing website gates its persistent file batch on standalone mode.
         // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
