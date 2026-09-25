@@ -1780,8 +1780,6 @@ function pdfSavedBill(){
 
 function pdfToCustomer(){
   if(!lastSavedInv) return;
-  const cphone = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
-  if(!cphone){ toast('No customer phone number',true); return; }
   const inv=_invWithPhone(lastSavedInv);
   const fileName=`${inv.invoice_number}.pdf`;
   if(_isBillMateNative()){
@@ -2421,8 +2419,6 @@ function pdfInvoiceModal(){
 
 function pdfToCustomerModal(){
   if(!currentInv) return;
-  const cphone = (currentInv.customer_whatsapp||currentInv.customer_phone||currentInv.customer_phone_snap||'').replace(/[^\d]/g,'');
-  if(!cphone){ toast('No customer phone number',true); return; }
   const fileName = `${currentInv.invoice_number}.pdf`;
   if(_isBillMateNative()){
     _sendPdfToNative('share_pdf', currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref())
