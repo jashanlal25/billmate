@@ -2379,24 +2379,24 @@ function _sharePreparedPdf(blob, fileName){
 }
 
 function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
-  const html = buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal);
-  const container = document.createElement('div');
-  container.innerHTML = html.replace(/<!DOCTYPE[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*/i,'');
-  // Keep the PDF source in the rendered document. html2canvas can fail on Android
-  // when the source is positioned far outside the viewport.
-  container.style.cssText = 'position:fixed;left:0;top:0;width:794px;font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1a1a2e;padding:24px 30px;background:#fff;z-index:2147483000;opacity:1;pointer-events:none;transform:translateX(-110vw)';
-  document.body.appendChild(container);
-  if(typeof html2pdf!=='function'){
-    try{document.body.removeChild(container);}catch(e){}
-    return Promise.reject(new Error('PDF library unavailable'));
-  }
-  return html2pdf().set({
-    margin:[10,10,10,10],
-    filename:`${inv.invoice_number}.pdf`,
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:1.5,useCORS:true,backgroundColor:'#ffffff',windowWidth:854},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-  }).from(container).outputPdf('blob').finally(()=>{ try{document.body.removeChild(container);}catch(e){} });
+  return fetch('/api/invoice/pdf',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body:JSON.stringify({
+      invoice:inv,
+      shop_name:settings.shop_name||'BillMate',
+      shop_phone:settings.phone||'',
+      show_vendor:!!showVendor,
+      show_rate_source:!!showRateSource,
+      show_previous_balance:!!showPrevBal
+    })
+  }).then(async r=>{
+    if(!r.ok) throw new Error((await r.text())||('PDF server error '+r.status));
+    const blob=await r.blob();
+    if(!blob || !blob.size) throw new Error('Empty PDF');
+    return blob;
+  });
 }
 
 function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal){
