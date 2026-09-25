@@ -119,72 +119,115 @@ def download_android_apk():
 
 @app.route('/api/invoice/pdf', methods=['POST'])
 def invoice_pdf():
-    """Generate a real invoice PDF server-side for browser/native sharing."""
+    """Generate the same branded BillMate invoice layout as the browser PDF."""
     from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 
     data = request.get_json(silent=True) or {}
     inv = data.get('invoice') or {}
     lines = inv.get('lines') or []
     if not inv or not lines:
-        return jsonify({'error': 'Invoice data is required'}), 400
+        return jsonify({'error':'Invoice data is required'}), 400
 
-    def money(v):
-        try: return f"Rs. {float(v or 0):,.2f}"
-        except Exception: return "Rs. 0.00"
+    def num(v):
+        try: return float(v or 0)
+        except Exception: return 0.0
+    def money(v): return f"Rs.{num(v):,.2f}"
+    def txt(v, fallback='—'):
+        s=str(v or '').strip()
+        return s if s else fallback
 
-    buf = io.BytesIO()
-    number = str(inv.get('invoice_number') or 'invoice')
-    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=12*mm, leftMargin=12*mm,
-                            topMargin=12*mm, bottomMargin=12*mm)
-    styles = getSampleStyleSheet()
-    story = []
-    shop = str(data.get('shop_name') or 'BillMate')
-    story.append(Paragraph(f"<b>{shop}</b>", styles['Title']))
-    phone = str(data.get('shop_phone') or '')
-    if phone: story.append(Paragraph(phone, styles['Normal']))
-    story.append(Spacer(1, 5*mm))
-    story.append(Paragraph(f"<b>Invoice:</b> {number} &nbsp;&nbsp; <b>Date:</b> {inv.get('invoice_date') or ''}", styles['Normal']))
-    story.append(Paragraph(f"<b>Customer:</b> {inv.get('customer_name') or 'Walk-in'}", styles['Normal']))
-    story.append(Spacer(1, 4*mm))
+    accent=colors.HexColor('#4f46e5')
+    dark=colors.HexColor('#1a1a2e')
+    muted=colors.HexColor('#666666')
+    green=colors.HexColor('#166534')
+    buf=io.BytesIO()
+    number=str(inv.get('invoice_number') or 'invoice')
+    doc=SimpleDocTemplate(buf,pagesize=A4,rightMargin=15*mm,leftMargin=15*mm,topMargin=13*mm,bottomMargin=13*mm)
+    styles=getSampleStyleSheet()
+    shop_style=ParagraphStyle('shop',parent=styles['Title'],fontName='Helvetica-Bold',fontSize=20,leading=23,textColor=accent,alignment=TA_CENTER,spaceAfter=3)
+    center=ParagraphStyle('center',parent=styles['Normal'],fontSize=9,textColor=muted,alignment=TA_CENTER)
+    label=ParagraphStyle('label',parent=styles['Normal'],fontName='Helvetica-Bold',fontSize=7,textColor=colors.HexColor('#888888'))
+    normal=ParagraphStyle('normal2',parent=styles['Normal'],fontSize=9,textColor=dark,leading=12)
+    bold=ParagraphStyle('bold2',parent=normal,fontName='Helvetica-Bold')
+    small=ParagraphStyle('small2',parent=normal,fontSize=8,leading=10)
+    right=ParagraphStyle('right2',parent=normal,alignment=TA_RIGHT)
+    right_bold=ParagraphStyle('rightbold',parent=bold,alignment=TA_RIGHT)
 
-    rows = [['#','Item','TP','Disc%','Tax','Qty','Net']]
-    show_vendor = bool(data.get('show_vendor'))
-    if show_vendor: rows[0].append('Vendor')
-    for i, line in enumerate(lines, 1):
-        row = [str(i), str(line.get('item_name') or ''), money(line.get('tp')),
-               f"{float(line.get('discount_pct') or line.get('disc_pct') or 0):g}%",
-               f"{float(line.get('tax_pct') or 0):g}%", str(line.get('qty') or 0),
-               money(line.get('line_net'))]
-        if show_vendor: row.append(str(line.get('vendor') or ''))
-        rows.append(row)
-    table = Table(rows, repeatRows=1, hAlign='LEFT')
-    table.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(-1,0),colors.HexColor('#eef2ff')),
-        ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTSIZE',(0,0),(-1,-1),8),
-        ('VALIGN',(0,0),(-1,-1),'TOP'),
-        ('GRID',(0,0),(-1,-1),0.35,colors.HexColor('#d1d5db')),
-        ('LEFTPADDING',(0,0),(-1,-1),4),('RIGHTPADDING',(0,0),(-1,-1),4),
-        ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
-    ]))
-    story += [table, Spacer(1, 5*mm)]
-    totals = [
-        ['Subtotal', money(inv.get('subtotal'))],
-        ['Discount', money(inv.get('discount_amount'))],
-        ['Tax', money(inv.get('tax_amount'))],
-        ['Total', money(inv.get('total'))],
+    shop=txt(data.get('shop_name'),'BillMate')
+    address=str(data.get('shop_address') or '').strip()
+    phone=str(data.get('shop_phone') or '').strip()
+    story=[Paragraph(shop,shop_style)]
+    info=' &nbsp; · &nbsp; '.join(x for x in [address, ('Tel: '+phone if phone else '')] if x)
+    if info: story.append(Paragraph(info,center))
+    story += [Spacer(1,5*mm), HRFlowable(width='100%',thickness=2,color=accent), Spacer(1,5*mm)]
+
+    cust=[
+      [Paragraph('BILL TO',label),''],
+      [Paragraph('Customer Name',bold),Paragraph(txt(inv.get('customer_name'),'Walk-in Customer'),bold)],
+      [Paragraph('Phone No',bold),Paragraph(txt(inv.get('customer_phone') or inv.get('customer_phone_snap') or inv.get('customer_whatsapp')),normal)],
+      [Paragraph('Address',bold),Paragraph(txt(inv.get('customer_address')),normal)]
     ]
-    tt = Table(totals, colWidths=[35*mm, 35*mm], hAlign='RIGHT')
-    tt.setStyle(TableStyle([('ALIGN',(1,0),(1,-1),'RIGHT'),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold')]))
-    story.append(tt)
+    cust_t=Table(cust,colWidths=[35*mm,55*mm],rowHeights=[5*mm,7*mm,7*mm,7*mm])
+    cust_t.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),3)]))
+    status=str(inv.get('status') or 'posted').upper()
+    if status=='POSTED': status='INVOICED'
+    meta=[
+      [Paragraph('INVOICE #',label),Paragraph('DATE',label)],
+      [Paragraph(number,bold),Paragraph(txt(inv.get('invoice_date'),''),bold)],
+      [Paragraph('TIME',label),Paragraph('STATUS',label)],
+      [Paragraph(txt(data.get('invoice_time'),''),bold),Paragraph(status,ParagraphStyle('status',parent=bold,textColor=green))]
+    ]
+    meta_t=Table(meta,colWidths=[36*mm,36*mm],rowHeights=[5*mm,8*mm,5*mm,8*mm],hAlign='RIGHT')
+    meta_t.setStyle(TableStyle([
+      ('ALIGN',(0,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+      ('BOX',(0,0),(0,1),1,colors.HexColor('#dddddd')),('BOX',(1,0),(1,1),1,colors.HexColor('#dddddd')),
+      ('BOX',(0,2),(0,3),1,colors.HexColor('#dddddd')),('BOX',(1,2),(1,3),1,colors.HexColor('#16a34a')),
+      ('BACKGROUND',(1,2),(1,3),colors.HexColor('#f0fdf4'))
+    ]))
+    head=Table([[cust_t,meta_t]],colWidths=[105*mm,75*mm])
+    head.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
+    story += [head,Spacer(1,7*mm)]
+
+    rows=[[Paragraph('#',label),Paragraph('ITEM DESCRIPTION',label),Paragraph('RATE (TP)',label),Paragraph('DISC%',label),Paragraph('QTY',label),Paragraph('NET AMOUNT',label)]]
+    show_vendor=bool(data.get('show_vendor'))
+    for i,line in enumerate(lines,1):
+        name=txt(line.get('item_name'),'')
+        if show_vendor and line.get('vendor'): name += '<br/><font color="#6366f1" size="7">'+str(line.get('vendor'))+'</font>'
+        disc=num(line.get('discount_pct') if line.get('discount_pct') is not None else line.get('disc_pct'))
+        qty=num(line.get('qty'))
+        line_total=num(line.get('line_net')) + qty*num(line.get('tax_pct'))
+        rows.append([str(i),Paragraph(name,bold),money(line.get('tp')),('%.1f%%'%disc if disc else '—'),('%g'%qty),money(line_total)])
+    items=Table(rows,colWidths=[10*mm,58*mm,30*mm,22*mm,18*mm,35*mm],repeatRows=1)
+    items.setStyle(TableStyle([
+      ('TEXTCOLOR',(0,0),(-1,0),accent),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+      ('LINEBELOW',(0,0),(-1,0),2,accent),('LINEBELOW',(0,1),(-1,-1),.35,colors.HexColor('#e5e7eb')),
+      ('FONTSIZE',(0,0),(-1,-1),8),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+      ('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(-1,-1),'RIGHT'),
+      ('TOPPADDING',(0,0),(-1,-1),7),('BOTTOMPADDING',(0,0),(-1,-1),7)
+    ]))
+    story += [items,Spacer(1,7*mm)]
+
+    totals=[['Subtotal',money(inv.get('subtotal'))]]
+    if num(inv.get('discount_amount'))>0: totals.append(['Discount','- '+money(inv.get('discount_amount'))])
+    if num(inv.get('tax_amount'))>0: totals.append(['Tax',money(inv.get('tax_amount'))])
+    totals.append(['Total',money(inv.get('total'))])
+    tt=Table(totals,colWidths=[45*mm,38*mm],hAlign='RIGHT')
+    tt.setStyle(TableStyle([
+      ('ALIGN',(0,0),(-1,-1),'RIGHT'),('TEXTCOLOR',(0,0),(-1,-2),muted),
+      ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('TEXTCOLOR',(0,-1),(-1,-1),accent),
+      ('LINEABOVE',(0,-1),(-1,-1),2,accent),('FONTSIZE',(0,0),(-1,-1),10),
+      ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)
+    ]))
+    story += [tt,Spacer(1,15*mm),HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#cccccc'),dash=(2,2)),Spacer(1,3*mm),
+              Paragraph(f"{shop}{' · '+phone if phone else ''} · Thank you for your business!",center)]
     doc.build(story)
     buf.seek(0)
-    return send_file(buf, mimetype='application/pdf', as_attachment=True,
-                     download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
+    return send_file(buf,mimetype='application/pdf',as_attachment=True,download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
 
 # ── PWA / Web Share Target ────────────────────────────────────────────────────
 # Share Target size/extension limits mirror the Items import API (4 MB, .htm/.html).
