@@ -1793,17 +1793,7 @@ function pdfToCustomer(){
     return;
   }
   _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance()).then(blob=>{
-    const file=new File([blob],fileName,{type:'application/pdf'});
-    const downloadFallback=()=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=fileName; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),3000);
-      toast('Share is unavailable here — PDF downloaded instead');
-    };
-    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-      navigator.share({files:[file],title:fileName}).catch(err=>{ if(!err || err.name!=='AbortError') downloadFallback(); });
-    }else downloadFallback();
-  }).catch(()=>toast('PDF generation failed',true));
+    _sharePreparedPdf(blob, fileName);\n  }).catch(()=>toast('PDF generation failed',true));
 }
 
 // Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
@@ -2376,6 +2366,29 @@ function _isBillMateNative(){
   return !!(window.__BILLMATE_NATIVE__ && window.BillMateNativeShare && typeof window.BillMateNativeShare.postMessage==='function');
 }
 
+function _sharePreparedPdf(blob, fileName){
+  const file=new File([blob],fileName,{type:'application/pdf'});
+  const download=()=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=fileName; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  };
+  if(!(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]})))){
+    download(); toast('PDF downloaded — browser file sharing is unavailable here'); return;
+  }
+  // A generated PDF can outlive the browser's original user-activation window.
+  // Show a real second-tap control so navigator.share is called directly from a user gesture.
+  let old=document.getElementById('pdfShareReady'); if(old) old.remove();
+  const box=document.createElement('div'); box.id='pdfShareReady';
+  box.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px';
+  box.innerHTML='<div style="background:#fff;color:#111;border-radius:14px;padding:20px;max-width:340px;width:100%;text-align:center"><b>PDF ready</b><p style="margin:10px 0 16px">Tap Share PDF to choose WhatsApp, Gmail, Drive or another app.</p><button id="pdfShareReadyGo" style="padding:12px 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:700">Share PDF</button> <button id="pdfShareReadySave" style="padding:12px 14px;border:0;border-radius:10px">Download</button></div>';
+  document.body.appendChild(box);
+  document.getElementById('pdfShareReadyGo').onclick=()=>{
+    navigator.share({files:[file],title:fileName}).then(()=>box.remove()).catch(err=>{ if(err && err.name==='AbortError') return; toast('Share failed — you can download the PDF instead',true); });
+  };
+  document.getElementById('pdfShareReadySave').onclick=()=>{ download(); box.remove(); };
+}
+
 function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
   const html = buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal);
   const container = document.createElement('div');
@@ -2439,18 +2452,7 @@ function pdfToCustomerModal(){
     return;
   }
   _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()).then(blob=>{
-    const file = new File([blob], fileName, {type:'application/pdf'});
-    const downloadFallback=()=>{
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=fileName; a.style.display='none';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),3000);
-      toast('Share is unavailable here — PDF downloaded instead');
-    };
-    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-      navigator.share({files:[file], title:fileName}).catch(err=>{ if(!err || err.name!=='AbortError') downloadFallback(); });
-    } else downloadFallback();
-  }).catch(()=>toast('PDF generation failed',true));
+    _sharePreparedPdf(blob, fileName);\n  }).catch(()=>toast('PDF generation failed',true));
 }
 
 async function postInvoice(id){
