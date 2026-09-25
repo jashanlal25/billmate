@@ -86,7 +86,18 @@ from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine,
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Public APK download proxy. Keeps GitHub/repository URLs out of the browser.
+# Public APK metadata + download proxy. Keeps GitHub/repository URLs out of the browser.
+ANDROID_APK_VERSION = '1.7'
+ANDROID_APK_VERSION_CODE = 7
+
+@app.route('/api/android/latest')
+def android_latest():
+    return jsonify({
+        'version': ANDROID_APK_VERSION,
+        'version_code': ANDROID_APK_VERSION_CODE,
+        'download_url': '/download/android',
+    })
+
 @app.route('/download/android')
 def download_android_apk():
     import urllib.request
@@ -314,7 +325,7 @@ def check_auth():
     # Public, no-session-needed PWA endpoints: the service worker and the
     # share-target bridge (transfers the shared file to the requester's own
     # browser only — inventory writes still require an authenticated session).
-    if path in ('/sw.js', '/share-target', '/download/android'):
+    if path in ('/sw.js', '/share-target', '/download/android', '/api/android/latest'):
         return
     if path == '/api/forgot-password-request':
         return
