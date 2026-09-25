@@ -247,6 +247,7 @@ input[type=number]{-moz-appearance:textfield}
   <a href="/payments"  class="nav-link">💳 Payments</a>
   <a href="/backup"   class="nav-link">💾 Backup</a>
   <a href="/admin"     class="nav-link">🛡️ Admin</a>
+  <button id="nativeUpdateBtn" class="nav-link" onclick="checkNativeUpdate()" style="display:none;border:0;width:100%;text-align:left;background:transparent;cursor:pointer">⬆️ Update BillMate</button>
 </div>
 
 <div style="max-width:1300px;margin:0 auto">
@@ -2404,21 +2405,14 @@ function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal
 function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal){
   if(!_isBillMateNative()) return Promise.resolve(false);
   if(action==='print_pdf') return _sendNativeInvoice('print_html', inv, showRateSource, showVendor, showPrevBal);
-  return _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal).then(blob=>new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>{
-      try{
-        const data=String(reader.result||'');
-        window.BillMateNativeShare.postMessage(JSON.stringify({
-          action:action, filename:`${inv.invoice_number}.pdf`, mime:'application/pdf',
-          data_b64:data.substring(data.indexOf(',')+1)
-        }));
-        resolve(true);
-      }catch(e){reject(e);}
-    };
-    reader.onerror=reject;
-    reader.readAsDataURL(blob);
-  }));
+  if(action==='share_pdf') return _sendNativeInvoice('share_pdf_html', inv, showRateSource, showVendor, showPrevBal);
+  return Promise.reject(new Error('Unsupported native PDF action'));
+}
+
+function checkNativeUpdate(){
+  if(!_isBillMateNative()){ toast('Updates are available only inside the Android app',true); return; }
+  try{ window.BillMateNativeShare.postMessage(JSON.stringify({action:'check_update'})); }
+  catch(e){ toast('Could not check for app update',true); }
 }
 async function printInvoiceModal(){
   if(!currentInv) return;
@@ -2446,15 +2440,16 @@ function pdfToCustomerModal(){
   }
   _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()).then(blob=>{
     const file = new File([blob], fileName, {type:'application/pdf'});
+    const downloadFallback=()=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=fileName; a.style.display='none';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),3000);
+      toast('Share is unavailable here — PDF downloaded instead');
+    };
     if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-      navigator.share({files:[file], title:fileName}).catch(err=>{ if(err && err.name!=='AbortError') toast('PDF sharing failed — use the downloaded PDF instead',true); });
-    } else {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName; a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      toast('PDF downloaded — attach it manually in WhatsApp');
-    }
+      navigator.share({files:[file], title:fileName}).catch(err=>{ if(!err || err.name!=='AbortError') downloadFallback(); });
+    } else downloadFallback();
   }).catch(()=>toast('PDF generation failed',true));
 }
 
@@ -2990,6 +2985,10 @@ document.addEventListener('keydown', function(e){
   if(!_CART_COL[e.key]) return;
   e.preventDefault();
   _focusCartField(e.key);
+});
+document.addEventListener('DOMContentLoaded',()=>{
+  const u=document.getElementById('nativeUpdateBtn');
+  if(u && _isBillMateNative()) u.style.display='flex';
 });
 </script>
 </body>
