@@ -1,15 +1,6 @@
 {% extends 'admin/base.html' %}
 {% block title %}Setup
-<script>
-async function syncPosBackup(){
- const f=document.getElementById('posBackupFile'), b=document.getElementById('posBackupBtn'), out=document.getElementById('posBackupResult');
- if(!f.files.length){out.textContent='Select your POS backup ZIP first.';return;}
- b.disabled=true;b.textContent='Synchronizing…';out.textContent='Reading POS backup…';
- try{const fd=new FormData();fd.append('backup',f.files[0]);const r=await fetch('/api/pos-backup/import',{method:'POST',body:fd});const d=await r.json();if(!r.ok)throw new Error(d.error||'Import failed');
- out.innerHTML='<b>✅ Sync complete</b><br>Customers: '+d.customers_total+' ('+d.customers_created+' new, '+d.customers_updated+' updated)<br>Suppliers: '+d.suppliers_total+' ('+d.suppliers_created+' new, '+d.suppliers_updated+' updated)<br>Stock items: '+d.items_total+' ('+d.items_created+' new, '+d.items_updated+' updated)<br>BillMate-only records were untouched.';
- }catch(e){out.textContent='❌ '+e.message;}finally{b.disabled=false;b.textContent='Upload & Sync POS Backup';}
-}
-</script>
+
 {% endblock %}
 {% block btn_setup %}active{% endblock %}
 
@@ -82,16 +73,6 @@ async function syncPosBackup(){
   <button onclick="saveSetup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:600;cursor:pointer">Save Settings</button>
 </div>
 
-
-<div style="max-width:640px;margin:24px auto 0">
-  <div class="section-header"><div class="section-title">🔄 POS Backup Sync</div></div>
-  <div class="card" style="padding:28px">
-    <p style="font-size:.84em;color:var(--sub);margin:0 0 14px;line-height:1.6">Upload the original POS backup ZIP. Customers, receivables, suppliers, payables and stock found in the backup are created or refreshed. Matching POS values replace BillMate values; BillMate-only records are left untouched.</p>
-    <input id="posBackupFile" type="file" accept=".zip,application/zip" style="width:100%;margin-bottom:12px;color:var(--text)">
-    <button id="posBackupBtn" onclick="syncPosBackup()" style="width:100%;padding:12px;border:none;border-radius:11px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;cursor:pointer">Upload & Sync POS Backup</button>
-    <div id="posBackupResult" style="font-size:.82em;color:var(--sub);margin-top:12px;line-height:1.6"></div>
-  </div>
-</div>
 
 <div style="max-width:640px;margin:24px auto 0">
   <div class="section-header"><div class="section-title">📷 Scan Bill — AI Keys</div></div>
