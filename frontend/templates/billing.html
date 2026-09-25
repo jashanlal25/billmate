@@ -2392,6 +2392,27 @@ function _sharePreparedPdf(blob, fileName){
 }
 
 function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal, showPhone){
+  // Share PDF only: render the exact master invoice HTML/CSS in-browser.
+  // This keeps PDF and Share PDF on one layout source instead of a second server template.
+  const html=buildInvoicePrintHtml(inv,true,showRateSource,showVendor,showPrevBal,showPhone)
+    .replace(/<div id="_printBar"[\\s\\S]*?<\\/div>\\s*<script>[\\s\\S]*?<\\\\\/script>/,'');
+  const holder=document.createElement('div');
+  holder.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;background:#fff;z-index:-1';
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  holder.innerHTML=doc.body.innerHTML;
+  document.body.appendChild(holder);
+  const opt={
+    margin:[10,10,10,10],
+    filename:(inv.invoice_number||'invoice')+'.pdf',
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy']}
+  };
+  return html2pdf().set(opt).from(holder).outputPdf('blob').finally(()=>holder.remove());
+}
+
+function _invoicePdfBlobServerLegacy(inv, showRateSource, showVendor, showPrevBal, showPhone){
   return fetch('/api/invoice/pdf',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
