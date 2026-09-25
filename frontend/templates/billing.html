@@ -2385,8 +2385,20 @@ function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal){
   }).from(container).outputPdf('blob').finally(()=>{ try{document.body.removeChild(container);}catch(e){} });
 }
 
+function _sendNativeInvoice(action, inv, showRateSource, showVendor, showPrevBal){
+  if(!_isBillMateNative()) return Promise.resolve(false);
+  try{
+    const html=buildInvoicePrintHtml(inv, true, showRateSource, showVendor, showPrevBal);
+    window.BillMateNativeShare.postMessage(JSON.stringify({
+      action:action, filename:`${inv.invoice_number}.pdf`, html:html
+    }));
+    return Promise.resolve(true);
+  }catch(e){ return Promise.reject(e); }
+}
+
 function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal){
   if(!_isBillMateNative()) return Promise.resolve(false);
+  if(action==='print_pdf') return _sendNativeInvoice('print_html', inv, showRateSource, showVendor, showPrevBal);
   return _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal).then(blob=>new Promise((resolve,reject)=>{
     const reader=new FileReader();
     reader.onload=()=>{
@@ -2403,7 +2415,6 @@ function _sendPdfToNative(action, inv, showRateSource, showVendor, showPrevBal){
     reader.readAsDataURL(blob);
   }));
 }
-
 async function printInvoiceModal(){
   if(!currentInv) return;
   try{
@@ -2427,8 +2438,8 @@ function pdfToCustomerModal(){
   }
   _invoicePdfBlob(currentInv, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref()).then(blob=>{
     const file = new File([blob], fileName, {type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file], title:fileName}).catch(()=>{});
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      navigator.share({files:[file], title:fileName}).catch(err=>{ if(err && err.name!=='AbortError') toast('PDF sharing failed — use the downloaded PDF instead',true); });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
