@@ -116,6 +116,76 @@ def download_android_apk():
     except Exception:
         return 'APK is temporarily unavailable. Please try again shortly.', 503
 
+
+@app.route('/api/invoice/pdf', methods=['POST'])
+def invoice_pdf():
+    """Generate a real invoice PDF server-side for browser/native sharing."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    data = request.get_json(silent=True) or {}
+    inv = data.get('invoice') or {}
+    lines = inv.get('lines') or []
+    if not inv or not lines:
+        return jsonify({'error': 'Invoice data is required'}), 400
+
+    def money(v):
+        try: return f"Rs. {float(v or 0):,.2f}"
+        except Exception: return "Rs. 0.00"
+
+    buf = io.BytesIO()
+    number = str(inv.get('invoice_number') or 'invoice')
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=12*mm, leftMargin=12*mm,
+                            topMargin=12*mm, bottomMargin=12*mm)
+    styles = getSampleStyleSheet()
+    story = []
+    shop = str(data.get('shop_name') or 'BillMate')
+    story.append(Paragraph(f"<b>{shop}</b>", styles['Title']))
+    phone = str(data.get('shop_phone') or '')
+    if phone: story.append(Paragraph(phone, styles['Normal']))
+    story.append(Spacer(1, 5*mm))
+    story.append(Paragraph(f"<b>Invoice:</b> {number} &nbsp;&nbsp; <b>Date:</b> {inv.get('invoice_date') or ''}", styles['Normal']))
+    story.append(Paragraph(f"<b>Customer:</b> {inv.get('customer_name') or 'Walk-in'}", styles['Normal']))
+    story.append(Spacer(1, 4*mm))
+
+    rows = [['#','Item','TP','Disc%','Tax','Qty','Net']]
+    show_vendor = bool(data.get('show_vendor'))
+    if show_vendor: rows[0].append('Vendor')
+    for i, line in enumerate(lines, 1):
+        row = [str(i), str(line.get('item_name') or ''), money(line.get('tp')),
+               f"{float(line.get('discount_pct') or line.get('disc_pct') or 0):g}%",
+               f"{float(line.get('tax_pct') or 0):g}%", str(line.get('qty') or 0),
+               money(line.get('line_net'))]
+        if show_vendor: row.append(str(line.get('vendor') or ''))
+        rows.append(row)
+    table = Table(rows, repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND',(0,0),(-1,0),colors.HexColor('#eef2ff')),
+        ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+        ('FONTSIZE',(0,0),(-1,-1),8),
+        ('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('GRID',(0,0),(-1,-1),0.35,colors.HexColor('#d1d5db')),
+        ('LEFTPADDING',(0,0),(-1,-1),4),('RIGHTPADDING',(0,0),(-1,-1),4),
+        ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+    ]))
+    story += [table, Spacer(1, 5*mm)]
+    totals = [
+        ['Subtotal', money(inv.get('subtotal'))],
+        ['Discount', money(inv.get('discount_amount'))],
+        ['Tax', money(inv.get('tax_amount'))],
+        ['Total', money(inv.get('total'))],
+    ]
+    tt = Table(totals, colWidths=[35*mm, 35*mm], hAlign='RIGHT')
+    tt.setStyle(TableStyle([('ALIGN',(1,0),(1,-1),'RIGHT'),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold')]))
+    story.append(tt)
+    doc.build(story)
+    buf.seek(0)
+    return send_file(buf, mimetype='application/pdf', as_attachment=True,
+                     download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
+
 # ── PWA / Web Share Target ────────────────────────────────────────────────────
 # Share Target size/extension limits mirror the Items import API (4 MB, .htm/.html).
 SHARE_TARGET_MAX_BYTES = 4 * 1024 * 1024
