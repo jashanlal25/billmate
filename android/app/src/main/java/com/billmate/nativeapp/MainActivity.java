@@ -66,19 +66,19 @@ public final class MainActivity extends Activity {
             else web.reload();
         });
         toolbar.addView(retry);
-        Button update = new Button(this);
-        update.setText("Update");
-        update.setOnClickListener(view -> {
-            Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(ShareUpload.ORIGIN + "/download/android"));
-            try { startActivity(browser); } catch (ActivityNotFoundException e) { toast("Could not open the BillMate update page."); }
-        });
-        toolbar.addView(update);
         toolbar.setVisibility(View.GONE);
 
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(18, 34, 56));
         FrameLayout content = new FrameLayout(this);
         content.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        Button appUpdate = new Button(this);
+        appUpdate.setText("Update");
+        appUpdate.setTextSize(12);
+        appUpdate.setOnClickListener(view -> downloadAppUpdate());
+        FrameLayout.LayoutParams updatePos = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
+        updatePos.setMargins(8, 8, 8, 8);
+        content.addView(appUpdate, updatePos);
         int unit = Math.max(1, Math.round(getResources().getDisplayMetrics().density));
         ProgressBar spinner = new ProgressBar(this);
         toolbar.addView(spinner, 0, new LinearLayout.LayoutParams(24 * unit, 24 * unit));
@@ -398,6 +398,55 @@ public final class MainActivity extends Activity {
             }
         };
         manager.print("BillMate " + filename, adapter, new PrintAttributes.Builder().build());
+    }
+
+    private void downloadAppUpdate() {
+        if (busy) { toast("Finish the current transfer first."); return; }
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+            toast("Allow BillMate to install updates, then tap Update again.");
+            Intent settings = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:" + getPackageName()));
+            try { startActivity(settings); } catch (ActivityNotFoundException e) { toast("Open Android settings and allow installs from BillMate."); }
+            return;
+        }
+        busy = true;
+        toolbar.setVisibility(View.VISIBLE);
+        status.setText("Downloading BillMate update…");
+        worker.execute(() -> {
+            HttpURLConnection connection = null;
+            File apk = null;
+            try {
+                connection = (HttpURLConnection) new URL(ShareUpload.ORIGIN + "/download/android").openConnection();
+                connection.setInstanceFollowRedirects(true);
+                connection.setConnectTimeout(20000);
+                connection.setReadTimeout(120000);
+                if (connection.getResponseCode() != 200) throw new IOException("Server returned HTTP " + connection.getResponseCode());
+                File folder = new File(getCacheDir(), "updates");
+                if (!folder.exists() && !folder.mkdirs()) throw new IOException("Could not prepare update storage.");
+                apk = new File(folder, "BillMate-update.apk");
+                try (InputStream input = connection.getInputStream(); OutputStream output = new FileOutputStream(apk)) {
+                    byte[] buffer = new byte[16384]; int count; long total = 0;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        if (total > 100L * 1024L * 1024L) throw new IOException("Update file is unexpectedly large.");
+                        output.write(buffer, 0, count);
+                    }
+                }
+                if (apk.length() < 100000) throw new IOException("Downloaded update is incomplete.");
+                File ready = apk;
+                runOnUiThread(() -> {
+                    busy = false; toolbar.setVisibility(View.GONE);
+                    Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", ready);
+                    Intent install = new Intent(Intent.ACTION_VIEW);
+                    install.setDataAndType(uri, "application/vnd.android.package-archive");
+                    install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    try { startActivity(install); } catch (ActivityNotFoundException e) { toast("Android could not open the update installer."); }
+                });
+            } catch (Exception e) {
+                if (apk != null) apk.delete();
+                fail("Update failed: " + safeMessage(e));
+            } finally { if (connection != null) connection.disconnect(); }
+        });
     }
 
     private void downloadFile(String url, String name, String mime) {
