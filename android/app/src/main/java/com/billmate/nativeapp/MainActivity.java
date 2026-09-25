@@ -373,10 +373,53 @@ public final class MainActivity extends Activity {
                     .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
                     .setResolution(new PrintAttributes.Resolution("billmate", "BillMate", 300, 300))
                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
-                CancellationSignal cancel = new CancellationSignal();
                 adapter.onStart();
-                PrintManager pm = (PrintManager) getSystemService(PRINT_SERVICE);
-                pm.print(safe.replace(".pdf", ""), adapter, attrs);
+                adapter.onLayout(null, attrs, new CancellationSignal(),
+                    new PrintDocumentAdapter.LayoutResultCallback() {
+                        @Override public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                            try {
+                                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
+                                    ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
+                                adapter.onWrite(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES}, pfd,
+                                    new CancellationSignal(), new PrintDocumentAdapter.WriteResultCallback() {
+                                        @Override public void onWriteFinished(android.print.PageRange[] pages) {
+                                            try { pfd.close(); } catch (IOException ignored) {}
+                                            adapter.onFinish();
+                                            busy = false;
+                                            toolbar.setVisibility(View.GONE);
+                                            printView.destroy();
+                                            sharePdf(output, safe);
+                                        }
+                                        @Override public void onWriteFailed(CharSequence error) {
+                                            try { pfd.close(); } catch (IOException ignored) {}
+                                            adapter.onFinish();
+                                            printView.destroy();
+                                            fail("Could not create PDF" + (error == null ? "." : ": " + error));
+                                        }
+                                        @Override public void onWriteCancelled() {
+                                            try { pfd.close(); } catch (IOException ignored) {}
+                                            adapter.onFinish();
+                                            printView.destroy();
+                                            fail("PDF creation cancelled.");
+                                        }
+                                    });
+                            } catch (IOException e) {
+                                adapter.onFinish();
+                                printView.destroy();
+                                fail("Could not create PDF: " + safeMessage(e));
+                            }
+                        }
+                        @Override public void onLayoutFailed(CharSequence error) {
+                            adapter.onFinish();
+                            printView.destroy();
+                            fail("Could not prepare PDF" + (error == null ? "." : ": " + error));
+                        }
+                        @Override public void onLayoutCancelled() {
+                            adapter.onFinish();
+                            printView.destroy();
+                            fail("PDF creation cancelled.");
+                        }
+                    }, null);
             }
         });
         printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
