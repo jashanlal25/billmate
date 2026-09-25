@@ -405,7 +405,11 @@ public final class MainActivity extends Activity {
                 if (conn.getResponseCode() != 200) throw new IOException("Update check failed");
                 String body;
                 try (InputStream in = conn.getInputStream()) {
-                    body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                    ByteArrayOutputStream responseBytes = new ByteArrayOutputStream();
+                byte[] responseBuffer = new byte[4096];
+                int responseCount;
+                while ((responseCount = in.read(responseBuffer)) != -1) responseBytes.write(responseBuffer, 0, responseCount);
+                body = new String(responseBytes.toByteArray(), StandardCharsets.UTF_8);
                 }
                 JSONObject meta = new JSONObject(body);
                 int latestCode = meta.getInt("version_code");
