@@ -382,7 +382,7 @@ public final class MainActivity extends Activity {
                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
                 CancellationSignal cancel = new CancellationSignal();
                 adapter.onStart();
-                adapter.onLayout(null, attrs, cancel, new PrintDocumentAdapter.LayoutResultCallback() {
+                adapter.onLayout(attrs, attrs, cancel, new PrintDocumentAdapter.LayoutResultCallback() {
                     @Override public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
                         try {
                             ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
