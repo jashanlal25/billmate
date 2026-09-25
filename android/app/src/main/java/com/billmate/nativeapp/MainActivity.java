@@ -357,69 +357,31 @@ public final class MainActivity extends Activity {
     }
 
     private void shareHtmlAsPdf(String html, String filename) {
+        // Android's WebView print callbacks cannot be instantiated directly from an app
+        // on all supported SDKs. Use the system print pipeline for HTML-to-PDF instead.
+        // This path always clears BillMate's transfer state so it cannot remain stuck.
         busy = true;
         toolbar.setVisibility(View.VISIBLE);
-        status.setText("Preparing PDF…");
-        File folder = new File(getCacheDir(), "shares/" + UUID.randomUUID());
-        if (!folder.mkdirs()) { busy = false; toolbar.setVisibility(View.GONE); toast("Could not prepare PDF."); return; }
-        String safe = filename.toLowerCase(Locale.ROOT).endsWith(".pdf") ? filename : filename + ".pdf";
-        File output = new File(folder, safe);
+        status.setText("Opening PDF…");
         WebView printView = new WebView(this);
         printView.getSettings().setJavaScriptEnabled(false);
         printView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
-                PrintDocumentAdapter adapter = printView.createPrintDocumentAdapter(safe);
-                PrintAttributes attrs = new PrintAttributes.Builder()
-                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                    .setResolution(new PrintAttributes.Resolution("billmate", "BillMate", 300, 300))
-                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
-                adapter.onStart();
-                adapter.onLayout(null, attrs, new CancellationSignal(),
-                    new PrintDocumentAdapter.LayoutResultCallback() {
-                        public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
-                            try {
-                                ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
-                                    ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
-                                adapter.onWrite(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES}, pfd,
-                                    new CancellationSignal(), new PrintDocumentAdapter.WriteResultCallback() {
-                                        public void onWriteFinished(android.print.PageRange[] pages) {
-                                            try { pfd.close(); } catch (IOException ignored) {}
-                                            adapter.onFinish();
-                                            busy = false;
-                                            toolbar.setVisibility(View.GONE);
-                                            printView.destroy();
-                                            sharePdf(output, safe);
-                                        }
-                                        public void onWriteFailed(CharSequence error) {
-                                            try { pfd.close(); } catch (IOException ignored) {}
-                                            adapter.onFinish();
-                                            printView.destroy();
-                                            fail("Could not create PDF" + (error == null ? "." : ": " + error));
-                                        }
-                                        public void onWriteCancelled() {
-                                            try { pfd.close(); } catch (IOException ignored) {}
-                                            adapter.onFinish();
-                                            printView.destroy();
-                                            fail("PDF creation cancelled.");
-                                        }
-                                    });
-                            } catch (IOException e) {
-                                adapter.onFinish();
-                                printView.destroy();
-                                fail("Could not create PDF: " + safeMessage(e));
-                            }
-                        }
-                        public void onLayoutFailed(CharSequence error) {
-                            adapter.onFinish();
-                            printView.destroy();
-                            fail("Could not prepare PDF" + (error == null ? "." : ": " + error));
-                        }
-                        public void onLayoutCancelled() {
-                            adapter.onFinish();
-                            printView.destroy();
-                            fail("PDF creation cancelled.");
-                        }
-                    }, null);
+                PrintManager manager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (manager == null) {
+                    busy = false;
+                    toolbar.setVisibility(View.GONE);
+                    printView.destroy();
+                    toast("Android PDF service is unavailable.");
+                    return;
+                }
+                String safe = filename.toLowerCase(Locale.ROOT).endsWith(".pdf")
+                    ? filename.substring(0, filename.length() - 4) : filename;
+                manager.print(safe, printView.createPrintDocumentAdapter(safe),
+                    new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
+                busy = false;
+                toolbar.setVisibility(View.GONE);
+                web.postDelayed(printView::destroy, 120000);
             }
         });
         printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
