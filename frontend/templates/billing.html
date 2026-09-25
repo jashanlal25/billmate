@@ -1793,7 +1793,8 @@ function pdfToCustomer(){
     return;
   }
   _invoicePdfBlob(inv, false, _psShowVendor(), _psShowBalance()).then(blob=>{
-    _sharePreparedPdf(blob, fileName);\n  }).catch(()=>toast('PDF generation failed',true));
+    _sharePreparedPdf(blob, fileName);
+  }).catch(()=>toast('PDF generation failed',true));
 }
 
 // Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
