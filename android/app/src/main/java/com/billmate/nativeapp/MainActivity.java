@@ -72,13 +72,6 @@ public final class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(18, 34, 56));
         FrameLayout content = new FrameLayout(this);
         content.addView(web, new FrameLayout.LayoutParams(-1, -1));
-        Button appUpdate = new Button(this);
-        appUpdate.setText("Update");
-        appUpdate.setTextSize(12);
-        appUpdate.setOnClickListener(view -> downloadAppUpdate());
-        FrameLayout.LayoutParams updatePos = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
-        updatePos.setMargins(8, 8, 8, 8);
-        content.addView(appUpdate, updatePos);
         int unit = Math.max(1, Math.round(getResources().getDisplayMetrics().density));
         ProgressBar spinner = new ProgressBar(this);
         toolbar.addView(spinner, 0, new LinearLayout.LayoutParams(24 * unit, 24 * unit));
