@@ -376,13 +376,13 @@ public final class MainActivity extends Activity {
                 adapter.onStart();
                 adapter.onLayout(null, attrs, new CancellationSignal(),
                     new PrintDocumentAdapter.LayoutResultCallback() {
-                        @Override public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
+                        public void onLayoutFinished(PrintDocumentInfo info, boolean changed) {
                             try {
                                 ParcelFileDescriptor pfd = ParcelFileDescriptor.open(output,
                                     ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE | ParcelFileDescriptor.MODE_READ_WRITE);
                                 adapter.onWrite(new android.print.PageRange[]{android.print.PageRange.ALL_PAGES}, pfd,
                                     new CancellationSignal(), new PrintDocumentAdapter.WriteResultCallback() {
-                                        @Override public void onWriteFinished(android.print.PageRange[] pages) {
+                                        public void onWriteFinished(android.print.PageRange[] pages) {
                                             try { pfd.close(); } catch (IOException ignored) {}
                                             adapter.onFinish();
                                             busy = false;
@@ -390,13 +390,13 @@ public final class MainActivity extends Activity {
                                             printView.destroy();
                                             sharePdf(output, safe);
                                         }
-                                        @Override public void onWriteFailed(CharSequence error) {
+                                        public void onWriteFailed(CharSequence error) {
                                             try { pfd.close(); } catch (IOException ignored) {}
                                             adapter.onFinish();
                                             printView.destroy();
                                             fail("Could not create PDF" + (error == null ? "." : ": " + error));
                                         }
-                                        @Override public void onWriteCancelled() {
+                                        public void onWriteCancelled() {
                                             try { pfd.close(); } catch (IOException ignored) {}
                                             adapter.onFinish();
                                             printView.destroy();
@@ -409,12 +409,12 @@ public final class MainActivity extends Activity {
                                 fail("Could not create PDF: " + safeMessage(e));
                             }
                         }
-                        @Override public void onLayoutFailed(CharSequence error) {
+                        public void onLayoutFailed(CharSequence error) {
                             adapter.onFinish();
                             printView.destroy();
                             fail("Could not prepare PDF" + (error == null ? "." : ": " + error));
                         }
-                        @Override public void onLayoutCancelled() {
+                        public void onLayoutCancelled() {
                             adapter.onFinish();
                             printView.destroy();
                             fail("PDF creation cancelled.");
