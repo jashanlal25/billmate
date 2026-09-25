@@ -2394,8 +2394,11 @@ function _sharePreparedPdf(blob, fileName){
 function _invoicePdfBlob(inv, showRateSource, showVendor, showPrevBal, showPhone){
   // Share PDF only: render the exact master invoice HTML/CSS in-browser.
   // This keeps PDF and Share PDF on one layout source instead of a second server template.
-  const html=buildInvoicePrintHtml(inv,true,showRateSource,showVendor,showPrevBal,showPhone)
-    .replace(/<div id="_printBar"[\\s\\S]*?<\\/div>\\s*<script>[\\s\\S]*?<\\\\\/script>/,'');
+  const fullHtml=buildInvoicePrintHtml(inv,true,showRateSource,showVendor,showPrevBal,showPhone);
+  const parsed=new DOMParser().parseFromString(fullHtml,'text/html');
+  const bar=parsed.getElementById('_printBar'); if(bar) bar.remove();
+  parsed.querySelectorAll('script').forEach(s=>s.remove());
+  const html=parsed.body.innerHTML;
   const holder=document.createElement('div');
   holder.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;background:#fff;z-index:-1';
   const doc=new DOMParser().parseFromString(html,'text/html');
