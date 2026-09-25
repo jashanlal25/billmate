@@ -469,7 +469,7 @@ input[type=number]{-moz-appearance:textfield}
       <button class="mbtn mbtn-load setup-req" style="width:100%;padding:12px;font-size:.95em" onclick="printSavedBill()">🖨️ Print Bill</button>
       <button class="setup-req" onclick="shareWhatsApp()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#25d366;color:#fff;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s">📲 Share on WhatsApp</button>
       <button class="mbtn setup-req" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfSavedBill()">📄 PDF</button>
-      <button class="setup-req" id="psPdfCustBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#25d366);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="pdfToCustomer()">📄📲 PDF to Customer (WhatsApp)</button>
+      <button class="setup-req" id="psPdfCustBtn" style="display:block;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#25d366);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="pdfToCustomer()">📎 Share PDF</button>
       <button class="setup-req" id="psMsgVendorBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="openVendorMessage()">📦 Send items to suppliers (reorder)</button>
       <button class="mbtn mbtn-close" style="width:100%;padding:12px;font-size:.95em" onclick="closePostSave()">✕ Close</button>
     </div>
@@ -1820,7 +1820,7 @@ function _initPostSaveVendorUI(inv){
   if(brow) brow.style.display = hasBal ? 'flex' : 'none';
   const custPh = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
   const pdfCustBtn = document.getElementById('psPdfCustBtn');
-  if(pdfCustBtn) pdfCustBtn.style.display = custPh ? 'block' : 'none';
+  if(pdfCustBtn) pdfCustBtn.style.display = 'block';
 }
 
 function shareWhatsApp(){
@@ -2173,7 +2173,7 @@ async function viewInvoice(id){
     <button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
-    ${custPh?`<button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 Share PDF</button>`:''}
+    <button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 Share PDF</button>
     ${hasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   const sc=setupCompleted;
   if(inv.status === 'draft'){
