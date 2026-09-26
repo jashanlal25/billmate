@@ -26,7 +26,11 @@ function _dbfRows(buf){
  }return rows;
 }
 function _zipEntry(zip,wanted){
- wanted=wanted.toUpperCase();return Object.values(zip.files).find(x=>!x.dir&&x.name.split('/').pop().replace(/\u00a0/g,' ').trim().toUpperCase()===wanted);
+ // Legacy POS backups can contain NBSP/space padding in DBF filenames
+ // (for example "MCTMR .DBF"). Compare canonical names so those files load.
+ const canon=s=>String(s||'').replace(/\u00a0/g,' ').replace(/\s+/g,'').trim().toUpperCase();
+ wanted=canon(wanted);
+ return Object.values(zip.files).find(x=>!x.dir&&canon(x.name.split('/').pop())===wanted);
 }
 async function _readDbf(zip,name){const e=_zipEntry(zip,name);return e?_dbfRows(await e.async('arraybuffer')):[]}
 async function _sendPosBatch(kind,rows){
