@@ -121,6 +121,9 @@ public final class MainActivity extends Activity {
                 if (!busy) { toolbar.setVisibility(View.VISIBLE); status.setText("Opening…"); }
             }
             @Override public void onPageFinished(WebView view, String url) {
+                // Persist the authenticated WebView cookie after navigation/login so
+                // closing or backgrounding the APK does not behave like Logout.
+                if (ShareUpload.isTrusted(url)) CookieManager.getInstance().flush();
                 if (!busy && retry.getVisibility() != View.VISIBLE) toolbar.setVisibility(View.GONE);
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
@@ -763,7 +766,15 @@ public final class MainActivity extends Activity {
             toast("Already at BillMate home.");
         }
     }
+    @Override protected void onPause() {
+        // WebView may keep cookies in memory for a short time. Flush them before
+        // the app leaves the foreground so a recent login survives app close.
+        CookieManager.getInstance().flush();
+        super.onPause();
+    }
+
     @Override protected void onDestroy() {
+        CookieManager.getInstance().flush();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         worker.shutdown();
         web.destroy();
