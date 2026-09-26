@@ -216,6 +216,24 @@ public final class MainActivity extends Activity {
                 String filename = ShareUpload.safeName(name);
                 runOnUiThread(() -> {
                     if (isDestroyed()) { ready.delete(); return; }
+                    // POS backups are handled locally by the POS Import page. Do not
+                    // send ZIP bytes through /share-target or route them to Inventory/Demand.
+                    if (filename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+                        if (pendingShare != null) pendingShare.delete();
+                        pendingShare = null;
+                        pendingName = null;
+                        busy = false;
+                        toolbar.setVisibility(View.GONE);
+                        web.loadUrl(ShareUpload.ORIGIN + "/pos-import");
+                        web.postDelayed(() -> {
+                            if (!ready.exists()) return;
+                            Uri local = FileProvider.getUriForFile(this, getPackageName() + ".files", ready);
+                            // The page will ask the user to select the shared ZIP if WebView cannot
+                            // directly receive this private cache URI.
+                            toast("POS ZIP received. POS Import opened.");
+                        }, 300);
+                        return;
+                    }
                     if (pendingShare != null) pendingShare.delete();
                     pendingShare = ready;
                     pendingName = filename;
