@@ -2714,13 +2714,28 @@ def demand_pdf_text():
         pages = []
         rows = []
         row_re = re.compile(
-            r'^\\s*(\\d{1,6})\\s+(.+?)\\s+(\\d+)\\s+'
-            r'([\\d,]+(?:\\.\\d+)?)\\s+(.+?)\\s+([\\d,]+(?:\\.\\d+)?)\\s*
+            r'^\s*(\d{1,6})\s+(.+?)\s+(\d+)\s+'
+            r'([\d,]+(?:\.\d+)?)\s+(.+?)\s+([\d,]+(?:\.\d+)?)\s*$'
+        )
+        for page in reader.pages:
+            page_text = page.extract_text() or ''
+            if page_text.strip():
+                pages.append(page_text)
+            for raw_line in page_text.splitlines():
+                line = re.sub(r'\s+', ' ', raw_line).strip()
+                match = row_re.match(line)
+                if not match:
+                    continue
+                item = match.group(2).strip()
+                qty = match.group(3)
+                if re.search(r'[A-Za-z]', item):
+                    rows.append(f'{item} ({qty})')
+        text = '\n'.join(rows).strip() if rows else '\n'.join(pages).strip()
     except Exception:
         return jsonify({'error': 'Could not read this PDF'}), 400
     if not text:
         return jsonify({'error': 'No selectable text was found in this PDF. Scanned/image-only PDFs are not supported yet.'}), 400
-    return jsonify({'text': text, 'pages': len(reader.pages)})
+    return jsonify({'text': text, 'pages': len(reader.pages), 'items': len(rows)})
 
 @app.route('/api/pos-backup/import', methods=['POST'])
 def import_pos_backup():
