@@ -41,9 +41,13 @@ async function _readDbf(zip,name){
    if(candidate.dir||!candidate.name.toUpperCase().endsWith('.DBF'))continue;
    const rows=_dbfRows(await candidate.async('arraybuffer'));
    if(!rows.length)continue;
-   const keys=new Set(Object.keys(rows[0]));
-   if(name==='MCTMR.DBF'&&keys.has('CCOD')&&keys.has('CNM')&&keys.has('TOTRCV'))return rows;
-   if(name==='MSPLR.DBF'&&keys.has('CODE')&&keys.has('NAME')&&keys.size<=4)return rows;
+   const keys=new Set(Object.keys(rows[0]).map(k=>String(k).trim().toUpperCase()));
+   // Customer master must carry the receivable field. This deliberately
+   // prioritizes balance-bearing customer data over generic name/code masters.
+   if(name==='MCTMR.DBF'&&keys.has('TOTRCV')&&(keys.has('CNM')||keys.has('NAME'))&&(keys.has('CCOD')||keys.has('CODE')))return rows;
+   // Supplier fallback requires a supplier-looking compact master and must not
+   // accidentally claim the customer master.
+   if(name==='MSPLR.DBF'&&!keys.has('TOTRCV')&&keys.has('CODE')&&keys.has('NAME')&&keys.size<=8)return rows;
   }
   return [];
  }
@@ -78,7 +82,11 @@ async function syncPosBackup(){
    const amount=parseFloat(String(r.AMOUNT||'').trim())||0,paid=parseFloat(String(r.PAID||'').trim())||0;
    payable[sc]=(payable[sc]||0)+amount-paid;
   }
-  const slimCustomers=customers.map(r=>({CCOD:r.CCOD,CNM:r.CNM,TOTRCV:r.TOTRCV}));
+  const slimCustomers=customers.map(r=>({
+   CCOD:r.CCOD??r.CODE,
+   CNM:r.CNM??r.NAME,
+   TOTRCV:r.TOTRCV
+  })).filter(r=>String(r.CNM||'').trim());
   const slimSuppliers=suppliers.map(r=>{const sc=String(r.CODE||'').trim().replace(/^0+/,'')||'0';return {CODE:r.CODE,NAME:r.NAME,_PAYABLE:payable[sc]||0}});
   // Import only POS items that actually have stock. ITEM/MAST contains the
   // whole historical catalogue, which can be thousands of zero-stock records.
