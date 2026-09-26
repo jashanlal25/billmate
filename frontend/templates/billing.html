@@ -225,6 +225,7 @@ input[type=number]{-moz-appearance:textfield}
     <a href="/purchase" class="nav-link">🛒 Purchase</a>
     <a href="/payments"  class="nav-link">💳 Payments</a>
     <a href="/backup" class="nav-link">💾 Backup</a>
+    {% if not is_guest %}<a href="/pos-import" class="nav-link">🔄 POS Import</a>{% endif %}
     <a href="/admin"  class="nav-link">🛡️ Admin</a>
   </div>
   <div class="nav-right">
@@ -246,6 +247,7 @@ input[type=number]{-moz-appearance:textfield}
   <a href="/purchase" class="nav-link">🛒 Purchase</a>
   <a href="/payments"  class="nav-link">💳 Payments</a>
   <a href="/backup"   class="nav-link">💾 Backup</a>
+  {% if not is_guest %}<a href="/pos-import" class="nav-link">🔄 POS Import</a>{% endif %}
   <a href="/admin"     class="nav-link">🛡️ Admin</a>
   <button id="nativeUpdateBtn" class="nav-link" onclick="checkNativeUpdate()" style="display:none;border:0;width:100%;text-align:left;background:transparent;cursor:pointer">⬆️ Update BillMate</button>
 </div>
