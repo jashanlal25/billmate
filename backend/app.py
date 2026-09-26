@@ -224,9 +224,9 @@ def invoice_pdf():
     return send_file(buf,mimetype='application/pdf',as_attachment=True,download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
 
 # ── PWA / Web Share Target ────────────────────────────────────────────────────
-# Share Target size/extension limits mirror the Items import API (4 MB, .htm/.html).
-SHARE_TARGET_MAX_BYTES = 4 * 1024 * 1024
-SHARE_TARGET_ALLOWED_EXT = {'.htm', '.html'}
+# Share Target accepts inventory HTML plus Demand Search text/PDF files.
+SHARE_TARGET_MAX_BYTES = 8 * 1024 * 1024
+SHARE_TARGET_ALLOWED_EXT = {'.htm', '.html', '.txt', '.pdf'}
 
 @app.route('/sw.js')
 def serve_sw():
@@ -261,13 +261,13 @@ def share_target_post():
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'No file was shared with BillMate.'})
     ext = os.path.splitext(f.filename)[1].lower()
     if ext not in SHARE_TARGET_ALLOWED_EXT:
-        return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm / .html files can be shared.'})
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'Only .htm, .html, .txt, or .pdf files can be shared.'})
     data = f.read()
     if _t: _t['read'] = time.perf_counter()
     if not data:
         return render_template('share_bridge.html', payload={'ok': False, 'error': 'The shared file is empty.'})
     if len(data) > SHARE_TARGET_MAX_BYTES:
-        return render_template('share_bridge.html', payload={'ok': False, 'error': 'File too large (max 4 MB).'})
+        return render_template('share_bridge.html', payload={'ok': False, 'error': 'File too large (max 8 MB).'})
     b64 = base64.b64encode(data).decode('ascii')
     if _t: _t['b64'] = time.perf_counter()
     resp = render_template('share_bridge.html', payload={
