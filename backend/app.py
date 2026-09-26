@@ -487,7 +487,7 @@ def check_auth():
                 session['is_admin'] = True
             # Allow: billing page, api/settings, api/invoices (create/view only), admin/setup
             setup_allowed = ['/billing', '/api/settings', '/api/invoices', '/api/items',
-                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/admin/setup',
+                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/api/pos-backup/import-records', '/admin/setup',
                              '/admin/unlock', '/admin/forgot-password', '/api/change-login-password',
                              '/api/change-admin-password']
             if not any(path.startswith(p) or path == p for p in setup_allowed):
@@ -2738,26 +2738,39 @@ def demand_pdf_text():
     return jsonify({'text': text, 'pages': len(reader.pages), 'items': len(rows)})
 
 @app.route('/api/pos-backup/import', methods=['POST'])
+@app.route('/api/pos-backup/import-records', methods=['POST'])
 def import_pos_backup():
     """Upsert POS customers/suppliers/stock. POS wins only for records present in backup."""
     uid=session.get('user_id')
     if not uid or session.get('is_guest'):
         return jsonify({'error':'Registered account required'}),403
-    upload=request.files.get('backup')
-    if not upload or not (upload.filename or '').lower().endswith('.zip'):
-        return jsonify({'error':'Select the original POS backup ZIP file'}),400
-    raw=upload.read()
-    if len(raw)>16*1024*1024:
-        return jsonify({'error':'Backup ZIP is too large'}),413
-    try:
-        zf=zipfile.ZipFile(io.BytesIO(raw))
-        customers=_zip_dbf(zf,'MCTMR.DBF')
-        suppliers=_zip_dbf(zf,'MSPLR.DBF')
-        items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
-        purchases=_zip_dbf(zf,'PUR1.DBF')
-        sopen=_zip_dbf(zf,'SOPEN.DBF')
-    except (zipfile.BadZipFile,RuntimeError):
-        return jsonify({'error':'Invalid POS backup ZIP'}),400
+    if request.path.endswith('/import-records'):
+        data=request.get_json(silent=True) or {}
+        customers=data.get('customers') or []
+        suppliers=data.get('suppliers') or []
+        items=data.get('items') or []
+        purchases=data.get('purchases') or []
+        sopen=data.get('sopen') or []
+        if sum(len(x) for x in (customers,suppliers,items,purchases,sopen)) > 60000:
+            return jsonify({'error':'POS backup contains too many records'}),413
+    else:
+        # Legacy small-ZIP path. Large backups should be extracted in the browser
+        # and posted to /api/pos-backup/import-records so Vercel never receives the ZIP.
+        upload=request.files.get('backup')
+        if not upload or not (upload.filename or '').lower().endswith('.zip'):
+            return jsonify({'error':'Select the original POS backup ZIP file'}),400
+        raw=upload.read()
+        if len(raw)>16*1024*1024:
+            return jsonify({'error':'Backup ZIP is too large'}),413
+        try:
+            zf=zipfile.ZipFile(io.BytesIO(raw))
+            customers=_zip_dbf(zf,'MCTMR.DBF')
+            suppliers=_zip_dbf(zf,'MSPLR.DBF')
+            items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
+            purchases=_zip_dbf(zf,'PUR1.DBF')
+            sopen=_zip_dbf(zf,'SOPEN.DBF')
+        except (zipfile.BadZipFile,RuntimeError):
+            return jsonify({'error':'Invalid POS backup ZIP'}),400
     if not customers and not suppliers and not items:
         return jsonify({'error':'POS customer, supplier and stock DBF files were not found'}),400
 
