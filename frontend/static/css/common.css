@@ -9,7 +9,7 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 
 /* === Navigation === */
 .nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
-.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}#navVersion{-webkit-text-fill-color:#a5b4fc;color:#a5b4fc;font-size:.62em;font-weight:700;white-space:nowrap}
 .nav-links{display:flex;gap:4px}
 .nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:500;transition:all .2s}
 .nav-link:hover,.nav-link.active{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
