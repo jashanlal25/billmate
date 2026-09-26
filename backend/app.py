@@ -288,7 +288,7 @@ def share_target_post():
 
 # ── Auth helpers ───────────────────────────────────────────────────────────────
 
-GUEST_ALLOWED_PREFIXES = ['/billing', '/items', '/demand-search', '/api/invoices', '/api/items',
+GUEST_ALLOWED_PREFIXES = ['/billing', '/api/invoices', '/api/items',
                            '/api/settings', '/api/guest/', '/static']
 
 def get_client_ip():
