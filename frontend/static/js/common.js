@@ -50,14 +50,14 @@ document.addEventListener('click', e => {
 // Apply cached name immediately to avoid flash
 (function(){
   const cached = localStorage.getItem('_shopName');
-  if (cached) { const el = document.getElementById('shopLogo'); if (el) el.textContent = cached; }
+  if (cached) { const el = document.getElementById('shopLogo'); if (el) el.textContent = cached + (window.BILLMATE_APK_VERSION ? ' (v' + window.BILLMATE_APK_VERSION + ')' : ''); }
 })();
 fetch('/api/settings')
   .then(r => r.json())
   .then(s => {
     if (s.shop_name) {
       const el = document.getElementById('shopLogo');
-      if (el) el.textContent = s.shop_name;
+      if (el) el.textContent = s.shop_name + (window.BILLMATE_APK_VERSION ? ' (v' + window.BILLMATE_APK_VERSION + ')' : '');
       localStorage.setItem('_shopName', s.shop_name);
     }
     window._shopSettings = s;
