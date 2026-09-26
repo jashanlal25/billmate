@@ -50,11 +50,19 @@
     $('demandResults').hidden=true;$('demandPreview').hidden=true;controls();
     if(!file){status('No demand loaded.');return;}
     try{
-      if(!/\.(?:html?|txt)$/i.test(file.name)) throw Error('Choose an HTM, HTML, or TXT demand file.');
-      if(file.size>4*1024*1024) throw Error('Maximum file size is 4 MB.');
-      status('Reading demand…');
-      const content=await file.text();
-      const parsed=/\.txt$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content);
+      if(!/\.(?:html?|txt|pdf)$/i.test(file.name)) throw Error('Choose an HTM, HTML, TXT, or PDF demand file.');
+      const isPdf=/\.pdf$/i.test(file.name);
+      if(file.size>(isPdf?8:4)*1024*1024) throw Error(`Maximum ${isPdf?'PDF ':''}file size is ${isPdf?8:4} MB.`);
+      status(isPdf?'Extracting demand from PDF…':'Reading demand…');
+      let content;
+      if(isPdf){
+        const fd=new FormData();fd.append('file',file);
+        const r=await fetch('/api/demand/pdf-text',{method:'POST',body:fd});
+        const data=await r.json();
+        if(!r.ok) throw Error(data.error||'Could not read this PDF.');
+        content=data.text||'';
+      } else content=await file.text();
+      const parsed=/\.(?:txt|pdf)$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content);
       if(ticket!==version) return;
       demands=parsed;
       let saved=true;
