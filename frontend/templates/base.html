@@ -57,6 +57,21 @@
 <script src="{{ url_for('static', filename='js/common.js') }}"></script>
 {% block scripts %}{% endblock %}
 <script>
+(function(){
+  if (!window.BillMateNativeShare) return;
+  fetch('/api/android/latest').then(r=>r.json()).then(meta=>{
+    const current=Number(String(window.BILLMATE_APK_VERSION||'0').replace(/\D/g,''))||0;
+    const latest=Number(String(meta.version||'0').replace(/\D/g,''))||0;
+    if(latest<=current)return;
+    const n=document.createElement('div');
+    n.textContent='⬆️ BillMate v'+meta.version+' available — tap to update';
+    n.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:#1f2937;color:white;padding:12px 18px;border-radius:12px;box-shadow:0 4px 18px #0006;font-weight:700;cursor:pointer;max-width:90%;text-align:center';
+    n.onclick=()=>window.BillMateNativeShare.postMessage(JSON.stringify({action:'check_update'}));
+    document.body.appendChild(n);setTimeout(()=>n.remove(),5000);
+  }).catch(()=>{});
+})();
+</script>
+<script>
 // BillMate now uses the native Android APK instead of the legacy PWA.
 // Remove any service worker/cache left by an older PWA installation.
 if ('serviceWorker' in navigator) {
