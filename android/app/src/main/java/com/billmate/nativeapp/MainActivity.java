@@ -387,6 +387,15 @@ public final class MainActivity extends Activity {
         printView.loadDataWithBaseURL(ShareUpload.ORIGIN + "/", html, "text/html", "UTF-8", null);
     }
 
+    private String getInstalledVersionName() {
+        try {
+            android.content.pm.PackageInfo pkg = getPackageManager().getPackageInfo(getPackageName(), 0);
+            return pkg.versionName != null ? pkg.versionName : "unknown";
+        } catch (Exception ignored) {
+            return "unknown";
+        }
+    }
+
     private void checkForUpdate(boolean userInitiated) {
         if (busy) { if (userInitiated) toast("Finish the current transfer first."); return; }
         busy = true;
@@ -399,7 +408,7 @@ public final class MainActivity extends Activity {
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
-                conn.setRequestProperty("User-Agent", "BillMateNative/" + "1.7");
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + getInstalledVersionName());
                 if (conn.getResponseCode() != 200) throw new IOException("Update check failed");
                 String body;
                 try (InputStream in = conn.getInputStream()) {
@@ -413,15 +422,27 @@ public final class MainActivity extends Activity {
                 int latestCode = meta.getInt("version_code");
                 String latestVersion = meta.getString("version");
                 String path = meta.optString("download_url", "/download/android");
+                int installedCode;
+                String installedVersion;
+                try {
+                    android.content.pm.PackageInfo pkg = getPackageManager().getPackageInfo(getPackageName(), 0);
+                    installedCode = android.os.Build.VERSION.SDK_INT >= 28 ? (int) pkg.getLongVersionCode() : pkg.versionCode;
+                    installedVersion = pkg.versionName != null ? pkg.versionName : String.valueOf(installedCode);
+                } catch (Exception ignored) {
+                    installedCode = 0;
+                    installedVersion = "unknown";
+                }
+                final int currentCode = installedCode;
+                final String currentVersion = installedVersion;
                 runOnUiThread(() -> {
                     busy = false; toolbar.setVisibility(View.GONE);
-                    if (latestCode <= 8) {
-                        if (userInitiated) toast("BillMate v" + "1.7" + " is up to date.");
+                    if (latestCode <= currentCode) {
+                        if (userInitiated) toast("BillMate v" + currentVersion + " is up to date.");
                         return;
                     }
                     new AlertDialog.Builder(this)
                         .setTitle("BillMate update available")
-                        .setMessage("Installed: v" + "1.7" + "\nAvailable: v" + latestVersion)
+                        .setMessage("Installed: v" + currentVersion + "\nAvailable: v" + latestVersion)
                         .setPositiveButton("Update", (d,w) -> downloadAndInstallUpdate(path, latestVersion))
                         .setNegativeButton("Later", null).show();
                 });
@@ -448,7 +469,7 @@ public final class MainActivity extends Activity {
                 conn.setInstanceFollowRedirects(true);
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000);
-                conn.setRequestProperty("User-Agent", "BillMateNative/" + "1.7");
+                conn.setRequestProperty("User-Agent", "BillMateNative/" + getInstalledVersionName());
                 if (conn.getResponseCode() != 200) throw new IOException("Download failed");
                 File folder = new File(getCacheDir(), "updates");
                 if (!folder.exists() && !folder.mkdirs()) throw new IOException("Could not prepare update");
