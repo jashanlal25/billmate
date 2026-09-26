@@ -59,7 +59,10 @@ async function syncPosBackup(){
   }
   const slimCustomers=customers.map(r=>({CCOD:r.CCOD,CNM:r.CNM,TOTRCV:r.TOTRCV}));
   const slimSuppliers=suppliers.map(r=>{const sc=String(r.CODE||'').trim().replace(/^0+/,'')||'0';return {CODE:r.CODE,NAME:r.NAME,_PAYABLE:payable[sc]||0}});
-  const slimItems=items.map(r=>({CODE:r.CODE,MODE:r.MODE,NAME:r.NAME,RETAIL:r.RETAIL,TRP1:r.TRP1,TDBAL:r.TDBAL,LDISC:r.LDISC,TAX:r.TAX,BONUS:r.BONUS}));
+  // Import only POS items that actually have stock. ITEM/MAST contains the
+  // whole historical catalogue, which can be thousands of zero-stock records.
+  const stockedItems=items.filter(r=>(parseFloat(String(r.TDBAL||'').replace(/,/g,'').trim())||0)>0);
+  const slimItems=stockedItems.map(r=>({CODE:r.CODE,MODE:r.MODE,NAME:r.NAME,RETAIL:r.RETAIL,TRP1:r.TRP1,TDBAL:r.TDBAL,LDISC:r.LDISC,TAX:r.TAX,BONUS:r.BONUS}));
   const groups=[['customers',slimCustomers],['suppliers',slimSuppliers],['items',slimItems]];
   const totals={customers_created:0,customers_updated:0,suppliers_created:0,suppliers_updated:0,items_created:0,items_updated:0};
   let sent=0,total=groups.reduce((n,g)=>n+g[1].length,0);
