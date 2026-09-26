@@ -2739,55 +2739,21 @@ def demand_pdf_text():
 
 @app.route('/api/pos-backup/import-batch', methods=['POST'])
 def import_pos_backup_batch():
-    """Store one compact, locally-extracted POS batch in the user's session.
-
-    The browser sends only fields required by the final synchronizer. This keeps
-    every request well below serverless body limits; finalize reuses the normal
-    import routine without ever uploading the original ZIP.
-    """
+    """Synchronize one small locally-extracted POS batch."""
     uid=session.get('user_id')
     if not uid or session.get('is_guest'):
         return jsonify({'error':'Registered account required'}),403
     data=request.get_json(silent=True) or {}
     kind=str(data.get('kind') or '').lower()
     rows=data.get('rows') or []
-    allowed={'customers','suppliers','items','purchases','sopen'}
-    if kind not in allowed or not isinstance(rows,list):
+    if kind not in ('customers','suppliers','items') or not isinstance(rows,list):
         return jsonify({'error':'Invalid POS import batch'}),400
-    if len(rows)>500:
+    if len(rows)>250:
         return jsonify({'error':'POS import batch is too large'}),413
-    key=f'pos_import_{uid}_{kind}'
-    current=session.get(key) or []
-    current.extend(rows)
-    session[key]=current
-    session.modified=True
-    return jsonify({'success':True,'kind':kind,'received':len(rows),'total':len(current)})
-
-@app.route('/api/pos-backup/import-batch/reset', methods=['POST'])
-def reset_pos_backup_batches():
-    uid=session.get('user_id')
-    if not uid or session.get('is_guest'):
-        return jsonify({'error':'Registered account required'}),403
-    for kind in ('customers','suppliers','items','purchases','sopen'):
-        session.pop(f'pos_import_{uid}_{kind}',None)
-    return jsonify({'success':True})
-
-@app.route('/api/pos-backup/import-batch/finalize', methods=['POST'])
-def finalize_pos_backup_batches():
-    uid=session.get('user_id')
-    if not uid or session.get('is_guest'):
-        return jsonify({'error':'Registered account required'}),403
-    payload={kind:(session.get(f'pos_import_{uid}_{kind}') or [])
-             for kind in ('customers','suppliers','items','purchases','sopen')}
-    # Flask test-request-context is intentionally avoided: put the compact
-    # accumulated data on request.environ and let the synchronizer consume it.
+    payload={'customers':[],'suppliers':[],'items':[],'purchases':[],'sopen':[]}
+    payload[kind]=rows
     request.environ['billmate.pos_import_payload']=payload
-    try:
-        return import_pos_backup()
-    finally:
-        for kind in payload:
-            session.pop(f'pos_import_{uid}_{kind}',None)
-        session.modified=True
+    return import_pos_backup()
 
 @app.route('/api/pos-backup/import', methods=['POST'])
 @app.route('/api/pos-backup/import-records', methods=['POST'])
@@ -2869,7 +2835,7 @@ def import_pos_backup():
         name=(r.get('NAME') or '').strip()
         if not name: continue
         sc=str(r.get('CODE') or '').strip().lstrip('0') or '0'
-        target=round(payable.get(sc,0.0),2)
+        target=round(payable.get(sc,_pos_num(r.get('_PAYABLE'))),2)
         obj=sup_by_name.get(_pos_key(name))
         if obj:
             activity=round(supplier_balance(obj.id,uid)-float(obj.opening_balance or 0),2)
