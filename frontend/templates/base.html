@@ -11,7 +11,7 @@
 </head>
 <body>
 <nav class="nav">
-  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate <span id="navVersion"></span></a>
+  <a href="/" class="nav-logo" id="shopLogo">⚡ BillMate</a>
   <div class="nav-links">
     <a href="/billing"   class="nav-link {% block nav_billing %}{% endblock %}">🧾 Billing</a>
     <a href="/items"     class="nav-link {% block nav_items %}{% endblock %}">💊 Items</a>
@@ -57,8 +57,6 @@
 window.BILLMATE_APK_VERSION = '';
 fetch('/api/android/latest').then(r=>r.json()).then(m=>{
   window.BILLMATE_APK_VERSION = m.version || '';
-  const v=document.getElementById('navVersion');
-  if(v && m.version) v.textContent='(v'+m.version+')';
 }).catch(()=>{});
 </script>
 <script src="{{ url_for('static', filename='js/common.js') }}"></script>
