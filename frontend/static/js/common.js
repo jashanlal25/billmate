@@ -50,14 +50,14 @@ document.addEventListener('click', e => {
 // Apply cached name immediately to avoid flash
 (function(){
   const cached = localStorage.getItem('_shopName');
-  if (cached) { const el = document.getElementById('shopLogo'); if (el) el.innerHTML = esc(cached) + ' <span id="navVersion">(v1.8)</span>'; }
+  if (cached) { const el = document.getElementById('shopLogo'); if (el) el.innerHTML = esc(cached) + ' <span id="navVersion"></span>'; }
 })();
 fetch('/api/settings')
   .then(r => r.json())
   .then(s => {
     if (s.shop_name) {
       const el = document.getElementById('shopLogo');
-      if (el) el.innerHTML = esc(s.shop_name) + ' <span id="navVersion">(v1.8)</span>';
+      if (el) el.innerHTML = esc(s.shop_name) + ' <span id="navVersion"></span>';
       localStorage.setItem('_shopName', s.shop_name);
     }
     window._shopSettings = s;
