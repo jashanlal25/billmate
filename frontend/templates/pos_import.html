@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}POS Import{% endblock %}
 {% block nav_pos_import %}active{% endblock %}
-{% block content %}<div class="container" style="padding-top:24px">
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<div class="container" style="padding-top:24px">
 <div class="section-header"><div class="section-title">🔄 POS Backup Import</div></div>
 <div class="card" style="padding:28px;max-width:720px">
  <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:8px">Synchronize POS Backup</div>
@@ -11,16 +13,41 @@
  <div id="posBackupResult" style="font-size:.84em;color:var(--sub);margin-top:16px;line-height:1.7"></div>
 </div>
 <script>
+function _dbfRows(buf){
+ const b=new Uint8Array(buf),dv=new DataView(buf);if(b.length<33)return[];
+ const count=dv.getUint32(4,true),header=dv.getUint16(8,true),recLen=dv.getUint16(10,true),fields=[];
+ for(let p=32;p+32<=header&&b[p]!==13;p+=32){
+  let name='';for(let i=0;i<11&&b[p+i];i++)name+=String.fromCharCode(b[p+i]);
+  fields.push([name.trim(),b[p+16]]);
+ }
+ const dec=new TextDecoder('windows-1252'),rows=[];
+ for(let n=0;n<count;n++){const off=header+n*recLen;if(off+recLen>b.length)break;if(b[off]===42)continue;
+  let p=off+1,row={};for(const [name,len] of fields){row[name]=dec.decode(b.slice(p,p+len)).trim();p+=len}rows.push(row);
+ }return rows;
+}
+function _zipEntry(zip,wanted){
+ wanted=wanted.toUpperCase();return Object.values(zip.files).find(x=>!x.dir&&x.name.split('/').pop().replace(/\u00a0/g,' ').trim().toUpperCase()===wanted);
+}
+async function _readDbf(zip,name){const e=_zipEntry(zip,name);return e?_dbfRows(await e.async('arraybuffer')):[]}
 async function syncPosBackup(){
  const f=document.getElementById('posBackupFile'),b=document.getElementById('posBackupBtn'),out=document.getElementById('posBackupResult');
  if(!f.files.length){out.textContent='Select your POS backup ZIP first.';return}
- b.disabled=true;b.textContent='Synchronizing…';out.textContent='Reading POS backup…';
- try{const fd=new FormData();fd.append('backup',f.files[0]);const r=await fetch('/api/pos-backup/import',{method:'POST',body:fd});
- const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){d={}}
- if(!r.ok)throw new Error(d.error||raw.trim()||('Import failed (HTTP '+r.status+')'));
- if(!d || !d.success)throw new Error(d.error||raw.trim()||'Import failed');
- out.innerHTML='<b style="color:#10b981">✅ Sync complete</b><br>Customers: '+d.customers_total+' ('+d.customers_created+' new, '+d.customers_updated+' updated)<br>Suppliers: '+d.suppliers_total+' ('+d.suppliers_created+' new, '+d.suppliers_updated+' updated)<br>Stock items: '+d.items_total+' ('+d.items_created+' new, '+d.items_updated+' updated)<br><b>BillMate-only records were untouched.</b>'}
- catch(e){out.textContent='❌ '+e.message}finally{b.disabled=false;b.textContent='Upload & Sync POS Backup'}
+ b.disabled=true;b.textContent='Reading backup…';out.textContent='Extracting POS backup locally on this device…';
+ try{
+  const zip=await JSZip.loadAsync(f.files[0]);
+  const [customers,suppliers,itemRows,mastRows,purchases,sopen]=await Promise.all([
+   _readDbf(zip,'MCTMR.DBF'),_readDbf(zip,'MSPLR.DBF'),_readDbf(zip,'ITEM.DBF'),
+   _readDbf(zip,'MAST.DBF'),_readDbf(zip,'PUR1.DBF'),_readDbf(zip,'SOPEN.DBF')
+  ]);
+  const items=itemRows.length?itemRows:mastRows;
+  if(!customers.length&&!suppliers.length&&!items.length)throw new Error('POS customer, supplier and stock DBF files were not found');
+  b.textContent='Synchronizing…';out.textContent='Sending extracted POS records to BillMate…';
+  const r=await fetch('/api/pos-backup/import-records',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customers,suppliers,items,purchases,sopen})});
+  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){}
+  if(!r.ok)throw new Error(d.error||raw.trim()||('Import failed (HTTP '+r.status+')'));
+  if(!d.success)throw new Error(d.error||'Import failed');
+  out.innerHTML='<b style="color:#10b981">✅ Sync complete</b><br>Customers: '+d.customers_total+' ('+d.customers_created+' new, '+d.customers_updated+' updated)<br>Suppliers: '+d.suppliers_total+' ('+d.suppliers_created+' new, '+d.suppliers_updated+' updated)<br>Stock items: '+d.items_total+' ('+d.items_created+' new, '+d.items_updated+' updated)<br><b>BillMate-only records were untouched.</b>';
+ }catch(e){out.textContent='❌ '+e.message}finally{b.disabled=false;b.textContent='Upload & Sync POS Backup'}
 }
 </script>
 {% endblock %}
