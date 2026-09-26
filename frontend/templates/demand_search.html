@@ -42,9 +42,9 @@
 <h1>Demand Search</h1>
 <section class="panel">
   <label for="demandFile"><strong>Upload Demand</strong></label>
-  <div class="controls"><input id="demandFile" type="file" accept=".htm,.html,.txt,text/html,text/plain"><button id="runDemand" class="btn" disabled>Run Search</button><button id="inventoryInstead" class="btn btn-outline" disabled>Add to Inventory instead</button><button id="clearDemand" class="btn btn-outline" disabled>Clear</button><a class="btn btn-outline" href="/items">Back to Items</a></div>
+  <div class="controls"><input id="demandFile" type="file" accept=".htm,.html,.txt,.pdf,text/html,text/plain,application/pdf"><button id="runDemand" class="btn" disabled>Run Search</button><button id="inventoryInstead" class="btn btn-outline" disabled>Add to Inventory instead</button><button id="clearDemand" class="btn btn-outline" disabled>Clear</button><a class="btn btn-outline" href="/items">Back to Items</a></div>
   <p id="selectedDemandFile" class="selected-file" role="status" aria-live="polite" hidden></p>
-  <p class="muted">Upload an HTM, HTML, or TXT demand file, review the items, then search all vendors in your inventory. Your demand stays here until you load a new one or tap Clear.</p>
+  <p class="muted">Upload an HTM, HTML, TXT, or PDF demand file, review the items, then search all vendors in your inventory. Your demand stays here until you load a new one or tap Clear.</p>
   <label for="pastedDemand"><strong>Or paste a text list</strong></label>
   <textarea id="pastedDemand" placeholder="Methachlor drop (10)&#10;Nexum 40 (3)&#10;Truva 10 (2) lazmi" aria-describedby="textDemandHint"></textarea>
   <p id="textDemandHint" class="muted note">One item per line. The number in parentheses is the requested quantity; “lazmi” is kept as a note. Text demand lists are for searching, not adding to Inventory.</p>
