@@ -487,7 +487,7 @@ def check_auth():
                 session['is_admin'] = True
             # Allow: billing page, api/settings, api/invoices (create/view only), admin/setup
             setup_allowed = ['/billing', '/api/settings', '/api/invoices', '/api/items',
-                             '/api/customers', '/api/categories', '/admin/setup',
+                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/admin/setup',
                              '/admin/unlock', '/admin/forgot-password', '/api/change-login-password',
                              '/api/change-admin-password']
             if not any(path.startswith(p) or path == p for p in setup_allowed):
