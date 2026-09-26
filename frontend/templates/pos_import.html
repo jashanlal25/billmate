@@ -32,7 +32,23 @@ function _zipEntry(zip,wanted){
  wanted=canon(wanted);
  return Object.values(zip.files).find(x=>!x.dir&&canon(x.name.split('/').pop())===wanted);
 }
-async function _readDbf(zip,name){const e=_zipEntry(zip,name);return e?_dbfRows(await e.async('arraybuffer')):[]}
+async function _readDbf(zip,name){
+ let e=_zipEntry(zip,name);
+ // Fallback for legacy backups with unusual padding/encoding in filenames:
+ // identify customer/supplier master DBFs by their field schema.
+ if(!e && (name==='MCTMR.DBF'||name==='MSPLR.DBF')){
+  for(const candidate of Object.values(zip.files)){
+   if(candidate.dir||!candidate.name.toUpperCase().endsWith('.DBF'))continue;
+   const rows=_dbfRows(await candidate.async('arraybuffer'));
+   if(!rows.length)continue;
+   const keys=new Set(Object.keys(rows[0]));
+   if(name==='MCTMR.DBF'&&keys.has('CCOD')&&keys.has('CNM')&&keys.has('TOTRCV'))return rows;
+   if(name==='MSPLR.DBF'&&keys.has('CODE')&&keys.has('NAME')&&keys.size<=4)return rows;
+  }
+  return [];
+ }
+ return e?_dbfRows(await e.async('arraybuffer')):[];
+}
 async function _sendPosBatch(kind,rows){
  const r=await fetch('/api/pos-backup/import-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,rows})});
  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){}
@@ -51,6 +67,7 @@ async function syncPosBackup(){
   ]);
   const items=itemRows.length?itemRows:mastRows;
   if(!customers.length&&!suppliers.length&&!items.length)throw new Error('POS customer, supplier and stock DBF files were not found');
+  out.textContent='Extracted locally: '+customers.length+' customers, '+suppliers.length+' suppliers, '+items.length+' catalogue items. Filtering stock…';
 
   // Supplier payable is calculated locally so the large purchase history never
   // needs to cross the network. Only the resulting current payable is synced.
