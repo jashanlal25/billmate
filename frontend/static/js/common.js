@@ -47,22 +47,19 @@ document.addEventListener('click', e => {
 });
 
 // === Shop Logo from Settings ===
-function renderShopLogo(name) {
-  const el = document.getElementById('shopLogo');
-  if (!el) return;
-  const version = window.BILLMATE_APK_VERSION || '';
-  el.innerHTML = esc(name || '⚡ BillMate') +
-    (version ? ' <span id="navVersion">(v' + esc(version) + ')</span>' : ' <span id="navVersion"></span>');
-}
 (function(){
   const cached = localStorage.getItem('_shopName');
-  if (cached) renderShopLogo(cached);
+  if (cached) {
+    const el = document.getElementById('shopLogo');
+    if (el) el.textContent = cached;
+  }
 })();
 fetch('/api/settings')
   .then(r => r.json())
   .then(s => {
     if (s.shop_name) {
-      renderShopLogo(s.shop_name);
+      const el = document.getElementById('shopLogo');
+      if (el) el.textContent = s.shop_name;
       localStorage.setItem('_shopName', s.shop_name);
     }
     window._shopSettings = s;
