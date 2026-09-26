@@ -648,8 +648,19 @@ def auth_admin_login():
 
 @app.route('/auth/logout')
 def auth_logout():
+    # Explicit logout must invalidate the server session and overwrite the
+    # browser/WebView session cookie so reopening BillMate cannot restore it.
     session.clear()
-    return redirect('/')
+    resp = redirect('/?logged_out=1')
+    resp.delete_cookie(
+        app.config.get('SESSION_COOKIE_NAME', 'session'),
+        path=app.config.get('SESSION_COOKIE_PATH') or '/',
+        domain=app.config.get('SESSION_COOKIE_DOMAIN'),
+        secure=app.config.get('SESSION_COOKIE_SECURE', False),
+        httponly=app.config.get('SESSION_COOKIE_HTTPONLY', True),
+        samesite=app.config.get('SESSION_COOKIE_SAMESITE', 'Lax'),
+    )
+    return resp
 
 @app.route('/auth/superadmin-login', methods=['POST'])
 def auth_superadmin_login():
