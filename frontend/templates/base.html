@@ -24,7 +24,7 @@
     <a href="/admin"     class="nav-link {% block nav_admin %}{% endblock %}">🛡️ Admin</a>
   </div>
   <div class="nav-right">
-    <a href="/download/android" class="nav-link" title="Download BillMate Android APK">📱 Install App</a>
+    <a href="/download/android" class="nav-link billmate-install-link" title="Download BillMate Android APK">📱 Install App</a>
     {% block nav_right_extra %}
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
     <div class="user-menu" onclick="this.classList.toggle('open')">
@@ -58,6 +58,12 @@ window.BILLMATE_APK_VERSION = '';
 fetch('/api/android/latest').then(r=>r.json()).then(m=>{
   window.BILLMATE_APK_VERSION = m.version || '';
 }).catch(()=>{});
+</script>
+<script>
+(function hideInstallInsideNativeApk(){
+  if (!(window.__BILLMATE_NATIVE__ || window.BillMateNativeShare)) return;
+  document.querySelectorAll('.billmate-install-link, a[href="/download/android"]').forEach(el=>el.style.display='none');
+})();
 </script>
 <script src="{{ url_for('static', filename='js/common.js') }}"></script>
 {% block scripts %}{% endblock %}
