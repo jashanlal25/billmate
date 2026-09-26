@@ -2695,6 +2695,34 @@ def _zip_dbf(zf, wanted):
             return _dbf_rows(zf.read(name))
     return []
 
+@app.route('/api/demand/pdf-text', methods=['POST'])
+def demand_pdf_text():
+    """Extract selectable text from a demand PDF for the existing text-demand parser."""
+    upload = request.files.get('file')
+    if not upload or not (upload.filename or '').lower().endswith('.pdf'):
+        return jsonify({'error': 'Select a PDF demand file'}), 400
+    raw = upload.read()
+    if not raw:
+        return jsonify({'error': 'The PDF is empty'}), 400
+    if len(raw) > 8 * 1024 * 1024:
+        return jsonify({'error': 'Maximum PDF size is 8 MB'}), 413
+    try:
+        PdfReader = _import_module('PyPDF2').PdfReader
+        reader = PdfReader(io.BytesIO(raw))
+        if len(reader.pages) > 100:
+            return jsonify({'error': 'PDF has too many pages (maximum 100)'}), 413
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text() or ''
+            if text.strip():
+                pages.append(text)
+        text = '\n'.join(pages).strip()
+    except Exception:
+        return jsonify({'error': 'Could not read this PDF'}), 400
+    if not text:
+        return jsonify({'error': 'No selectable text was found in this PDF. Scanned/image-only PDFs are not supported yet.'}), 400
+    return jsonify({'text': text, 'pages': len(reader.pages)})
+
 @app.route('/api/pos-backup/import', methods=['POST'])
 def import_pos_backup():
     """Upsert POS customers/suppliers/stock. POS wins only for records present in backup."""
