@@ -529,9 +529,9 @@ def index():
         return redirect('/billing')
     return render_template('welcome.html', denied=request.args.get('denied'))
 
-@app.route('/admin/pos-import')
-def admin_pos_import_page():
-    return render_template('admin/pos_import.html')
+@app.route('/pos-import')
+def pos_import_page():
+    return render_template('pos_import.html')
 
 @app.route('/admin/login', methods=['GET'])
 def admin_login_page():
