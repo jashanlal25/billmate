@@ -8,44 +8,25 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
 <link rel="apple-touch-icon" sizes="192x192" href="/static/icon-192.png">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
-@view-transition{navigation:auto}
-body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.wrap{width:100%;max-width:420px}
-.logo{text-align:center;margin-bottom:36px}
-.logo-text{font-size:2.2em;font-weight:800;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.logo-sub{color:rgba(255,255,255,.5);font-size:.95em;margin-top:6px}
-.card{background:#fff;border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
-.tab-row{display:flex;gap:0;margin-bottom:28px;background:#f1f3f9;border-radius:12px;padding:4px}
-.tab{flex:1;padding:10px;border:none;border-radius:10px;font-size:.9em;font-weight:600;cursor:pointer;background:transparent;color:#888;transition:all .2s}
-.tab.active{background:#fff;color:#1a1a2e;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.form{display:none}
-.form.active{display:block}
-.field{margin-bottom:16px}
-.field label{display:block;font-size:.78em;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.field input{width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:11px;font-size:.95em;outline:none;color:#1a1a2e;background:#f8f9fa;transition:border-color .2s}
-.field input:focus{border-color:#667eea;background:#fff}
-.pw-wrap{position:relative}
-.pw-wrap input{padding-right:42px}
-.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1em;color:#aaa;line-height:1;padding:2px}
-.btn-main{width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:1em;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
-.btn-main:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(102,126,234,.4)}
-.err{color:#ef4444;font-size:.82em;margin-top:8px;display:none}
-.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#bbb;font-size:.82em}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e0e0e0}
-.btn-guest{width:100%;padding:12px;border:1.5px solid #e0e0e0;border-radius:12px;background:#fff;color:#555;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s}
-.btn-guest:hover{border-color:#667eea;color:#667eea}
-.guest-note{font-size:.78em;color:#aaa;text-align:center;margin-top:10px}
-.denied-msg{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;color:#dc2626;font-size:.85em;margin-bottom:20px;text-align:center}
+*{margin:0;padding:0;box-sizing:border-box}html{background:#071638}body{font-family:'Segoe UI',system-ui,sans-serif;color:#fff;min-height:100dvh;overflow-x:hidden;background:radial-gradient(circle at 8% 5%,#3d1685 0,transparent 28%),radial-gradient(circle at 92% 15%,#0756a8 0,transparent 31%),linear-gradient(145deg,#07112f 0%,#0a1b4d 52%,#17104a 100%);padding:24px;display:flex;align-items:center;justify-content:center;position:relative}
+body:before,body:after{content:"";position:fixed;pointer-events:none;border-radius:50%;filter:blur(1px);opacity:.65}body:before{width:58vw;height:58vw;left:-28vw;bottom:-30vw;border:2px solid #1a9fff;box-shadow:0 0 80px #175cff}body:after{width:65vw;height:65vw;right:-35vw;bottom:-38vw;border:2px solid #8b39ff;box-shadow:0 0 80px #712cff}
+.page{width:min(1180px,100%);display:grid;grid-template-columns:minmax(320px,.85fr) minmax(430px,1fr);gap:64px;align-items:center;position:relative;z-index:1}
+.brand-panel{padding:22px 8px}.app-icon{width:96px;height:96px;border-radius:26px;box-shadow:0 18px 45px rgba(56,94,255,.4);margin-bottom:20px}.logo-text{font-size:4rem;line-height:1;font-weight:850;letter-spacing:-3px;background:linear-gradient(90deg,#fff 5%,#a744ff 48%,#2da8ff);-webkit-background-clip:text;color:transparent}.logo-sub{font-size:1.18rem;color:#aab8dc;margin-top:10px}.accent-line{width:112px;height:6px;border-radius:9px;background:linear-gradient(90deg,#9c35ff,#338dff);margin:28px 0 34px}.features{display:grid;gap:25px}.feature{display:flex;gap:16px;align-items:center}.feature-icon{width:52px;height:52px;flex:0 0 52px;border-radius:50%;display:grid;place-items:center;font-size:24px;background:linear-gradient(145deg,#1668e8,#5314c7);box-shadow:0 8px 25px rgba(33,82,255,.28)}.feature b{display:block;font-size:1.05rem}.feature span{display:block;color:#aab8dc;margin-top:2px}.invoice-art{margin-top:34px;width:260px;height:180px;border:1px solid rgba(112,156,255,.5);border-radius:28px;transform:rotate(-6deg);background:linear-gradient(145deg,rgba(70,111,255,.3),rgba(89,25,197,.18));box-shadow:0 0 55px rgba(50,85,255,.25);position:relative}.invoice-art:after{content:"INVOICE\A ━━━━━\A ━━━━━━━\A ━━━━━\A ▂▅▇";white-space:pre;position:absolute;left:42px;top:30px;width:160px;height:130px;border-radius:12px;background:#edf1ff;color:#36449b;font-weight:800;padding:20px;line-height:1.45;box-shadow:0 15px 35px rgba(0,0,0,.25)}
+.auth-wrap{width:100%;max-width:570px;justify-self:end}.card{position:relative;background:linear-gradient(145deg,rgba(45,69,137,.72),rgba(15,29,79,.78));border:1px solid rgba(128,160,255,.52);border-radius:32px;padding:42px;box-shadow:0 28px 80px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.12);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.tab-row{display:flex;margin-bottom:34px;background:rgba(7,20,59,.55);border:1px solid rgba(122,153,235,.3);border-radius:18px;padding:4px}.tab{flex:1;padding:14px;border:0;border-radius:15px;font-size:1rem;font-weight:700;cursor:pointer;background:transparent;color:#aab7d9;transition:.25s}.tab.active{color:#fff;background:linear-gradient(110deg,#319dff,#9d2dff);box-shadow:0 8px 24px rgba(78,71,255,.35)}
+.welcome-title{font-size:2rem;font-weight:800;margin-bottom:4px}.welcome-sub{color:#aab8dc;margin-bottom:30px}.form{display:none}.form.active{display:block}.field{margin-bottom:20px}.field label{display:block;font-size:.78rem;font-weight:800;color:#c6d3f4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}.field input{width:100%;padding:15px 16px;border:1.5px solid rgba(151,177,240,.52);border-radius:15px;font-size:1rem;outline:none;color:#fff;background:rgba(119,144,204,.18);transition:.2s}.field input::placeholder{color:#9eacd1}.field input:focus{border-color:#55a7ff;box-shadow:0 0 0 3px rgba(61,143,255,.13);background:rgba(119,144,204,.25)}.pw-wrap{position:relative}.pw-wrap input{padding-right:48px}.eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:1.15rem;color:#d7e1ff}.btn-main{width:100%;padding:15px;border:0;border-radius:15px;background:linear-gradient(100deg,#a42cff,#5148ff 52%,#299cff);color:#fff;font-size:1.05rem;font-weight:800;cursor:pointer;margin-top:5px;box-shadow:0 12px 30px rgba(72,69,255,.3);transition:.2s}.btn-main:hover{transform:translateY(-1px);filter:brightness(1.08)}.err{color:#ff8c9c;font-size:.82rem;margin-top:8px;display:none}.divider{display:flex;align-items:center;gap:14px;margin:22px 0;color:#9facce;font-size:.85rem}.divider:before,.divider:after{content:"";flex:1;height:1px;background:rgba(159,181,235,.34)}.btn-guest{width:100%;padding:14px;border:1.5px solid #3c8cff;border-radius:15px;background:rgba(8,25,70,.32);color:#fff;font-size:1rem;font-weight:700;cursor:pointer}.guest-note{font-size:.78rem;color:#a6b2d1;text-align:center;margin-top:12px}.denied-msg{background:rgba(185,40,70,.2);border:1px solid rgba(255,116,143,.45);border-radius:10px;padding:10px 14px;color:#ffc1ce;font-size:.85rem;margin-bottom:20px;text-align:center}
+.mobile-brand,.mobile-features,.theme-switch{display:none}
+#apkDownload{display:block!important;width:max-content;max-width:100%;margin:14px auto 0!important;padding:7px 12px!important;border-radius:9px!important;text-align:center;text-decoration:none!important;font-size:.76rem!important;font-weight:650!important;color:#9fc8ff!important;border:1px solid rgba(105,159,255,.4)!important;background:rgba(17,37,88,.45)!important}
+@media(max-width:760px){
+body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(circle at 0 0,#342087 0,transparent 31%),radial-gradient(circle at 100% 12%,#0756a7 0,transparent 34%),linear-gradient(165deg,#07132f,#0a1d4d 58%,#190d50);min-height:100dvh}
+.page{display:block;width:100%;max-width:460px}.brand-panel{display:none}.auth-wrap{max-width:none}.mobile-brand{display:block;text-align:center;padding-top:42px;margin-bottom:22px}.mobile-brand .app-icon{width:76px;height:76px;border-radius:21px;margin:0 auto 14px}.mobile-brand .logo-text{font-size:2.85rem;letter-spacing:-2px}.mobile-brand .logo-sub{font-size:1rem;margin-top:6px}.theme-switch{display:flex;position:absolute;right:4px;top:0;background:rgba(17,35,83,.72);border:1px solid rgba(105,137,214,.32);padding:4px;border-radius:18px;gap:3px}.theme-switch button{border:0;background:transparent;color:#aebbe0;width:34px;height:30px;border-radius:14px;font-size:15px}.theme-switch .active{background:linear-gradient(135deg,#438fff,#8b2dff);color:white}.card{padding:24px 20px 22px;border-radius:27px}.tab-row{margin-bottom:24px}.tab{padding:12px 8px}.welcome-title,.welcome-sub{display:none}.field{margin-bottom:16px}.field input{padding:14px}.btn-main{padding:14px}.divider{margin:18px 0}.mobile-features{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:24px 0 0;text-align:center}.mobile-features .micon{width:44px;height:44px;margin:0 auto 7px;border-radius:50%;display:grid;place-items:center;background:rgba(26,62,135,.7);border:1px solid rgba(78,138,255,.55);font-size:20px}.mobile-features b{font-size:.76rem;display:block}.mobile-features span{font-size:.65rem;color:#9cadd4;display:block;line-height:1.25;margin-top:3px}.invoice-art-mobile{height:55px;margin-top:-2px;opacity:.38;position:relative;overflow:hidden}.invoice-art-mobile:before{content:"";position:absolute;width:150px;height:100px;left:12%;top:5px;border:1px solid #3f70ff;border-radius:18px;transform:rotate(-8deg);background:linear-gradient(145deg,#365cff55,#782cff33)}
+#apkDownload{font-size:.7rem!important;margin-top:11px!important}
+}
+@media(max-width:360px){body{padding-left:10px;padding-right:10px}.mobile-brand{padding-top:34px}.mobile-brand .logo-text{font-size:2.45rem}.card{padding:20px 16px}.guest-note{font-size:.7rem}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="logo">
-    <div class="logo-text">BillMate</div>
-    <div class="logo-sub">Smart billing for your business</div>
-  </div>
-
+<main class="page">\n<section class="brand-panel"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div><div class="accent-line"></div><div class="features"><div class="feature"><div class="feature-icon">▣</div><div><b>Fast Billing</b><span>Create invoices in seconds</span></div></div><div class="feature"><div class="feature-icon">◇</div><div><b>Manage Items</b><span>Keep your inventory organized</span></div></div><div class="feature"><div class="feature-icon">▥</div><div><b>Track Business</b><span>View sales &amp; reports anytime</span></div></div></div><div class="invoice-art"></div></section><section class="auth-wrap"><div class="theme-switch" aria-label="Theme"><button class="active" type="button">☾</button><button type="button">☀</button><button type="button">◐</button></div><div class="mobile-brand"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div></div>
   <div class="card">
     {% if denied %}
     <div class="denied-msg">🔒 That page requires a registered account.</div>
@@ -56,7 +37,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
       <button class="tab" onclick="switchTab('register')">Register</button>
     </div>
 
-    <!-- Login -->
+    <div class="welcome-title">Welcome Back</div><div class="welcome-sub">Login to your BillMate account</div>\n\n    <!-- Login -->
     <div class="form active" id="formLogin">
       <div class="field"><label>Username</label><input id="l_user" type="text" placeholder="Your username" autocomplete="username"></div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input id="l_pass" type="password" placeholder="Your password" autocomplete="current-password"><button type="button" class="eye-btn" onclick="toggleEye('l_pass',this)">👁️</button></div></div>
