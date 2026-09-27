@@ -26,7 +26,8 @@ body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(ci
 </style>
 </head>
 <body>
-<main class="page">\n<section class="brand-panel"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div><div class="accent-line"></div><div class="features"><div class="feature"><div class="feature-icon">▣</div><div><b>Fast Billing</b><span>Create invoices in seconds</span></div></div><div class="feature"><div class="feature-icon">◇</div><div><b>Manage Items</b><span>Keep your inventory organized</span></div></div><div class="feature"><div class="feature-icon">▥</div><div><b>Track Business</b><span>View sales &amp; reports anytime</span></div></div></div><div class="invoice-art"></div></section><section class="auth-wrap"><div class="theme-switch" aria-label="Theme"><button class="active" type="button">☾</button><button type="button">☀</button><button type="button">◐</button></div><div class="mobile-brand"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div></div>
+<main class="page">
+<section class="brand-panel"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div><div class="accent-line"></div><div class="features"><div class="feature"><div class="feature-icon">▣</div><div><b>Fast Billing</b><span>Create invoices in seconds</span></div></div><div class="feature"><div class="feature-icon">◇</div><div><b>Manage Items</b><span>Keep your inventory organized</span></div></div><div class="feature"><div class="feature-icon">▥</div><div><b>Track Business</b><span>View sales &amp; reports anytime</span></div></div></div><div class="invoice-art"></div></section><section class="auth-wrap"><div class="theme-switch" aria-label="Theme"><button class="active" type="button">☾</button><button type="button">☀</button><button type="button">◐</button></div><div class="mobile-brand"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div></div>
   <div class="card">
     {% if denied %}
     <div class="denied-msg">🔒 That page requires a registered account.</div>
@@ -37,7 +38,9 @@ body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(ci
       <button class="tab" onclick="switchTab('register')">Register</button>
     </div>
 
-    <div class="welcome-title">Welcome Back</div><div class="welcome-sub">Login to your BillMate account</div>\n\n    <!-- Login -->
+    <div class="welcome-title">Welcome Back</div><div class="welcome-sub">Login to your BillMate account</div>
+
+    <!-- Login -->
     <div class="form active" id="formLogin">
       <div class="field"><label>Username</label><input id="l_user" type="text" placeholder="Your username" autocomplete="username"></div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input id="l_pass" type="password" placeholder="Your password" autocomplete="current-password"><button type="button" class="eye-btn" onclick="toggleEye('l_pass',this)">👁️</button></div></div>
@@ -75,7 +78,10 @@ body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(ci
       📱 Download Android App · v1.8
     </a>
   </div>
-</div>
+  <div class="invoice-art-mobile"></div>
+  <div class="mobile-features"><div><div class="micon">ϟ</div><b>Fast Billing</b><span>Create invoices<br>in seconds</span></div><div><div class="micon">◇</div><b>Manage Items</b><span>Keep inventory<br>organized</span></div><div><div class="micon">▥</div><b>Track Business</b><span>Sales &amp; reports<br>anytime</span></div></div>
+</section>
+</main>
 
 <script>
 (function(){
