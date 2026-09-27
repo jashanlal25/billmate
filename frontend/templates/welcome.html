@@ -22,12 +22,13 @@ body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(ci
 .page{display:block;width:100%;max-width:460px}.brand-panel{display:none}.auth-wrap{max-width:none}.mobile-brand{display:block;text-align:center;padding-top:42px;margin-bottom:22px}.mobile-brand .app-icon{width:76px;height:76px;border-radius:21px;margin:0 auto 14px}.mobile-brand .logo-text{font-size:2.85rem;letter-spacing:-2px}.mobile-brand .logo-sub{font-size:1rem;margin-top:6px}.theme-switch{display:flex;position:absolute;right:4px;top:0;background:rgba(17,35,83,.72);border:1px solid rgba(105,137,214,.32);padding:4px;border-radius:18px;gap:3px}.theme-switch button{border:0;background:transparent;color:#aebbe0;width:34px;height:30px;border-radius:14px;font-size:15px}.theme-switch .active{background:linear-gradient(135deg,#438fff,#8b2dff);color:white}.card{padding:24px 20px 22px;border-radius:27px}.tab-row{margin-bottom:24px}.tab{padding:12px 8px}.welcome-title,.welcome-sub{display:none}.field{margin-bottom:16px}.field input{padding:14px}.btn-main{padding:14px}.divider{margin:18px 0}.mobile-features{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:24px 0 0;text-align:center}.mobile-features .micon{width:44px;height:44px;margin:0 auto 7px;border-radius:50%;display:grid;place-items:center;background:rgba(26,62,135,.7);border:1px solid rgba(78,138,255,.55);font-size:20px}.mobile-features b{font-size:.76rem;display:block}.mobile-features span{font-size:.65rem;color:#9cadd4;display:block;line-height:1.25;margin-top:3px}.invoice-art-mobile{height:55px;margin-top:-2px;opacity:.38;position:relative;overflow:hidden}.invoice-art-mobile:before{content:"";position:absolute;width:150px;height:100px;left:12%;top:5px;border:1px solid #3f70ff;border-radius:18px;transform:rotate(-8deg);background:linear-gradient(145deg,#365cff55,#782cff33)}
 #apkDownload{font-size:.7rem!important;margin-top:11px!important}
 }
+body.theme-light{background:radial-gradient(circle at 5% 5%,#e8e6ff 0,transparent 31%),radial-gradient(circle at 100% 12%,#cdeeff 0,transparent 34%),linear-gradient(165deg,#f5f7ff,#e9efff 58%,#eee8ff);color:#142044}body.theme-light .card{background:linear-gradient(145deg,rgba(255,255,255,.86),rgba(232,239,255,.88));border-color:rgba(82,112,195,.3)}body.theme-light .field label,body.theme-light .welcome-title{color:#17234a}body.theme-light .field input{color:#17234a;background:rgba(255,255,255,.72);border-color:#aab9df}body.theme-light .field input::placeholder,body.theme-light .welcome-sub,body.theme-light .guest-note{color:#68769b}body.theme-light .tab-row{background:#dfe7fa}body.theme-light .tab:not(.active){color:#596889}body.theme-light .btn-guest{color:#17305e;background:rgba(255,255,255,.6)}body.theme-dim{background:radial-gradient(circle at 0 0,#3c315f 0,transparent 31%),radial-gradient(circle at 100% 12%,#24546e 0,transparent 34%),linear-gradient(165deg,#22283a,#29374b 58%,#322747)}body.theme-dim .card{background:linear-gradient(145deg,rgba(67,75,101,.86),rgba(34,42,63,.9))}
 @media(max-width:360px){body{padding-left:10px;padding-right:10px}.mobile-brand{padding-top:34px}.mobile-brand .logo-text{font-size:2.45rem}.card{padding:20px 16px}.guest-note{font-size:.7rem}}
 </style>
 </head>
 <body>
 <main class="page">
-<section class="brand-panel"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div><div class="accent-line"></div><div class="features"><div class="feature"><div class="feature-icon">▣</div><div><b>Fast Billing</b><span>Create invoices in seconds</span></div></div><div class="feature"><div class="feature-icon">◇</div><div><b>Manage Items</b><span>Keep your inventory organized</span></div></div><div class="feature"><div class="feature-icon">▥</div><div><b>Track Business</b><span>View sales &amp; reports anytime</span></div></div></div><div class="invoice-art"></div></section><section class="auth-wrap"><div class="theme-switch" aria-label="Theme"><button class="active" type="button">☾</button><button type="button">☀</button><button type="button">◐</button></div><div class="mobile-brand"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div></div>
+<section class="brand-panel"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div><div class="accent-line"></div><div class="features"><div class="feature"><div class="feature-icon">▣</div><div><b>Fast Billing</b><span>Create invoices in seconds</span></div></div><div class="feature"><div class="feature-icon">◇</div><div><b>Manage Items</b><span>Keep your inventory organized</span></div></div><div class="feature"><div class="feature-icon">▥</div><div><b>Track Business</b><span>View sales &amp; reports anytime</span></div></div></div><div class="invoice-art"></div></section><section class="auth-wrap"><div class="theme-switch" aria-label="Theme"><button class="active" type="button" data-theme="dark" onclick="setWelcomeTheme('dark',this)" title="Dark">☾</button><button type="button" data-theme="light" onclick="setWelcomeTheme('light',this)" title="Light">☀</button><button type="button" data-theme="dim" onclick="setWelcomeTheme('dim',this)" title="Dim">◐</button></div><div class="mobile-brand"><img class="app-icon" src="/static/icon-192.png" alt="BillMate"><div class="logo-text">BillMate</div><div class="logo-sub">Smart billing for your business</div></div>
   <div class="card">
     {% if denied %}
     <div class="denied-msg">🔒 That page requires a registered account.</div>
@@ -84,7 +85,20 @@ body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(ci
 </main>
 
 <script>
+function setWelcomeTheme(theme,btn){
+  document.body.classList.remove('theme-light','theme-dim');
+  if(theme==='light') document.body.classList.add('theme-light');
+  if(theme==='dim') document.body.classList.add('theme-dim');
+  document.querySelectorAll('.theme-switch button').forEach(b=>b.classList.toggle('active',b===btn));
+  try{localStorage.setItem('billmate-welcome-theme',theme)}catch(e){}
+}
 (function(){
+  try{
+    const saved=localStorage.getItem('billmate-welcome-theme')||'dark';
+    const b=document.querySelector('.theme-switch button[data-theme="'+saved+'"]');
+    if(b) setWelcomeTheme(saved,b);
+  }catch(e){}
+
   // Hide the APK download inside the installed Android WebView.
   if (/; wv\)/i.test(navigator.userAgent)) {
     const el=document.getElementById('apkDownload');
