@@ -259,12 +259,11 @@ function togglePwdField(btn, id){
   btn.textContent=show?'🙈':'👁️';
 }
 
-async function downloadBackup(){
-  const r=await fetch('/api/backup/export');
-  if(!r.ok){toast('Could not create backup',true);return;}
-  const blob=await r.blob(), url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download='billmate-backup.zip'; a.click(); URL.revokeObjectURL(url);
-  toast('Backup downloaded');
+function downloadBackup(){
+  // Stream the authenticated attachment directly. Android's native downloader
+  // receives the dated Content-Disposition filename without a transient blob URL.
+  window.location.assign('/api/backup/export');
+  toast('Preparing backup download…');
 }
 
 let backupOperationInProgress=false;

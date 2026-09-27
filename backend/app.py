@@ -17,7 +17,7 @@ import threading
 import time
 from decimal import Decimal
 from flask_migrate import Migrate
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func
 import sqlalchemy as sa
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1633,7 +1633,7 @@ def backup_export():
         backup_zip.writestr('billmate-backup.json', body)
     archive.seek(0)
     return send_file(archive, mimetype='application/zip', as_attachment=True,
-                     download_name='billmate-backup.zip')
+                     download_name='billmate-backup-' + datetime.now(timezone(timedelta(hours=5))).strftime('%Y-%m-%d') + '.zip', max_age=0)
 
 
 @app.route('/api/backup/inspect', methods=['POST'])
