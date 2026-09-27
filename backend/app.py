@@ -2695,6 +2695,43 @@ def _zip_dbf(zf, wanted):
             return _dbf_rows(zf.read(name))
     return []
 
+def _pos_stock_from_ledger(items, ledger):
+    if not ledger:
+        raise ValueError('Current stock ledger OPSRB.DBF is missing')
+    def key(value):
+        return str(value or '').strip().lstrip('0') or '0'
+    def num(value):
+        try:
+            result = Decimal(str(value or '0').strip().replace(',', '') or '0')
+        except Exception:
+            raise ValueError('Invalid POS stock quantity')
+        if not result.is_finite():
+            raise ValueError('Invalid POS stock quantity')
+        return result
+    balances = {}
+    for row in ledger:
+        if str(row.get('MODE') or '').strip().upper() not in ('', 'I'):
+            continue
+        if num(row.get('RQTY')) != 0:
+            raise ValueError('Stock adjustments require verification')
+        code = key(row.get('CODE'))
+        balances[code] = balances.get(code, Decimal(0)) + num(row.get('OQTY')) + num(row.get('PQTY')) - num(row.get('SQTY')) + num(row.get('IN')) - num(row.get('OUT'))
+    output = []
+    for row in items:
+        if str(row.get('MODE') or '').strip().upper() != 'I':
+            continue
+        code = key(row.get('CODE'))
+        if code not in balances:
+            raise ValueError('Stock ledger is incomplete')
+        pack = num(row.get('PKQTY'))
+        if pack <= 0:
+            raise ValueError('Invalid POS packing quantity')
+        qty = round(balances[code] / pack, 3)
+        if qty <= 0 and num(row.get('TDBAL')) <= 0:
+            continue
+        output.append(dict(row, TDBAL=str(qty), _UPDATE_ONLY=qty <= 0))
+    return output
+
 def _pos_customers_from_mast(rows):
     """Map only current customer accounts into the existing batch contract."""
     customers = []
@@ -2811,6 +2848,7 @@ def import_pos_backup():
                 return jsonify({'error':'No current customers found in MAST.DBF'}),400
             suppliers=_zip_dbf(zf,'MSPLR.DBF')
             items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
+            items=_pos_stock_from_ledger(items,_zip_dbf(zf,'OPSRB.DBF'))
             purchases=_zip_dbf(zf,'PUR1.DBF')
             sopen=_zip_dbf(zf,'SOPEN.DBF')
         except ValueError as exc:
@@ -2874,6 +2912,7 @@ def import_pos_backup():
     # Stock master: POS values replace matching BillMate values; BillMate-only items remain.
     existing_items=Item.query.filter_by(user_id=uid,is_global=False).all()
     item_by_name={_pos_key(x.name):x for x in existing_items}
+    item_by_code={x.code:x for x in existing_items}
     for r in items:
         name=(r.get('NAME') or '').strip(); pos_code=(r.get('CODE') or '').strip()
         if not name or not pos_code or (r.get('MODE') and str(r.get('MODE')).strip().upper()!='I'):
@@ -2883,7 +2922,12 @@ def import_pos_backup():
         if retail<=0: retail=round(tp/0.85,2)
         if tp<=0: tp=round(retail*0.85,2)
         qty=_pos_num(r.get('TDBAL'))
-        obj=item_by_name.get(_pos_key(name))
+        obj=item_by_code.get('POS-'+pos_code) or item_by_name.get(_pos_key(name))
+        if r.get('_UPDATE_ONLY'):
+            if obj:
+                obj.qty=qty
+                stats['items_updated']+=1
+            continue
         if obj:
             obj.name=name; obj.retail_price=retail; obj.tp=tp; obj.qty=qty
             obj.discount_pct=_pos_num(r.get('LDISC')); obj.tax_pct=_pos_num(r.get('TAX'))

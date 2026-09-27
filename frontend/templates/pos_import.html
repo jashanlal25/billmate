@@ -60,6 +60,29 @@ function _posCustomers(rows){
   return {CCOD:code,CNM:name,TOTRCV:balance};
  });
 }
+function _posStock(items,ledger){
+ if(!ledger.length)throw new Error('Current stock ledger OPSRB.DBF is missing; no data has been sent.');
+ const key=v=>String(v??'').trim().replace(/^0+(?=\d)/,'');
+ const num=v=>{const n=Number(String(v??'').trim().replace(/,/g,''));if(!Number.isFinite(n))throw new Error('Invalid stock quantity in POS backup');return n;};
+ const balances=new Map();
+ for(const r of ledger){
+  if(!['','I'].includes(String(r.MODE||'').trim().toUpperCase()))continue;
+  // RQTY is unused in the verified backup; do not guess its sign for other schemas.
+  if(num(r.RQTY)!==0)throw new Error('This backup has stock adjustments requiring verification; no data has been sent.');
+  const code=key(r.CODE);
+  balances.set(code,(balances.get(code)||0)+num(r.OQTY)+num(r.PQTY)-num(r.SQTY)+num(r.IN)-num(r.OUT));
+ }
+ return items.filter(r=>String(r.MODE||'').trim().toUpperCase()==='I').flatMap(r=>{
+  const code=key(r.CODE);
+  if(!balances.has(code))throw new Error('Stock ledger is incomplete; no data has been sent.');
+  const pack=num(r.PKQTY);
+  if(pack<=0)throw new Error('Invalid POS packing quantity; no data has been sent.');
+  const qty=Math.round(balances.get(code)/pack*1000)/1000;
+  // Correct previously imported TDBAL flags without creating zero-stock catalogue rows.
+  if(qty<=0&&num(r.TDBAL)<=0)return [];
+  return [{CODE:r.CODE,MODE:r.MODE,NAME:r.NAME,RETAIL:r.RETAIL,TRP1:r.TRP1,TDBAL:qty,LDISC:r.LDISC,TAX:r.TAX,BONUS:r.BONUS,_UPDATE_ONLY:qty<=0}];
+ });
+}
 async function _sendPosBatch(kind,rows){
  const r=await fetch('/api/pos-backup/import-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,rows})});
  const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){}
@@ -72,9 +95,9 @@ async function syncPosBackup(){
  b.disabled=true;b.textContent='Reading backup…';out.textContent='Extracting POS backup locally on this device…';
  try{
   const zip=await JSZip.loadAsync(f.files[0]);
-  const [suppliers,itemRows,mastRows,purchases,sopen]=await Promise.all([
+  const [suppliers,itemRows,mastRows,purchases,sopen,stockLedger]=await Promise.all([
    _readDbf(zip,'MSPLR.DBF'),_readDbf(zip,'ITEM.DBF'),
-   _readDbf(zip,'MAST.DBF'),_readDbf(zip,'PUR1.DBF'),_readDbf(zip,'SOPEN.DBF')
+   _readDbf(zip,'MAST.DBF'),_readDbf(zip,'PUR1.DBF'),_readDbf(zip,'SOPEN.DBF'),_readDbf(zip,'OPSRB.DBF')
   ]);
   const customers=_posCustomers(mastRows);
   if(!customers.length)throw new Error('No current customers found in MAST.DBF. Check the POS backup; no data has been sent.');
@@ -95,8 +118,7 @@ async function syncPosBackup(){
   const slimSuppliers=suppliers.map(r=>{const sc=String(r.CODE||'').trim().replace(/^0+/,'')||'0';return {CODE:r.CODE,NAME:r.NAME,_PAYABLE:payable[sc]||0}});
   // Import only POS items that actually have stock. ITEM/MAST contains the
   // whole historical catalogue, which can be thousands of zero-stock records.
-  const stockedItems=items.filter(r=>(parseFloat(String(r.TDBAL||'').replace(/,/g,'').trim())||0)>0);
-  const slimItems=stockedItems.map(r=>({CODE:r.CODE,MODE:r.MODE,NAME:r.NAME,RETAIL:r.RETAIL,TRP1:r.TRP1,TDBAL:r.TDBAL,LDISC:r.LDISC,TAX:r.TAX,BONUS:r.BONUS}));
+  const slimItems=_posStock(items,stockLedger);
   const groups=[['customers',slimCustomers],['suppliers',slimSuppliers],['items',slimItems]];
   const totals={customers_created:0,customers_updated:0,suppliers_created:0,suppliers_updated:0,items_created:0,items_updated:0};
   let sent=0,total=groups.reduce((n,g)=>n+g[1].length,0);
@@ -111,6 +133,7 @@ async function syncPosBackup(){
    }
   }
   const ct=totals.customers_created+totals.customers_updated,st=totals.suppliers_created+totals.suppliers_updated,it=totals.items_created+totals.items_updated;
+  try{Object.keys(localStorage).filter(k=>k.startsWith('items_cache_')).forEach(k=>localStorage.removeItem(k));}catch(_){}
   out.innerHTML='<b style="color:#10b981">✅ Sync complete</b><br>Customers: '+ct+' ('+totals.customers_created+' new, '+totals.customers_updated+' updated)<br>Suppliers: '+st+' ('+totals.suppliers_created+' new, '+totals.suppliers_updated+' updated)<br>Stock items: '+it+' ('+totals.items_created+' new, '+totals.items_updated+' updated)<br><b>BillMate-only records were untouched.</b>';
  }catch(e){out.textContent='❌ '+e.message}finally{b.disabled=false;b.textContent='Upload & Sync POS Backup'}
 }
