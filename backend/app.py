@@ -2695,6 +2695,24 @@ def _zip_dbf(zf, wanted):
             return _dbf_rows(zf.read(name))
     return []
 
+def _pos_customers_from_mast(rows):
+    """Map only current customer accounts into the existing batch contract."""
+    customers = []
+    for row in rows:
+        if str(row.get('MODE') or '').strip().upper() != 'C':
+            continue
+        code = str(row.get('CODE') if row.get('CODE') is not None else '').strip()
+        name = str(row.get('NAME') or '').strip()
+        balance = str(row.get('TDBAL') if row.get('TDBAL') is not None else '').strip().replace(',', '')
+        try:
+            valid_balance = Decimal(balance).is_finite()
+        except Exception:
+            valid_balance = False
+        if not code or not name or not valid_balance:
+            raise ValueError('Invalid customer code, name or balance in MAST.DBF')
+        customers.append({'CCOD': code, 'CNM': name, 'TOTRCV': balance})
+    return customers
+
 @app.route('/api/demand/pdf-text', methods=['POST'])
 def demand_pdf_text():
     """Extract demand rows from selectable-text PDFs for Demand Search."""
@@ -2788,11 +2806,15 @@ def import_pos_backup():
             return jsonify({'error':'Backup ZIP is too large'}),413
         try:
             zf=zipfile.ZipFile(io.BytesIO(raw))
-            customers=_zip_dbf(zf,'MCTMR.DBF')
+            customers=_pos_customers_from_mast(_zip_dbf(zf,'MAST.DBF'))
+            if not customers:
+                return jsonify({'error':'No current customers found in MAST.DBF'}),400
             suppliers=_zip_dbf(zf,'MSPLR.DBF')
             items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
             purchases=_zip_dbf(zf,'PUR1.DBF')
             sopen=_zip_dbf(zf,'SOPEN.DBF')
+        except ValueError as exc:
+            return jsonify({'error':str(exc)}),400
         except (zipfile.BadZipFile,RuntimeError):
             return jsonify({'error':'Invalid POS backup ZIP'}),400
     if not customers and not suppliers and not items:

@@ -36,15 +36,12 @@ async function _readDbf(zip,name){
  let e=_zipEntry(zip,name);
  // Fallback for legacy backups with unusual padding/encoding in filenames:
  // identify customer/supplier master DBFs by their field schema.
- if(!e && (name==='MCTMR.DBF'||name==='MSPLR.DBF')){
+ if(!e && name==='MSPLR.DBF'){
   for(const candidate of Object.values(zip.files)){
    if(candidate.dir||!candidate.name.toUpperCase().endsWith('.DBF'))continue;
    const rows=_dbfRows(await candidate.async('arraybuffer'));
    if(!rows.length)continue;
    const keys=new Set(Object.keys(rows[0]).map(k=>String(k).trim().toUpperCase()));
-   // Customer master must carry the receivable field. This deliberately
-   // prioritizes balance-bearing customer data over generic name/code masters.
-   if(name==='MCTMR.DBF'&&keys.has('TOTRCV')&&(keys.has('CNM')||keys.has('NAME'))&&(keys.has('CCOD')||keys.has('CODE')))return rows;
    // Supplier fallback requires a supplier-looking compact master and must not
    // accidentally claim the customer master.
    if(name==='MSPLR.DBF'&&!keys.has('TOTRCV')&&keys.has('CODE')&&keys.has('NAME')&&keys.size<=8)return rows;
@@ -52,6 +49,16 @@ async function _readDbf(zip,name){
   return [];
  }
  return e?_dbfRows(await e.async('arraybuffer')):[];
+}
+function _posCustomers(rows){
+ // Current customer accounts live in MAST. Never merge the unrelated MCTMR list.
+ return rows.filter(r=>String(r.MODE||'').trim().toUpperCase()==='C').map(r=>{
+  const code=String(r.CODE??'').trim(),name=String(r.NAME??'').trim();
+  const balance=String(r.TDBAL??'').trim().replace(/,/g,'');
+  if(!code||!name||!balance||!Number.isFinite(Number(balance)))
+   throw new Error('Invalid customer code, name or balance in MAST.DBF; no data has been sent.');
+  return {CCOD:code,CNM:name,TOTRCV:balance};
+ });
 }
 async function _sendPosBatch(kind,rows){
  const r=await fetch('/api/pos-backup/import-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,rows})});
@@ -65,10 +72,12 @@ async function syncPosBackup(){
  b.disabled=true;b.textContent='Reading backup…';out.textContent='Extracting POS backup locally on this device…';
  try{
   const zip=await JSZip.loadAsync(f.files[0]);
-  const [customers,suppliers,itemRows,mastRows,purchases,sopen]=await Promise.all([
-   _readDbf(zip,'MCTMR.DBF'),_readDbf(zip,'MSPLR.DBF'),_readDbf(zip,'ITEM.DBF'),
+  const [suppliers,itemRows,mastRows,purchases,sopen]=await Promise.all([
+   _readDbf(zip,'MSPLR.DBF'),_readDbf(zip,'ITEM.DBF'),
    _readDbf(zip,'MAST.DBF'),_readDbf(zip,'PUR1.DBF'),_readDbf(zip,'SOPEN.DBF')
   ]);
+  const customers=_posCustomers(mastRows);
+  if(!customers.length)throw new Error('No current customers found in MAST.DBF. Check the POS backup; no data has been sent.');
   const items=itemRows.length?itemRows:mastRows;
   if(!customers.length&&!suppliers.length&&!items.length)throw new Error('POS customer, supplier and stock DBF files were not found');
   out.textContent='Extracted locally: '+customers.length+' customers, '+suppliers.length+' suppliers, '+items.length+' catalogue items. Filtering stock…';
@@ -82,11 +91,7 @@ async function syncPosBackup(){
    const amount=parseFloat(String(r.AMOUNT||'').trim())||0,paid=parseFloat(String(r.PAID||'').trim())||0;
    payable[sc]=(payable[sc]||0)+amount-paid;
   }
-  const slimCustomers=customers.map(r=>({
-   CCOD:r.CCOD??r.CODE,
-   CNM:r.CNM??r.NAME,
-   TOTRCV:r.TOTRCV
-  })).filter(r=>String(r.CNM||'').trim());
+  const slimCustomers=customers;
   const slimSuppliers=suppliers.map(r=>{const sc=String(r.CODE||'').trim().replace(/^0+/,'')||'0';return {CODE:r.CODE,NAME:r.NAME,_PAYABLE:payable[sc]||0}});
   // Import only POS items that actually have stock. ITEM/MAST contains the
   // whole historical catalogue, which can be thousands of zero-stock records.
