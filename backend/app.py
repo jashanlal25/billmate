@@ -3020,7 +3020,7 @@ def guest_claim_invoice():
 
 # ── Invoices API ──────────────────────────────────────────────────────────────
 
-def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_text='', user_id=None):
+def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_text='', user_id=None, preferred_code=''):
     """Auto-create an item in the user's catalog if it doesn't already exist (by name)."""
     query = Item.query.filter(Item.name.ilike(name), Item.is_active == True)
     if user_id:
@@ -3030,11 +3030,14 @@ def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_t
     existing = query.first()
     if existing:
         return existing
-    count = Item.query.filter_by(is_global=False, user_id=user_id).count()
-    code = f'ITM{count + 1:04d}'
-    while Item.query.filter_by(code=code, user_id=user_id).first():
-        count += 1
+    requested_code = str(preferred_code or '').strip()[:30]
+    code = requested_code if requested_code and not Item.query.filter_by(code=requested_code, user_id=user_id).first() else ''
+    if not code:
+        count = Item.query.filter_by(is_global=False, user_id=user_id).count()
         code = f'ITM{count + 1:04d}'
+        while Item.query.filter_by(code=code, user_id=user_id).first():
+            count += 1
+            code = f'ITM{count + 1:04d}'
     item = Item(
         user_id=user_id,
         code=code,
@@ -3219,8 +3222,8 @@ def create_invoice():
 
     for line_data in line_list:
         item = items_map.get(line_data.get('item_id'))
-        # Auto-save custom items to catalog
-        if not item and line_data.get('item_name', '').strip():
+        # Keep unsaved custom lines out of Inventory until the user saves the invoice.
+        if not is_auto_draft and not item and line_data.get('item_name', '').strip():
             item = _ensure_item_exists(
                 name=line_data['item_name'].strip(),
                 tp=float(line_data.get('tp', 0)),
@@ -3229,6 +3232,7 @@ def create_invoice():
                 discount_pct=float(line_data.get('discount_pct', 0) or 0),
                 bonus_text=line_data.get('bonus_text', '') or '',
                 user_id=session.get('user_id'),
+                preferred_code=line_data.get('item_code', ''),
             )
         line = InvoiceLine(
             invoice_id=inv.id,
@@ -3321,8 +3325,8 @@ def update_invoice(inv_id):
 
     for line_data in data.get('lines', []):
         item = Item.query.get(line_data.get('item_id')) if line_data.get('item_id') else None
-        # Auto-save custom items to catalog
-        if not item and line_data.get('item_name', '').strip():
+        # Keep unsaved custom lines out of Inventory until the user saves the invoice.
+        if not is_auto_draft and not item and line_data.get('item_name', '').strip():
             item = _ensure_item_exists(
                 name=line_data['item_name'].strip(),
                 tp=float(line_data.get('tp', 0)),
@@ -3331,6 +3335,7 @@ def update_invoice(inv_id):
                 discount_pct=float(line_data.get('discount_pct', 0) or 0),
                 bonus_text=line_data.get('bonus_text', '') or '',
                 user_id=session.get('user_id'),
+                preferred_code=line_data.get('item_code', ''),
             )
         line = InvoiceLine(
             invoice_id=inv.id,

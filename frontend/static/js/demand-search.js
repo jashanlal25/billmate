@@ -29,12 +29,15 @@
         const values=cells.map(c=>c.textContent.replace(/\s+/g,' ').trim());
         const headers=values.map(v=>v.toLowerCase());
         const name=headers.findIndex(v=>/^(item\s*name|product\s*name|description|item|product)$/.test(v));
-        if(name>=0){columns={name,code:headers.indexOf('code'),box:headers.indexOf('box'),pcs:headers.indexOf('pcs')};continue;}
+        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v))};continue;}
         if(!columns||!cells.length||cells.some(c=>c.querySelector('table'))) continue;
         const item=values[columns.name];
         if(!item||!/[a-z]/i.test(item)||cells.length<=columns.name||/^(total|grand total|sub total)\b/i.test(item)) continue;
         if(cells.some(c=>c.querySelector('input,button,select'))) continue;
-        rows.push({name:item,code:values[columns.code]||'',box:values[columns.box]||'',pcs:values[columns.pcs]||''});
+        const rawTp=columns.tp>=0?values[columns.tp]||'':'';
+        const tpMatch=rawTp.replace(/,/g,'').match(/\d+(?:\.\d+)?/);
+        const tp=tpMatch?Number(tpMatch[0]):0;
+        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:Number.isFinite(tp)&&tp>0?tp:null});
       }
     }
     if(!rows.length) throw Error('No demand items found. Use an HTML table with an Item Name column.');
@@ -72,7 +75,7 @@
       }
       if(ticket!==version)return;
       if(pasted)$('pastedDemand').value=content;
-      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td></tr>`).join('');
+      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td></tr>`).join('');
       $('demandPreview').hidden=false;
       status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.${saved?'':' This device could not save the demand for later.'}`);
     }catch(e){if(ticket===version) status(e.message);}
@@ -131,6 +134,7 @@
       $('demandPreview').open=false;$('demandResults').hidden=false;
       status(`Search complete across ${inventory.length} inventory entries. No inventory was changed.`);
       $('resultFilter').value=results.some(r=>r.offers.length)?'found':'missing';
+      updateSelectionPanel();
       render();
       requestAnimationFrame(()=>$('demandResults').scrollIntoView({block:'start',behavior:'smooth'}));
     }catch(e){results=[];status(e.message||'Search failed. Please retry.');}
@@ -141,6 +145,27 @@
   const demandQty=d=>[d.qty,d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`,d.required&&'Lazmi'].filter(Boolean).join(' · ')||'—';
   const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
   const offerCopyText=offer=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct)}`;
+  const missingOffer=demand=>({status:'missing',item:{name:demand.name,vendor:'',discount_pct:null}});
+  function allSelectionKeys(){
+    return results.flatMap((result,dIndex)=>result.offers.length
+      ?result.offers.map((_,oIndex)=>`${dIndex}:${oIndex}`)
+      :[`${dIndex}:missing`]);
+  }
+  function selectKey(key){
+    if(selectedOffers.has(key))return;
+    const [dIndex,offerIndex]=key.split(':');
+    const result=results[Number(dIndex)];
+    if(!result)return;
+    const offer=offerIndex==='missing'&&!result.offers.length
+      ?missingOffer(result.demand):result.offers[Number(offerIndex)];
+    if(!offer)return;
+    selectedOffers.set(key,{demand:result.demand,offer,qty:initialQty(result.demand)});
+    const vendor=String(offer.item.vendor||'').trim();
+    if(vendor&&!vendorPhones.has(vendor)){
+      const supplier=suppliers.find(s=>String(s.name||'').trim().toLowerCase()===vendor.toLowerCase());
+      if(supplier)vendorPhones.set(vendor,String(supplier.phone||''));
+    }
+  }
   function offerLetter(index){
     let letters='';
     for(let n=index+1;n>0;n=Math.floor((n-1)/26))letters=String.fromCharCode(97+(n-1)%26)+letters;
@@ -174,7 +199,10 @@
         if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
         return tpValue(a.item.tp)-tpValue(b.item.tp);
       });
-      if(!offers.length){rows.push(`<tr class="group-start"><td class="mark-col"></td><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — no compatible inventory entry</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;}
+      if(!offers.length){
+        const key=`${dIndex}:missing`;
+        rows.push(`<tr class="group-start"><td class="mark-col"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(result.demand.name)} as not in Inventory" ${selectedOffers.has(key)?'checked':''}></td><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — add to Billing with price to fill in</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;
+      }
       offers.forEach((o,i)=>{
         const copyIndex=copyOffers.push(offerCopyText(o))-1;
         const key=`${dIndex}:${result.offers.indexOf(o)}`;
@@ -195,15 +223,20 @@
     document.querySelector('main.demand').classList.toggle('selecting',enabled);
     $('selectedOffersPanel').hidden=!enabled;
     $('jumpToMarked').hidden=!enabled;
+    $('markAllDemand').hidden=!enabled;
+    const allKeys=allSelectionKeys();
+    $('markAllDemand').disabled=!allKeys.length;
+    $('markAllDemand').textContent=allKeys.length&&allKeys.every(key=>selectedOffers.has(key))?'Unmark all demand items':'Mark all demand items';
     $('copyMarkedOffers').hidden=!enabled;
     $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size;
     if(!enabled)return;
     const entries=[...selectedOffers.entries()];
+    const missing=entries.filter(([,s])=>s.offer.status==='missing').length;
     $('selectedOffersCount').textContent=entries.length
-      ?`${entries.length} vendor offer${entries.length===1?'':'s'} marked. Check each quantity and any “Needs review” match before proceeding.`
-      :'Mark the vendor offers you want. Unmatched items cannot be marked.';
+      ?`${entries.length} item${entries.length===1?'':'s'} marked${missing?` (${missing} not in Inventory)`:''}. Check each quantity and any “Needs review” match before proceeding.`
+      :'Mark the items you want. Items not found in Inventory will be added to Billing for manual pricing.';
     $('reviewInBilling').disabled=!entries.length||entries.some(([,s])=>!validQty(s.qty));
-    $('selectedOffersList').innerHTML=entries.map(([key,s])=>`<div class="selected-row"><span>${esc(s.demand.name)} → <strong>${esc(s.offer.item.name)}</strong> · ${esc(s.offer.item.vendor||'Vendor missing')}${s.offer.status==='review'?' · Needs review':''}${s.demand.required?' · Lazmi':''}</span><label>Qty <input type="number" min="0.01" max="10000" step="any" inputmode="decimal" data-selected-qty="${key}" value="${esc(s.qty)}" aria-label="Quantity for ${esc(s.offer.item.name)}"></label></div>`).join('');
+    $('selectedOffersList').innerHTML=entries.map(([key,s])=>`<div class="selected-row"><span>${s.offer.status==='missing'?`<strong>${esc(s.demand.name)}</strong> · Not in Inventory; set price in Billing`:`${esc(s.demand.name)} → <strong>${esc(s.offer.item.name)}</strong> · ${esc(s.offer.item.vendor||'Vendor missing')}${s.offer.status==='review'?' · Needs review':''}`}${s.demand.required?' · Lazmi':''}</span><label>Qty <input type="number" min="0.01" max="10000" step="any" inputmode="decimal" data-selected-qty="${key}" value="${esc(s.qty)}" aria-label="Quantity for ${esc(s.offer.item.name)}"></label></div>`).join('');
     const groups=new Map();
     for(const [,s] of entries){
       const vendor=String(s.offer.item.vendor||'').trim();
@@ -228,21 +261,18 @@
       }).catch(()=>{});
     }
   });
+  $('markAllDemand').addEventListener('click',()=>{
+    if(!$('enableDemandMarks').checked)return;
+    const keys=allSelectionKeys();
+    if(keys.every(key=>selectedOffers.has(key)))selectedOffers.clear();
+    else keys.forEach(selectKey);
+    updateSelectionPanel();render();
+  });
   $('resultRows').addEventListener('change',e=>{
     const mark=e.target.closest('input[data-offer-key]');
     if(!mark)return;
     const key=mark.dataset.offerKey;
-    const [dIndex,oIndex]=key.split(':').map(Number);
-    const result=results[dIndex],offer=result&&result.offers[oIndex];
-    if(!offer)return;
-    if(mark.checked){
-      selectedOffers.set(key,{demand:result.demand,offer,qty:initialQty(result.demand)});
-      const vendor=String(offer.item.vendor||'').trim();
-      if(vendor&&!vendorPhones.has(vendor)){
-        const supplier=suppliers.find(s=>String(s.name||'').trim().toLowerCase()===vendor.toLowerCase());
-        if(supplier)vendorPhones.set(vendor,String(supplier.phone||''));
-      }
-    }
+    if(mark.checked)selectKey(key);
     else selectedOffers.delete(key);
     updateSelectionPanel();
   });
@@ -299,24 +329,24 @@
     const entries=[...selectedOffers.values()];
     if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
     try{
-      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review'}))));
+      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null}))));
       location.assign('/billing?demand_selection=1');
     }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
   });
   $('copyMarkedOffers').addEventListener('click',async()=>{
     if(!$('enableDemandMarks').checked||!selectedOffers.size)return;
     const entries=[...selectedOffers.entries()].sort(([a],[b])=>{
-      const [ad,ao]=a.split(':').map(Number),[bd,bo]=b.split(':').map(Number);
-      return ad-bd||ao-bo;
+      const [ad,ao]=a.split(':'),[bd,bo]=b.split(':');
+      return Number(ad)-Number(bd)||(ao==='missing'?-1:bd==='missing'?1:Number(ao)-Number(bo));
     });
     const value=entries.map(([,selected])=>offerCopyText(selected.offer)).join('\n');
     const button=$('copyMarkedOffers');
     try{
       if(!await copyText(value))throw Error('Copy failed');
       button.textContent=`Copied ${entries.length} offer${entries.length===1?'':'s'}!`;
-      $('copyFeedback').textContent=`Copied ${entries.length} marked offer${entries.length===1?'':'s'} to paste into WhatsApp.`;
-      setTimeout(()=>{button.textContent='Copy marked offers';},2000);
-    }catch(e){$('copyFeedback').textContent='Could not copy marked offers. Please try again.';}
+      $('copyFeedback').textContent=`Copied ${entries.length} marked item${entries.length===1?'':'s'} to paste into WhatsApp.`;
+      setTimeout(()=>{button.textContent='Copy marked items';},2000);
+    }catch(e){$('copyFeedback').textContent='Could not copy marked items. Please try again.';}
   });
   async function copyText(value){
     if(navigator.clipboard && window.isSecureContext){
