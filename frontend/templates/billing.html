@@ -684,6 +684,7 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </div>
 
+<script src="/static/js/supplier-order.js?v=1"></script>
 <script>
 const themes=['light','dim','dark'];
 const themeIcons={light:'☀️',dim:'🌤️',dark:'🌙'};
@@ -995,7 +996,7 @@ function toTitleCase(str){
 }
 
 // Item cache (localStorage, keyed by user + date for midnight auto-expiry)
-const _CK = `items_cache_{{ session.username or 'guest' }}_${new Date().toISOString().split('T')[0]}`;
+const _CK = `items_cache_{{ session.username or 'guest' }}_supplier1_${new Date().toISOString().split('T')[0]}`;
 function _cacheGet(){ try{ const v=localStorage.getItem(_CK); return v?JSON.parse(v):null; }catch{ return null; } }
 function _cacheSet(d){ try{ localStorage.setItem(_CK,JSON.stringify(d)); }catch{} }
 function _cacheClear(){
@@ -1018,7 +1019,7 @@ function _searchCache(q){
   const all = _cacheGet();
   if(!all || !all.length) return null;     // no cache yet → caller falls back to server
   const ql = q.toLowerCase();
-  const hits = all.filter(i => (i.name||'').toLowerCase().includes(ql)).slice(0, 50);
+  const hits = all.filter(i => ((i.name||'')+' '+(i.code||'')).toLowerCase().includes(ql)).slice(0, 50);
   if(IS_GUEST){
     const localItems = GuestStore.searchItems(q);
     return [...localItems, ...hits.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
@@ -1047,7 +1048,7 @@ function _renderItemDropdown(items, q){
     const qtyStr=qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
     return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}</span>`:''}</div>
+      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}${i.vendor_list_no?' · List '+esc(i.vendor_list_no):''}</span>`:''}</div>
     </div>`;
   }).join('')+addRow;
   dd.classList.add('open');
@@ -1194,7 +1195,7 @@ function addLine(item){
     qty:1, retail:+item.retail_price, tp:+item.tp,
     disc:+item.discount_pct, bonus:item.bonus_text||'', tax:+item.tax_pct,
     rate_source:item.rate_source||'',
-    vendor:item.vendor||'',
+    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',
     is_global:!!item.is_global,
     lineNet:0
   };
@@ -1517,7 +1518,7 @@ async function _guestSave(isDraft){
     customer_phone:'',customer_address:'',
     lines:lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus||'',
-      tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',line_net:l.lineNet})),
+      tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',line_net:l.lineNet})),
     subtotal:sub,tax_amount:tax,discount_amount:discAmt,total,
     previous_balance:0,status:isDraft?'draft':'posted'
   };
@@ -1558,7 +1559,7 @@ async function saveInvoice(){
     lines: lines.map(l=>({
       item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
       qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-      rate_source:l.rate_source||'', vendor:l.vendor||''
+      rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''
     }))
   };
   const isEdit = _wasRealEdit;            // for the "Saved" vs "Updated" message
@@ -1596,7 +1597,7 @@ function _autoDraftPayload(){
     customer_name: typedName||'Walk-in',
     customer_phone: document.getElementById('custPhone').value.trim(),
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-    lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||''}))
+    lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
   };
 }
 // Schedule a debounced auto-save (called from renderLines on every cart change)
@@ -1644,7 +1645,7 @@ async function restoreAutoDraft(){
     document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
     lines = inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,bonus:l.bonus_text||'',
-      tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',lineNet:+l.line_net}));
+      tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',lineNet:+l.line_net}));
     document.getElementById('invNo').textContent = 'Invoice # ' + inv.invoice_number;
     document.getElementById('savedInvInfo').textContent = 'Restored unsaved bill · '+inv.invoice_number;
     renderLines(); recalc();
@@ -1675,7 +1676,7 @@ async function importDemandSelection(){
     const line={item_id:item.id,item_name:item.name,item_code:item.code||'',qty,
       retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
       bonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
-      vendor:item.vendor||'',is_global:!!item.is_global,lineNet:0};
+      vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',is_global:!!item.is_global,lineNet:0};
     calcLine(line);lines.push(line);added++;
     if(entry.review)reviewed++;
   }
@@ -1717,7 +1718,7 @@ async function saveDraft(){
       customer_id: customer?customer.id:null,
       customer_name: typedName||'Walk-in',
       discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||''}))
+      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
     };
     const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
     const method = savedInvoiceId ? 'PUT' : 'POST';
@@ -1903,11 +1904,12 @@ let _activeVendorInv = null;   // invoice the vendor flow currently targets
 function _vendorInv(){ return _activeVendorInv || lastSavedInv; }
 function _vendorGroups(){
   const inv = _vendorInv();
-  const groups = {};
+  const groups = Object.create(null);
   ((inv&&inv.lines)||lines).forEach(l=>{
     const v = (l.vendor||'').trim();
     if(!v) return;
-    (groups[v] = groups[v] || []).push(l);
+    const key = JSON.stringify([v, l.vendor_list_no||'']);
+    (groups[key] = groups[key] || []).push(l);
   });
   return groups;
 }
@@ -1915,16 +1917,9 @@ function _vendorPhone(vendor){
   const match = (_vendorSuppliers||[]).find(s => (s.name||'').trim().toLowerCase() === vendor.toLowerCase());
   return (match && match.phone) ? (match.phone||'').replace(/[^\d]/g,'') : '';
 }
-function _vendorReorderUrl(vendor, items){
-  const inv = _vendorInv();
-  let msg = `*Order for ${vendor}*\n`;
-  if(inv && inv.invoice_number) msg += `Ref: ${inv.invoice_number}\n`;
-  msg += `Total Items: ${items.length}\n`;
-  msg += `\n`;
-  items.forEach(l=>{
-    const q = (+l.qty)%1 ? (+l.qty).toFixed(2) : (+l.qty).toFixed(0);
-    msg += `• ${l.item_name} ×${q}\n`;
-  });
+function _vendorReorderUrl(group, items){
+  const vendor = items[0].vendor;
+  const msg = SupplierOrder.format(settings.shop_name||'', items);
   const phone = _vendorPhone(vendor);
   return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
 }
@@ -1940,13 +1935,14 @@ function _renderVendorMsgList(){
   const vendors = Object.keys(groups);
   const box = document.getElementById('vendorMsgList');
   const allBtn = vendors.length>1
-    ? `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:700" onclick="sendAllVendorMessages()">📨 Send to ALL ${vendors.length} suppliers</button>
-       <div style="font-size:.75em;color:var(--sub);text-align:center;margin:2px 0 6px">Opens one chat per supplier — tap send in each. Allow pop-ups for this site.</div>`
+    ? `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:700" onclick="sendAllVendorMessages()">📨 Send to ALL ${vendors.length} supplier lists</button>
+       <div style="font-size:.75em;color:var(--sub);text-align:center;margin:2px 0 6px">Opens one message per supplier list — tap send in each. Allow pop-ups for this site.</div>`
     : '';
   box.innerHTML = allBtn + vendors.map(v=>{
     const n = groups[v].length;
-    const hasPhone = !!_vendorPhone(v);
-    return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${JSON.stringify(v).replace(/"/g,'&quot;')})">🏷 ${esc(v)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${hasPhone?'':' · ⚠ no phone'}</span></button>`;
+    const hasPhone = !!_vendorPhone(groups[v][0].vendor);
+    const label = groups[v][0].vendor + ' · List ' + (groups[v][0].vendor_list_no||'unknown');
+    return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${esc(JSON.stringify(v))})">🏷 ${esc(label)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${hasPhone?'':' · ⚠ no phone'}</span></button>`;
   }).join('');
 }
 function openVendorMessage(inv){
@@ -1963,16 +1959,20 @@ function sendVendorMessage(vendor){
   if(!_vendorInv()) return;
   const items = _vendorGroups()[vendor]||[];
   if(!items.length) return;
-  window.open(_vendorReorderUrl(vendor, items),'_blank');
+  try { window.open(_vendorReorderUrl(vendor, items),'_blank'); }
+  catch(e){ toast(e.message,true); }
 }
 
 function sendAllVendorMessages(){
   if(!_vendorInv()) return;
   const groups = _vendorGroups();
   const vendors = Object.keys(groups);
+  let urls;
+  try { urls = vendors.map(v=>_vendorReorderUrl(v, groups[v])); }
+  catch(e){ toast(e.message,true); return; }
   let opened = 0;
   // Open synchronously inside the click gesture for the best chance vs pop-up blockers
-  vendors.forEach(v=>{ if(window.open(_vendorReorderUrl(v, groups[v]),'_blank')) opened++; });
+  urls.forEach(url=>{ if(window.open(url,'_blank')) opened++; });
   if(opened < vendors.length){
     toast(`Opened ${opened}/${vendors.length}. Allow pop-ups, or tap each supplier below.`,true);
   } else {
@@ -2111,7 +2111,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('custSearch').value=inv.customer_name==='Walk-in'?'':inv.customer_name;
   lines=inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
     qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,
-    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',lineNet:+l.line_net}));
+    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',lineNet:+l.line_net}));
   document.getElementById('discountInp').value=(+inv.discount_amount).toFixed(2);
   document.getElementById('invNo').textContent='Invoice # '+inv.invoice_number;
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
@@ -2542,7 +2542,7 @@ function loadIntoBuilder(id){
     bonus: l.bonus_text||'',
     tax: +l.tax_pct,
     rate_source: l.rate_source||'',
-    vendor: l.vendor||'',
+    vendor: l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',
     lineNet: +l.line_net
   }));
   document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
@@ -2684,7 +2684,7 @@ document.addEventListener('focusout',e=>{
               discount_amount: parseFloat(document.getElementById('discountInp').value) || 0,
               lines: lines.map(l=>({item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
                 qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-                rate_source:l.rate_source||'', vendor:l.vendor||''}))
+                rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
             };
             const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
             await fetch(url, {method: savedInvoiceId ? 'PUT' : 'POST',
@@ -2855,6 +2855,7 @@ function applyScanResults(){
     } else {
       const line = {
         item_id: item.id, item_name: item.name, item_code: item.code,
+        vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',
         qty: qty, retail: +item.retail_price, tp: +item.tp,
         disc: +item.discount_pct, bonus: item.bonus_text||'', tax: +item.tax_pct,
         is_global: !!item.is_global, lineNet: 0
