@@ -490,7 +490,7 @@ function render(items){
         ${i.bonus_text?`<span class="badge badge-bonus">${esc(i.bonus_text)}</span>`:''}
         ${!i.discount_pct&&!i.bonus_text?'<span style="color:#ccc">—</span>':''}
         ${i.rate_source?`<div style="font-size:.72em;color:var(--sub);margin-top:2px">by ${esc(i.rate_source)}</div>`:''}
-        ${i.vendor?`<div style="font-size:.72em;color:var(--accent);margin-top:2px">🏷 ${esc(i.vendor)}</div>`:''}
+        ${i.vendor?`<div style="font-size:.72em;color:var(--accent);margin-top:2px">🏷 ${esc(i.vendor)}${i.vendor_list_no?' · List '+esc(i.vendor_list_no):''}</div>`:''}
       </td>
       <td><div><button class="btn btn-sm btn-edit" onclick="editItem('${sid}')">Edit</button>${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteItem('${sid}','${safeName}')">Del</button>` : ''}</div></td>
     </tr>`;
@@ -506,7 +506,7 @@ function applyFilters(){
   const q = (document.getElementById('searchBox').value || '').toLowerCase();
   let filtered = allItems;
   if(selectedVendors.size) filtered = filtered.filter(i => selectedVendors.has((i.vendor || '').trim()));
-  if(q) filtered = filtered.filter(i => i.name.toLowerCase().includes(q));
+  if(q) filtered = filtered.filter(i => (i.name+' '+(i.code||'')).toLowerCase().includes(q));
   render(filtered);
 }
 

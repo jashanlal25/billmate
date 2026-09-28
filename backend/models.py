@@ -129,6 +129,9 @@ class Item(db.Model):
     tax_pct = db.Column(db.Numeric(5, 2), default=0)
     rate_source = db.Column(db.String(50))                     # internal note about who quoted the rate (e.g. "waqas")
     vendor = db.Column(db.String(50))                          # business/vendor the item came from (e.g. "dosani")
+    vendor_code = db.Column(db.String(100))
+    vendor_name = db.Column(db.String(300))
+    vendor_list_no = db.Column(db.String(100))
     qty = db.Column(db.Numeric(10, 3), default=0)   # Stock quantity
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -141,7 +144,7 @@ class Item(db.Model):
             'id': self.id,
             'user_id': self.user_id,
             'is_global': bool(self.is_global),
-            'code': self.code,
+            'code': self.vendor_code or self.code,
             'name': self.name,
             'category_id': self.category_id,
             'category': self.category.name if self.category else None,
@@ -152,6 +155,9 @@ class Item(db.Model):
             'tax_pct': float(self.tax_pct or 0),
             'rate_source': self.rate_source or '',
             'vendor': self.vendor or '',
+            'vendor_code': self.vendor_code or '',
+            'vendor_name': self.vendor_name or '',
+            'vendor_list_no': self.vendor_list_no or '',
             'qty': float(self.qty or 0),
             'is_active': self.is_active,
         }
@@ -397,6 +403,9 @@ class InvoiceLine(db.Model):
     tax_pct = db.Column(db.Numeric(5, 2), default=0)
     rate_source = db.Column(db.String(50))   # snapshot of who quoted the rate
     vendor = db.Column(db.String(50))        # snapshot of the vendor the item came from
+    vendor_code = db.Column(db.String(100))
+    vendor_name = db.Column(db.String(300))
+    vendor_list_no = db.Column(db.String(100))
     line_net = db.Column(db.Numeric(10, 2), nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -420,6 +429,9 @@ class InvoiceLine(db.Model):
             'tax_pct': float(self.tax_pct or 0),
             'rate_source': self.rate_source or '',
             'vendor': self.vendor or '',
+            'vendor_code': self.vendor_code or '',
+            'vendor_name': self.vendor_name or '',
+            'vendor_list_no': self.vendor_list_no or '',
             'line_net': float(self.line_net),
         }
 

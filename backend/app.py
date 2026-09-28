@@ -386,6 +386,9 @@ def seed_defaults():
             db.session.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS gemini_api_key VARCHAR(200)"))
             db.session.execute(text("ALTER TABLE items ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
             db.session.execute(text("ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS vendor VARCHAR(50)"))
+            for table in ('items', 'invoice_lines'):
+                for column, size in (('vendor_code', 100), ('vendor_name', 300), ('vendor_list_no', 100)):
+                    db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} VARCHAR({size})"))
             db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
             db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10,2) DEFAULT 0"))
             db.session.execute(text("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
@@ -1303,22 +1306,29 @@ def superadmin_import_items():
 
     added = updated = skipped = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0):
+    supplier_map = {((i.vendor or '').lower(), i.vendor_list_no or '', i.vendor_code): i
+                    for i in existing if i.vendor_code}
+
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0, vendor_code=''):
         nonlocal added, updated, skipped
+        original_name = name.strip()
         name = _clean(name)
         if not name:
             skipped += 1
             return
         key = (name.lower(), (vendor or '').lower())
-        if key in existing_map:
-            item = existing_map[key]
+        supplier_key = (vendor.lower(), vendor_list_no, vendor_code)
+        item = supplier_map.get(supplier_key) if vendor_code else existing_map.get(key)
+        legacy = existing_map.get(key)
+        if not item and vendor_code and legacy and not legacy.vendor_code:
+            item = legacy
+        if item:
             if disc_pct is not None:
                 item.tp = tp
                 item.retail_price = retail
                 item.discount_pct = disc_pct
                 item.tax_pct = tax_pct
-            if bonus:
-                item.bonus_text = bonus
+            item.bonus_text = bonus
             item.rate_source = rate_source or None
             if vendor:
                 item.vendor = vendor
@@ -1339,35 +1349,46 @@ def superadmin_import_items():
             existing_map[key] = item
             added += 1
 
+        item.name = original_name
+        item.vendor_code = vendor_code or None
+        item.vendor_name = original_name
+        item.vendor_list_no = vendor_list_no or None
+        if vendor_code:
+            supplier_map[supplier_key] = item
+
     try:
         soup = _get_bs4().BeautifulSoup(html, 'html.parser')
+        visible = soup.get_text(' ', strip=True)
+        list_match = re.search(r'List\s*No\s*:?\s*([A-Za-z0-9+/_-]+)', visible, re.I)
+        vendor_list_no = list_match.group(1) if list_match else ''
         new_rows = soup.find_all('tr', class_='item-row')
         if new_rows:
             for row in new_rows:
                 tds = row.find_all('td')
                 if len(tds) < 2:
                     continue
-                name = _clean(tds[1].get_text())
+                name = tds[1].get_text().strip()
                 tp = float(row.get('data-tp', 0) or 0)
                 disc_pct = float(row.get('data-disc', 0) or 0)
                 bonus = _clean(row.get('data-bonus', '') or '')
                 tax_pct = float(row.get('data-tax', 0) or 0)
                 rate_source = _clean(row.get('data-source', '') or '')
                 retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source)
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source,
+                        vendor_code=tds[0].get_text().strip())
         else:
             for row in soup.find_all('tr', class_='item'):
                 tds = row.find_all('td')
                 if len(tds) < 4:
                     continue
                 if len(tds) >= 8:
-                    name     = _clean(tds[2].get_text())
+                    name     = tds[2].get_text().strip()
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
                     stock_qty = _num(tds[5].get_text()) if len(tds) >= 9 else 0
                 else:
-                    name     = _clean(tds[1].get_text())
+                    name     = tds[1].get_text().strip()
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
                     # 7-col layout: Code | Name | Order | Offer | Bonus | T.P | Tax
@@ -1384,7 +1405,8 @@ def superadmin_import_items():
                 tp = tp_override if tp_override is not None else fallback_tp
                 retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
-                        rate_source=rate_source, stock_qty=stock_qty)
+                        rate_source=rate_source, stock_qty=stock_qty,
+                        vendor_code=tds[1 if len(tds) >= 8 else 0].get_text().strip())
 
         db.session.commit()
     except Exception as e:
@@ -1877,7 +1899,7 @@ def get_items():
             db.or_(Item.user_id == uid, Item.is_global == True)
         )
     if q:
-        query = query.filter(Item.name.ilike(f'%{q}%'))
+        query = query.filter(sa.or_(Item.name.ilike(f'%{q}%'), Item.vendor_code.ilike(f'%{q}%'), Item.code.ilike(f'%{q}%')))
     items = query.order_by(Item.name).all()
     # Load per-user customisations for global items (single queries)
     user_discounts = {}
@@ -2471,23 +2493,30 @@ def import_items():
 
     added = updated = skipped = alongside_global = 0
 
-    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0):
+    supplier_map = {((i.vendor or '').lower(), i.vendor_list_no or '', i.vendor_code): i
+                    for i in existing_items if i.vendor_code}
+
+    def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0, vendor_code=''):
         nonlocal added, updated, skipped, alongside_global
+        original_name = name.strip()
         name = _clean(name)
         if not name:
             skipped += 1
             return
         key = (name.lower(), (vendor or '').lower())
-        if key in existing_map:
+        supplier_key = (vendor.lower(), vendor_list_no, vendor_code)
+        item = supplier_map.get(supplier_key) if vendor_code else existing_map.get(key)
+        legacy = existing_map.get(key)
+        if not item and vendor_code and legacy and not legacy.vendor_code:
+            item = legacy
+        if item:
             # Update the user's existing private item
-            item = existing_map[key]
             if disc_pct is not None:
                 item.tp = tp
                 item.retail_price = retail
                 item.discount_pct = disc_pct
                 item.tax_pct = tax_pct
-            if bonus:
-                item.bonus_text = bonus
+            item.bonus_text = bonus
             item.rate_source = rate_source or None
             if vendor:
                 item.vendor = vendor
@@ -2513,9 +2542,18 @@ def import_items():
                 alongside_global += 1
             added += 1
 
-    # ── Parse HTML ─────────────────────────────────────────────────────────────
+        item.name = original_name
+        item.vendor_code = vendor_code or None
+        item.vendor_name = original_name
+        item.vendor_list_no = vendor_list_no or None
+        if vendor_code:
+            supplier_map[supplier_key] = item
+
     try:
         soup = _get_bs4().BeautifulSoup(html, 'html.parser')
+        visible = soup.get_text(' ', strip=True)
+        list_match = re.search(r'List\s*No\s*:?\s*([A-Za-z0-9+/_-]+)', visible, re.I)
+        vendor_list_no = list_match.group(1) if list_match else ''
 
         new_rows = soup.find_all('tr', class_='item-row')
         if new_rows:
@@ -2524,14 +2562,15 @@ def import_items():
                 tds = row.find_all('td')
                 if len(tds) < 2:
                     continue
-                name = _clean(tds[1].get_text())
+                name = tds[1].get_text().strip()
                 tp = float(row.get('data-tp', 0) or 0)
                 disc_pct = float(row.get('data-disc', 0) or 0)
                 bonus = _clean(row.get('data-bonus', '') or '')
                 tax_pct = float(row.get('data-tax', 0) or 0)
                 rate_source = _clean(row.get('data-source', '') or '')
                 retail = round(tp / 0.85, 2) if tp > 0 else 0
-                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source)
+                _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source,
+                        vendor_code=tds[0].get_text().strip())
         else:
             # Format B/C: classic HTM — <tr class="item">
             # STOCK (9 cols): SR# | Code | Name | Disc% | TP | Box | Pcs | Cost | Amt
@@ -2541,13 +2580,13 @@ def import_items():
                 if len(tds) < 4:
                     continue
                 if len(tds) >= 8:
-                    name     = _clean(tds[2].get_text())
+                    name     = tds[2].get_text().strip()
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     fallback_tp = _num(tds[4].get_text())
                     bonus    = ''
                     stock_qty = _num(tds[5].get_text()) if len(tds) >= 9 else 0
                 else:
-                    name     = _clean(tds[1].get_text())
+                    name     = tds[1].get_text().strip()
                     parsed   = _parse_offer_cell(tds[3].get_text())
                     bonus    = _clean(tds[4].get_text()) if len(tds) > 4 else ''
                     # 7-col layout: Code | Name | Order | Offer | Bonus | T.P | Tax
@@ -2564,7 +2603,8 @@ def import_items():
                 tp = tp_override if tp_override is not None else fallback_tp
                 retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
-                        rate_source=rate_source, stock_qty=stock_qty)
+                        rate_source=rate_source, stock_qty=stock_qty,
+                        vendor_code=tds[1 if len(tds) >= 8 else 0].get_text().strip())
 
         db.session.commit()
     except Exception as e:
@@ -3198,6 +3238,9 @@ def create_invoice():
             tax_pct=float(line_data.get('tax_pct', item.tax_pct if item else 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
             vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
+            vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
+            vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
+            vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
         )
         line.calculate_line_net()
         db.session.add(line)
@@ -3295,6 +3338,9 @@ def update_invoice(inv_id):
             tax_pct=float(line_data.get('tax_pct', 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
             vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
+            vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
+            vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
+            vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
         )
         line.calculate_line_net()
         db.session.add(line)
