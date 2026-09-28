@@ -57,13 +57,34 @@ class VendorImportTest(unittest.TestCase):
 
     def test_invoice_snapshot(self):
         self.upload(); item=Item.query.one()
-        r=self.client.post('/api/invoices',json={'lines':[{'item_id':item.id,'qty':2,'tp':100,'discount_pct':13}]})
+        r=self.client.post('/api/invoices',json={'lines':[{'item_id':item.id,'qty':2,'tp':100,'discount_pct':4}]})
         self.assertEqual(r.status_code,201,r.get_data(as_text=True))
         inv=r.json; line=inv['lines'][0]
         self.assertEqual((line['vendor_code'],line['vendor_name'],line['vendor_list_no']),('0296','EXACT  NAME.','000052'))
+        self.assertEqual(line['vendor_discount_pct'],13)
+        self.assertEqual(line['discount_pct'],4)
         self.upload(name='NEW NAME')
         r=self.client.put('/api/invoices/'+str(inv['id']),json={'lines':[line]})
         self.assertEqual(r.status_code,200,r.get_data(as_text=True))
         self.assertEqual(r.json['lines'][0]['vendor_name'],'EXACT  NAME.')
+
+    def test_backfill_preserves_customer_rates_and_existing_snapshots(self):
+        from models import InvoiceLine
+        from supplier_discount import backfill_supplier_discounts
+        self.upload(); item=Item.query.one()
+        response=self.client.post('/api/invoices',json={'lines':[{'item_id':item.id,'qty':1,'tp':100,'discount_pct':4}]})
+        self.assertEqual(response.status_code,201)
+        line=InvoiceLine.query.one()
+        item.vendor_discount_pct=None; line.vendor_discount_pct=None
+        db.session.commit()
+        backfill_supplier_discounts(db.session); db.session.commit(); db.session.expire_all()
+        self.assertEqual(float(line.vendor_discount_pct),13)
+        self.assertEqual(float(line.discount_pct),4)
+        item.vendor_discount_pct=20; db.session.commit()
+        backfill_supplier_discounts(db.session); db.session.commit(); db.session.expire_all()
+        self.assertEqual(float(line.vendor_discount_pct),13)
+        line.vendor_discount_pct=None;line.vendor_list_no='DIFFERENT';db.session.commit()
+        backfill_supplier_discounts(db.session);db.session.commit();db.session.expire_all()
+        self.assertIsNone(line.vendor_discount_pct)
 
 if __name__=='__main__': unittest.main()

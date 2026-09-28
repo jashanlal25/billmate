@@ -132,6 +132,7 @@ class Item(db.Model):
     vendor_code = db.Column(db.String(100))
     vendor_name = db.Column(db.String(300))
     vendor_list_no = db.Column(db.String(100))
+    vendor_discount_pct = db.Column(db.Numeric(5, 2), nullable=True)
     qty = db.Column(db.Numeric(10, 3), default=0)   # Stock quantity
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -158,6 +159,7 @@ class Item(db.Model):
             'vendor_code': self.vendor_code or '',
             'vendor_name': self.vendor_name or '',
             'vendor_list_no': self.vendor_list_no or '',
+            'vendor_discount_pct': float(self.vendor_discount_pct) if self.vendor_discount_pct is not None else None,
             'qty': float(self.qty or 0),
             'is_active': self.is_active,
         }
@@ -406,6 +408,7 @@ class InvoiceLine(db.Model):
     vendor_code = db.Column(db.String(100))
     vendor_name = db.Column(db.String(300))
     vendor_list_no = db.Column(db.String(100))
+    vendor_discount_pct = db.Column(db.Numeric(5, 2), nullable=True)
     line_net = db.Column(db.Numeric(10, 2), nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -432,6 +435,7 @@ class InvoiceLine(db.Model):
             'vendor_code': self.vendor_code or '',
             'vendor_name': self.vendor_name or '',
             'vendor_list_no': self.vendor_list_no or '',
+            'vendor_discount_pct': float(self.vendor_discount_pct) if self.vendor_discount_pct is not None else None,
             'line_net': float(self.line_net),
         }
 

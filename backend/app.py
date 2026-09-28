@@ -389,6 +389,8 @@ def seed_defaults():
             for table in ('items', 'invoice_lines'):
                 for column, size in (('vendor_code', 100), ('vendor_name', 300), ('vendor_list_no', 100)):
                     db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} VARCHAR({size})"))
+            from supplier_discount import ensure_supplier_discounts
+            ensure_supplier_discounts(db.session)
             db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
             db.session.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC(10,2) DEFAULT 0"))
             db.session.execute(text("ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS code VARCHAR(20)"))
@@ -1353,6 +1355,7 @@ def superadmin_import_items():
         item.vendor_code = vendor_code or None
         item.vendor_name = original_name
         item.vendor_list_no = vendor_list_no or None
+        item.vendor_discount_pct = disc_pct
         if vendor_code:
             supplier_map[supplier_key] = item
 
@@ -2546,6 +2549,7 @@ def import_items():
         item.vendor_code = vendor_code or None
         item.vendor_name = original_name
         item.vendor_list_no = vendor_list_no or None
+        item.vendor_discount_pct = disc_pct
         if vendor_code:
             supplier_map[supplier_key] = item
 
@@ -3241,6 +3245,8 @@ def create_invoice():
             vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
             vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
             vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
+            vendor_discount_pct=(line_data.get('vendor_discount_pct') if line_data.get('vendor_discount_pct') is not None
+                                 else item.vendor_discount_pct if item else None),
         )
         line.calculate_line_net()
         db.session.add(line)
@@ -3341,6 +3347,8 @@ def update_invoice(inv_id):
             vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
             vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
             vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
+            vendor_discount_pct=(line_data.get('vendor_discount_pct') if line_data.get('vendor_discount_pct') is not None
+                                 else item.vendor_discount_pct if item else None),
         )
         line.calculate_line_net()
         db.session.add(line)

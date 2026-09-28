@@ -684,7 +684,7 @@ input[type=number]{-moz-appearance:textfield}
   </div>
 </div>
 
-<script src="/static/js/supplier-order.js?v=1"></script>
+<script src="/static/js/supplier-order.js?v=2"></script>
 <script>
 const themes=['light','dim','dark'];
 const themeIcons={light:'☀️',dim:'🌤️',dark:'🌙'};
@@ -996,7 +996,7 @@ function toTitleCase(str){
 }
 
 // Item cache (localStorage, keyed by user + date for midnight auto-expiry)
-const _CK = `items_cache_{{ session.username or 'guest' }}_supplier1_${new Date().toISOString().split('T')[0]}`;
+const _CK = `items_cache_{{ session.username or 'guest' }}_supplier2_${new Date().toISOString().split('T')[0]}`;
 function _cacheGet(){ try{ const v=localStorage.getItem(_CK); return v?JSON.parse(v):null; }catch{ return null; } }
 function _cacheSet(d){ try{ localStorage.setItem(_CK,JSON.stringify(d)); }catch{} }
 function _cacheClear(){
@@ -1195,7 +1195,7 @@ function addLine(item){
     qty:1, retail:+item.retail_price, tp:+item.tp,
     disc:+item.discount_pct, bonus:item.bonus_text||'', tax:+item.tax_pct,
     rate_source:item.rate_source||'',
-    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',
+    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
     is_global:!!item.is_global,
     lineNet:0
   };
@@ -1518,7 +1518,7 @@ async function _guestSave(isDraft){
     customer_phone:'',customer_address:'',
     lines:lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus||'',
-      tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',line_net:l.lineNet})),
+      tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null,line_net:l.lineNet})),
     subtotal:sub,tax_amount:tax,discount_amount:discAmt,total,
     previous_balance:0,status:isDraft?'draft':'posted'
   };
@@ -1559,7 +1559,7 @@ async function saveInvoice(){
     lines: lines.map(l=>({
       item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
       qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-      rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''
+      rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null
     }))
   };
   const isEdit = _wasRealEdit;            // for the "Saved" vs "Updated" message
@@ -1597,7 +1597,7 @@ function _autoDraftPayload(){
     customer_name: typedName||'Walk-in',
     customer_phone: document.getElementById('custPhone').value.trim(),
     discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-    lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
+    lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null}))
   };
 }
 // Schedule a debounced auto-save (called from renderLines on every cart change)
@@ -1645,7 +1645,7 @@ async function restoreAutoDraft(){
     document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
     lines = inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
       qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,bonus:l.bonus_text||'',
-      tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',lineNet:+l.line_net}));
+      tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null,lineNet:+l.line_net}));
     document.getElementById('invNo').textContent = 'Invoice # ' + inv.invoice_number;
     document.getElementById('savedInvInfo').textContent = 'Restored unsaved bill · '+inv.invoice_number;
     renderLines(); recalc();
@@ -1676,7 +1676,7 @@ async function importDemandSelection(){
     const line={item_id:item.id,item_name:item.name,item_code:item.code||'',qty,
       retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
       bonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
-      vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',is_global:!!item.is_global,lineNet:0};
+      vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,is_global:!!item.is_global,lineNet:0};
     calcLine(line);lines.push(line);added++;
     if(entry.review)reviewed++;
   }
@@ -1718,7 +1718,7 @@ async function saveDraft(){
       customer_id: customer?customer.id:null,
       customer_name: typedName||'Walk-in',
       discount_amount: parseFloat(document.getElementById('discountInp').value)||0,
-      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
+      lines: lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code,qty:l.qty,tp:l.tp,retail:l.retail,discount_pct:l.disc,bonus_text:l.bonus,tax_pct:l.tax,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null}))
     };
     const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
     const method = savedInvoiceId ? 'PUT' : 'POST';
@@ -2111,7 +2111,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('custSearch').value=inv.customer_name==='Walk-in'?'':inv.customer_name;
   lines=inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
     qty:+l.qty,retail:+l.retail||0,tp:+l.tp,disc:+l.discount_pct,
-    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',lineNet:+l.line_net}));
+    bonus:l.bonus_text||'',tax:+l.tax_pct,rate_source:l.rate_source||'',vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null,lineNet:+l.line_net}));
   document.getElementById('discountInp').value=(+inv.discount_amount).toFixed(2);
   document.getElementById('invNo').textContent='Invoice # '+inv.invoice_number;
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
@@ -2542,7 +2542,7 @@ function loadIntoBuilder(id){
     bonus: l.bonus_text||'',
     tax: +l.tax_pct,
     rate_source: l.rate_source||'',
-    vendor: l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',
+    vendor: l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null,
     lineNet: +l.line_net
   }));
   document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
@@ -2684,7 +2684,7 @@ document.addEventListener('focusout',e=>{
               discount_amount: parseFloat(document.getElementById('discountInp').value) || 0,
               lines: lines.map(l=>({item_id:l.item_id, item_name:l.item_name, item_code:l.item_code,
                 qty:l.qty, tp:l.tp, retail:l.retail, discount_pct:l.disc, bonus_text:l.bonus, tax_pct:l.tax,
-                rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||''}))
+                rate_source:l.rate_source||'', vendor:l.vendor||'',vendor_code:l.vendor_code||'',vendor_name:l.vendor_name||'',vendor_list_no:l.vendor_list_no||'',vendor_discount_pct:l.vendor_discount_pct??null}))
             };
             const url = savedInvoiceId ? `/api/invoices/${savedInvoiceId}` : '/api/invoices';
             await fetch(url, {method: savedInvoiceId ? 'PUT' : 'POST',
@@ -2855,7 +2855,7 @@ function applyScanResults(){
     } else {
       const line = {
         item_id: item.id, item_name: item.name, item_code: item.code,
-        vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',
+        vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
         qty: qty, retail: +item.retail_price, tp: +item.tp,
         disc: +item.discount_pct, bonus: item.bonus_text||'', tax: +item.tax_pct,
         is_global: !!item.is_global, lineNet: 0
