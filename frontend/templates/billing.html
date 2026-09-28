@@ -1688,7 +1688,7 @@ async function importDemandSelection(){
     catch(e){notice.style.display='block';notice.textContent='Could not load Inventory to check the selected offers. Reload Billing to retry; your selection is still saved on this tab.';return;}
   }
   const byId=new Map(catalog.map(item=>[String(item.id),item]));
-  let added=0,skipped=0,reviewed=0,missing=0,missingWithoutTp=0;
+  let added=0,skipped=0,reviewed=0,missing=0,missingWithoutTp=0,missingWithoutRetail=0;
   for(const entry of selected){
     const qty=Number(entry&&entry.qty);
     if(entry&&entry.missing){
@@ -1696,10 +1696,13 @@ async function importDemandSelection(){
       if(!name||!Number.isFinite(qty)||qty<=0||qty>10000){skipped++;continue;}
       const tp=Number(entry.tp);
       const price=Number.isFinite(tp)&&tp>0?tp:0;
+      const retail=Number(entry.retail);
+      const sellingPrice=Number.isFinite(retail)&&retail>0?retail:0;
       const line={item_id:null,item_name:name,item_code:String(entry.code||'').trim(),qty,
-        retail:0,tp:price,disc:0,bonus:'',tax:0,rate_source:'',vendor:'',lineNet:0};
+        retail:sellingPrice,tp:price,disc:0,bonus:'',tax:0,rate_source:'',vendor:'',lineNet:0};
       calcLine(line);lines.push(line);added++;missing++;
       if(!price)missingWithoutTp++;
+      if(!sellingPrice)missingWithoutRetail++;
       continue;
     }
     const item=entry&&entry.item&&byId.get(String(entry.item.id));
@@ -1718,7 +1721,7 @@ async function importDemandSelection(){
   if(added){renderLines();recalc();}
   notice.style.display='block';
   notice.textContent=`${added} selected item${added===1?'':'s'} added to this Billing draft. Review items, quantities and prices, then tap Save Invoice to bill.`+
-    (missing?` ${missing} not found in Inventory: their demand codes and any supplied TP were carried over. Set their selling price and discount${missingWithoutTp?` and enter TP for ${missingWithoutTp}`:''} before saving.`:'')+
+    (missing?` ${missing} not found in Inventory: their supplied codes, TP and retail prices were carried over. Review their prices and discounts${missingWithoutTp?`; ${missingWithoutTp} need TP`:''}${missingWithoutRetail?`; ${missingWithoutRetail} need retail`:''} before saving.`:'')+
     (reviewed?` ${reviewed} marked offer${reviewed===1?'':'s'} need${reviewed===1?'s':''} name or strength verification.`:'')+
     (skipped?` ${skipped} skipped because the item changed, was removed, or was already on this bill.`:'');
 }

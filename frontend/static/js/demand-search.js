@@ -29,15 +29,17 @@
         const values=cells.map(c=>c.textContent.replace(/\s+/g,' ').trim());
         const headers=values.map(v=>v.toLowerCase());
         const name=headers.findIndex(v=>/^(item\s*name|product\s*name|description|item|product)$/.test(v));
-        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v))};continue;}
+        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v)),retail:headers.findIndex(v=>/^(?:retail(?:\s*price)?|mrp|sale\s*price)$/.test(v))};continue;}
         if(!columns||!cells.length||cells.some(c=>c.querySelector('table'))) continue;
         const item=values[columns.name];
         if(!item||!/[a-z]/i.test(item)||cells.length<=columns.name||/^(total|grand total|sub total)\b/i.test(item)) continue;
         if(cells.some(c=>c.querySelector('input,button,select'))) continue;
-        const rawTp=columns.tp>=0?values[columns.tp]||'':'';
-        const tpMatch=rawTp.replace(/,/g,'').match(/\d+(?:\.\d+)?/);
-        const tp=tpMatch?Number(tpMatch[0]):0;
-        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:Number.isFinite(tp)&&tp>0?tp:null});
+        const readPrice=index=>{
+          const match=(index>=0?values[index]||'':'').replace(/,/g,'').match(/\d+(?:\.\d+)?/);
+          const price=match?Number(match[0]):0;
+          return Number.isFinite(price)&&price>0?price:null;
+        };
+        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:readPrice(columns.tp),retail:readPrice(columns.retail)});
       }
     }
     if(!rows.length) throw Error('No demand items found. Use an HTML table with an Item Name column.');
@@ -57,15 +59,16 @@
       const isPdf=/\.pdf$/i.test(file.name);
       if(file.size>(isPdf?8:4)*1024*1024) throw Error(`Maximum ${isPdf?'PDF ':''}file size is ${isPdf?8:4} MB.`);
       status(isPdf?'Extracting demand from PDF…':'Reading demand…');
-      let content;
+      let content,structuredRows=null;
       if(isPdf){
         const fd=new FormData();fd.append('file',file);
         const r=await fetch('/api/demand/pdf-text',{method:'POST',body:fd});
         const data=await r.json();
         if(!r.ok) throw Error(data.error||'Could not read this PDF.');
         content=data.text||'';
+        if(Array.isArray(data.rows)&&data.rows.length)structuredRows=data.rows;
       } else content=await file.text();
-      const parsed=/\.(?:txt|pdf)$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content);
+      const parsed=structuredRows||(/\.(?:txt|pdf)$/i.test(file.name)?DemandTextParser.parse(content):parseHtml(content));
       if(ticket!==version) return;
       demands=parsed;
       let saved=true;
@@ -75,7 +78,7 @@
       }
       if(ticket!==version)return;
       if(pasted)$('pastedDemand').value=content;
-      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td></tr>`).join('');
+      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td><td>${d.retail?esc(Number(d.retail).toFixed(2)):'—'}</td></tr>`).join('');
       $('demandPreview').hidden=false;
       status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.${saved?'':' This device could not save the demand for later.'}`);
     }catch(e){if(ticket===version) status(e.message);}
@@ -146,10 +149,10 @@
   const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
   const offerCopyText=offer=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct)}`;
   const missingOffer=demand=>({status:'missing',item:{name:demand.name,vendor:'',discount_pct:null}});
-  function allSelectionKeys(){
+  function selectionKeys(kind){
     return results.flatMap((result,dIndex)=>result.offers.length
-      ?result.offers.map((_,oIndex)=>`${dIndex}:${oIndex}`)
-      :[`${dIndex}:missing`]);
+      ?kind==='missing'?[]:result.offers.map((_,oIndex)=>`${dIndex}:${oIndex}`)
+      :kind==='found'?[]:[`${dIndex}:missing`]);
   }
   function selectKey(key){
     if(selectedOffers.has(key))return;
@@ -201,7 +204,7 @@
       });
       if(!offers.length){
         const key=`${dIndex}:missing`;
-        rows.push(`<tr class="group-start"><td class="mark-col"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(result.demand.name)} as not in Inventory" ${selectedOffers.has(key)?'checked':''}></td><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td colspan="4">Not found — add to Billing with price to fill in</td><td>${esc(demandQty(result.demand))}</td><td></td></tr>`);continue;
+        rows.push(`<tr class="group-start"><td class="mark-col"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(result.demand.name)} as not in Inventory" ${selectedOffers.has(key)?'checked':''}></td><td>${visibleItems}</td><td class="names">${esc(result.demand.name)}</td><td class="names">Not found</td><td>—</td><td>—</td><td>${money(result.demand.tp)}</td><td>${esc(demandQty(result.demand))}</td><td>Use supplied code and price in Billing</td></tr>`);continue;
       }
       offers.forEach((o,i)=>{
         const copyIndex=copyOffers.push(offerCopyText(o))-1;
@@ -223,10 +226,15 @@
     document.querySelector('main.demand').classList.toggle('selecting',enabled);
     $('selectedOffersPanel').hidden=!enabled;
     $('jumpToMarked').hidden=!enabled;
-    $('markAllDemand').hidden=!enabled;
-    const allKeys=allSelectionKeys();
-    $('markAllDemand').disabled=!allKeys.length;
-    $('markAllDemand').textContent=allKeys.length&&allKeys.every(key=>selectedOffers.has(key))?'Unmark all demand items':'Mark all demand items';
+    $('bulkMarkControls').hidden=!enabled;
+    for(const [kind,id,label] of [['found','markAllFound','found offers'],['missing','markAllMissing','not found items']]){
+      const keys=selectionKeys(kind),checked=keys.filter(key=>selectedOffers.has(key)).length;
+      const input=$(id);
+      input.disabled=!keys.length;
+      input.checked=!!keys.length&&checked===keys.length;
+      input.indeterminate=checked>0&&checked<keys.length;
+      input.nextElementSibling.textContent=`Select all ${label} (${keys.length})`;
+    }
     $('copyMarkedOffers').hidden=!enabled;
     $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size;
     if(!enabled)return;
@@ -261,13 +269,16 @@
       }).catch(()=>{});
     }
   });
-  $('markAllDemand').addEventListener('click',()=>{
-    if(!$('enableDemandMarks').checked)return;
-    const keys=allSelectionKeys();
-    if(keys.every(key=>selectedOffers.has(key)))selectedOffers.clear();
-    else keys.forEach(selectKey);
-    updateSelectionPanel();render();
-  });
+  for(const [kind,id] of [['found','markAllFound'],['missing','markAllMissing']]){
+    $(id).addEventListener('change',e=>{
+      if(!$('enableDemandMarks').checked)return;
+      for(const key of selectionKeys(kind)){
+        if(e.target.checked)selectKey(key);
+        else selectedOffers.delete(key);
+      }
+      updateSelectionPanel();render();
+    });
+  }
   $('resultRows').addEventListener('change',e=>{
     const mark=e.target.closest('input[data-offer-key]');
     if(!mark)return;
@@ -329,7 +340,7 @@
     const entries=[...selectedOffers.values()];
     if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
     try{
-      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null}))));
+      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
       location.assign('/billing?demand_selection=1');
     }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
   });

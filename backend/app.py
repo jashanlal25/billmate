@@ -2828,13 +2828,17 @@ def demand_pdf_text():
                 item = match.group(2).strip()
                 qty = match.group(3)
                 if re.search(r'[A-Za-z]', item):
-                    rows.append(f'{item} ({qty})')
-        text = '\n'.join(rows).strip() if rows else '\n'.join(pages).strip()
+                    rows.append({
+                        'code': match.group(1), 'name': item, 'qty': qty,
+                        'tp': float(match.group(4).replace(',', '')),
+                        'retail': None, 'box': '', 'pcs': ''
+                    })
+        text = '\n'.join(f"{row['name']} ({row['qty']})" for row in rows).strip() if rows else '\n'.join(pages).strip()
     except Exception:
         return jsonify({'error': 'Could not read this PDF'}), 400
     if not text:
         return jsonify({'error': 'No selectable text was found in this PDF. Scanned/image-only PDFs are not supported yet.'}), 400
-    return jsonify({'text': text, 'pages': len(reader.pages), 'items': len(rows)})
+    return jsonify({'text': text, 'rows': rows, 'pages': len(reader.pages), 'items': len(rows)})
 
 @app.route('/api/pos-backup/import-batch', methods=['POST'])
 def import_pos_backup_batch():

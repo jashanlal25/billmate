@@ -28,6 +28,10 @@
 .demand .mark-col{display:none;width:65px;text-align:center}
 .demand.selecting .mark-col{display:table-cell}
 .demand .mark-offer{width:20px;height:20px;accent-color:var(--accent)}
+.demand .mark-toggle{display:flex;align-items:flex-start;gap:10px;margin:10px 0;cursor:pointer}
+.demand .mark-toggle input{flex:none;margin:4px 0 0;width:20px;height:20px;accent-color:var(--accent)}
+.demand .mark-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+.demand .mark-actions .btn{white-space:normal;text-align:center}
 .demand .selected-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
 .demand .selected-row span{overflow-wrap:anywhere}
 .demand .selected-row input{width:80px;min-width:80px;padding:8px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
@@ -35,7 +39,7 @@
 .demand .vendor-send input{max-width:190px;width:100%;padding:8px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
 .demand textarea{display:block;box-sizing:border-box;width:100%;min-height:115px;margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font:inherit;resize:vertical}
 @media(max-width:1100px){.nav-links{display:none}.nav-hamburger{display:flex}}
-@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand .swipe-note{display:block}.demand select{width:100%}}
+@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand .swipe-note{display:block}.demand select{width:100%}.demand .mark-actions{display:grid;grid-template-columns:1fr}.demand .mark-actions .btn{width:100%}}
 {% endblock %}
 {% block content %}
 <main class="demand" data-guest="{{ 'true' if is_guest else 'false' }}" data-owner="{{ session.get('user_id') or session.get('superadmin_uid') or 'guest' }}">
@@ -51,15 +55,20 @@
   <button id="loadTextDemand" class="btn btn-outline" disabled>Load text demand</button>
   <div class="controls"><label><input id="ignoreShelf" type="checkbox" checked> Ignore trailing shelf codes (such as C-55) when comparing names. Uncheck if these are part of the product name.</label></div>
   <p id="demandStatus" role="status" aria-live="polite">No demand loaded.</p>
-  <details id="demandPreview" hidden open><summary>Demand item preview</summary><div class="scroll"><table><thead><tr><th>Code</th><th>Demand item name</th><th>Qty</th><th>Box</th><th>Pcs</th><th>TP</th></tr></thead><tbody id="previewRows"></tbody></table></div></details>
+  <details id="demandPreview" hidden open><summary>Demand item preview</summary><div class="scroll"><table><thead><tr><th>Code</th><th>Demand item name</th><th>Qty</th><th>Box</th><th>Pcs</th><th>TP</th><th>Retail</th></tr></thead><tbody id="previewRows"></tbody></table></div></details>
 </section>
 <section id="demandResults" class="panel" hidden>
   <h2>Vendor results</h2><p id="resultSummary" class="muted"></p>
   <p class="muted note">Found offers includes matching offers and offers that need your review.</p>
-  <label class="controls"><input id="enableDemandMarks" type="checkbox"> Show marks for vendor offers and items not found</label>
-  <a id="jumpToMarked" href="#selectedOffersPanel" class="btn btn-outline" hidden>Review marked items ↓</a>
-  <button id="markAllDemand" type="button" class="btn btn-outline" hidden>Mark all demand items</button>
-  <button id="copyMarkedOffers" type="button" class="btn btn-outline" disabled hidden>Copy marked items</button>
+  <label class="mark-toggle"><input id="enableDemandMarks" type="checkbox"><span>Show marks for vendor offers and items not found</span></label>
+  <div id="bulkMarkControls" hidden>
+    <label class="mark-toggle"><input id="markAllFound" type="checkbox"><span>Select all found offers</span></label>
+    <label class="mark-toggle"><input id="markAllMissing" type="checkbox"><span>Select all not found items</span></label>
+  </div>
+  <div class="mark-actions">
+    <a id="jumpToMarked" href="#selectedOffersPanel" class="btn btn-outline" hidden>Review marked items ↓</a>
+    <button id="copyMarkedOffers" type="button" class="btn btn-outline" disabled hidden>Copy marked items</button>
+  </div>
   <div class="controls"><label for="resultFilter">Show</label><select id="resultFilter"><option value="found">Found offers</option><option value="all">All demand items</option><option value="match">Matching offers</option><option value="review">Needs review</option><option value="missing">Not found</option></select><label for="resultSort">Sort offers</label><select id="resultSort"><option value="tp">Lowest TP</option><option value="discount">Highest discount</option><option value="vendor">Vendor name</option></select></div>
   <p id="visibleResultCount" class="muted note" role="status" aria-live="polite"></p>
   <p id="copyFeedback" class="muted note" role="status" aria-live="polite"></p>
