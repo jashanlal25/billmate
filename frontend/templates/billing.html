@@ -508,11 +508,12 @@ input[type=number]{-moz-appearance:textfield}
 <!-- Edit Item Modal (from billing) -->
 <div class="overlay" id="itemEditModal" onclick="if(event.target===this)closeItemEdit()">
   <div class="modal" style="max-width:480px">
-    <div style="font-size:1.1em;font-weight:700;color:var(--text);margin-bottom:6px">✏️ Edit Item in Catalog</div>
-    <div id="ie_global_note" style="display:none;font-size:.78em;background:rgba(124,58,237,.1);color:#a78bfa;border-radius:8px;padding:7px 10px;margin-bottom:14px">🌐 Global item — your changes apply to your account only. Other users see the original values.</div>
-    <input type="hidden" id="ie_item_id">
-    <input type="hidden" id="ie_line_idx">
-    <input type="hidden" id="ie_is_global">
+    <div style="font-size:1.1em;font-weight:700;color:var(--text);margin-bottom:6px">✏️ Edit Billing Item</div>
+    <p style="font-size:.9em;color:var(--sub)">Choose an item or vendor offer, then adjust the billing details.</p>
+    <label for="ie_search">Search item / vendor offer</label>
+    <input id="ie_search" type="search" autocomplete="off" placeholder="Item name or code" oninput="searchItemEdit()" style="width:100%;padding:12px;margin:6px 0;border:1px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text)">
+    <div id="ie_results" style="max-height:200px;overflow:auto" aria-live="polite"></div>
+    <div id="ie_vendor_info" style="font-size:.9em;color:var(--accent);margin:10px 0"></div>
     <div style="margin-bottom:12px">
       <label style="font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Item Name</label>
       <input id="ie_name" type="text" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.92em;outline:none">
@@ -529,7 +530,7 @@ input[type=number]{-moz-appearance:textfield}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
       <div>
-        <label style="font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Disc %</label>
+        <label style="font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Customer Disc %</label>
         <input id="ie_disc" type="number" min="-100" max="100" step="0.01" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.92em;outline:none">
       </div>
       <div>
@@ -543,7 +544,7 @@ input[type=number]{-moz-appearance:textfield}
     </div>
     <div style="display:flex;gap:10px">
       <button class="mbtn mbtn-close" style="flex:1;padding:11px" onclick="closeItemEdit()">Cancel</button>
-      <button class="mbtn" style="flex:2;padding:11px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer" onclick="saveItemEdit()">Save to Catalog</button>
+      <button class="mbtn" style="flex:2;padding:11px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer" onclick="saveItemEdit()">Apply to Bill</button>
     </div>
   </div>
 </div>
@@ -1251,7 +1252,7 @@ function renderLines(){
         <button class="remove-btn" onclick="removeLine(${i})">✕</button>
         <button class="dots-btn" onclick="toggleLineMenu(${i},event)">⋯</button>
         <div class="line-menu" id="lmenu_${i}">
-          ${l.item_id && !String(l.item_id).startsWith('li_') && !String(l.item_id).startsWith('ginv_') ? `<div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item</div>` : ''}
+          <div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item / Vendor</div>
           <div class="line-menu-item danger" onclick="removeLine(${i})">🗑 Remove</div>
         </div>
       </td>
@@ -1419,26 +1420,65 @@ function toggleLineMenu(i, e){
   document.getElementById('lmenu_'+i).classList.toggle('open');
 }
 
+let _ieOriginal = null, _ieDraft = null, _ieOffers = [], _ieSearchId = 0, _ieTimer;
 function openItemEdit(lineIdx){
   document.querySelectorAll('.line-menu.open').forEach(m=>m.classList.remove('open'));
-  const l = lines[lineIdx];
-  const isGlobal = !!l.is_global;
-  document.getElementById('ie_item_id').value = l.item_id;
-  document.getElementById('ie_line_idx').value = lineIdx;
-  document.getElementById('ie_is_global').value = isGlobal ? '1' : '';
-  document.getElementById('ie_global_note').style.display = isGlobal ? 'block' : 'none';
-  // Name is shared for global items — hide that field
-  const nameRow = document.getElementById('ie_name').closest('div');
-  nameRow.style.display = isGlobal ? 'none' : 'block';
-  document.getElementById('ie_name').value = l.item_name;
-  document.getElementById('ie_retail').value = l.retail ? l.retail.toFixed(2) : (l.tp ? (l.tp/0.85).toFixed(2) : '');
-  document.getElementById('ie_tp').value = l.tp.toFixed(2);
-  document.getElementById('ie_disc').value = l.disc;
-  document.getElementById('ie_tax').value = l.tax;
-  document.getElementById('ie_bonus').value = l.bonus || '';
+  _ieOriginal = lines[lineIdx];
+  if(!_ieOriginal) return;
+  _ieDraft = {..._ieOriginal};
+  fillItemEdit();
+  document.getElementById('ie_search').value = _ieDraft.item_name;
   document.getElementById('itemEditModal').classList.add('open');
+  searchItemEdit();
 }
-function closeItemEdit(){ document.getElementById('itemEditModal').classList.remove('open'); }
+function fillItemEdit(){
+  const l = _ieDraft;
+  document.getElementById('ie_name').value = l.item_name;
+  document.getElementById('ie_retail').value = Number(l.retail||0);
+  document.getElementById('ie_tp').value = Number(l.tp||0);
+  document.getElementById('ie_disc').value = Number(l.disc||0);
+  document.getElementById('ie_tax').value = Number(l.tax||0);
+  document.getElementById('ie_bonus').value = l.bonus||'';
+  document.getElementById('ie_vendor_info').textContent = [l.vendor||'No vendor',
+    l.vendor_code ? 'Code '+l.vendor_code : '', l.vendor_list_no ? 'List '+l.vendor_list_no : '',
+    l.vendor_discount_pct != null ? 'Supplier discount '+l.vendor_discount_pct+'%' : ''].filter(Boolean).join(' · ');
+}
+function searchItemEdit(){
+  clearTimeout(_ieTimer);
+  const requestId = ++_ieSearchId;
+  const q = document.getElementById('ie_search').value.trim();
+  const box = document.getElementById('ie_results');
+  _ieOffers = [];
+  box.textContent = 'Searching…';
+  _ieTimer = setTimeout(async()=>{
+    try{
+      const offers = await _fetchItems(q);
+      if(requestId!==_ieSearchId || !_ieDraft) return;
+      if(!Array.isArray(offers)) throw Error('Could not load items');
+      _ieOffers = offers;
+      box.innerHTML = offers.length ? offers.map((item,i)=>`<button type="button" onclick="selectItemEdit(${i})" style="display:block;width:100%;text-align:left;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin:5px 0"><strong>${esc(item.name)}</strong><br>${esc(item.vendor||'No vendor')} · ${esc(item.code||'')}${item.vendor_list_no?' · List '+esc(item.vendor_list_no):''}<br>TP: ${Number(item.tp).toFixed(2)} · Supplier: ${item.vendor_discount_pct==null?'—':esc(item.vendor_discount_pct)+'%'} · Customer: ${esc(item.discount_pct)}%</button>`).join('') : 'No items found. Try a shorter name or item code.';
+    }catch(e){ if(requestId===_ieSearchId) box.textContent='Could not load items. Type again to retry.'; }
+  },200);
+}
+function selectItemEdit(index){
+  const item = _ieOffers[index];
+  if(!item || !_ieOriginal) return;
+  _ieDraft = {
+    item_id:item.id,item_name:item.name,item_code:item.code,qty:_ieOriginal.qty,
+    retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
+    bonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
+    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',
+    vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
+    is_global:!!item.is_global,lineNet:0
+  };
+  fillItemEdit();
+  document.getElementById('ie_results').textContent='Offer selected. Review below and apply to the bill.';
+}
+function closeItemEdit(){
+  clearTimeout(_ieTimer); ++_ieSearchId;
+  _ieOriginal = _ieDraft = null; _ieOffers = [];
+  document.getElementById('itemEditModal').classList.remove('open');
+}
 function ie_retailChanged(){
   const v = parseFloat(document.getElementById('ie_retail').value);
   if(v>0) document.getElementById('ie_tp').value = (v*0.85).toFixed(2);
@@ -1448,42 +1488,22 @@ function ie_tpChanged(){
   if(v>0) document.getElementById('ie_retail').value = (v/0.85).toFixed(2);
 }
 
-async function saveItemEdit(){
-  const itemId   = document.getElementById('ie_item_id').value;
-  const lineIdx  = parseInt(document.getElementById('ie_line_idx').value);
-  const isGlobal = !!document.getElementById('ie_is_global').value;
-  const name     = document.getElementById('ie_name').value.trim();
-  const retail = parseFloat(document.getElementById('ie_retail').value) || 0;
-  const tp     = parseFloat(document.getElementById('ie_tp').value) || 0;
-  const disc   = parseFloat(document.getElementById('ie_disc').value) || 0;
-  const tax    = parseFloat(document.getElementById('ie_tax').value) || 0;
-  const bonus  = document.getElementById('ie_bonus').value.trim();
-  if((!isGlobal && !name) || tp <= 0){ toast('TP is required', true); return; }
-  const payload = {retail_price: retail, tp, discount_pct: disc, tax_pct: tax, bonus_text: bonus};
-  if(!isGlobal) payload.name = name;
-  const r = await fetch(`/api/items/${itemId}`, {
-    method: 'PUT',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  });
-  if(r.ok){
-    // Also update the current billing line so totals refresh immediately
-    if(!isGlobal) lines[lineIdx].item_name = name;
-    lines[lineIdx].retail = retail;
-    lines[lineIdx].tp = tp;
-    lines[lineIdx].disc = disc;
-    lines[lineIdx].tax = tax;
-    lines[lineIdx].bonus = bonus;
-    calcLine(lines[lineIdx]);
-    renderLines();
-    recalc();
-    _cacheClear();
-    closeItemEdit();
-    toast('Item updated in catalog');
-  } else {
-    const e = await r.json();
-    toast(e.error || 'Save failed', true);
+function saveItemEdit(){
+  const index = lines.indexOf(_ieOriginal);
+  if(index<0 || !_ieDraft){ toast('This billing row is no longer available',true); closeItemEdit(); return; }
+  const name = document.getElementById('ie_name').value.trim();
+  const retail = Number(document.getElementById('ie_retail').value);
+  const tp = Number(document.getElementById('ie_tp').value);
+  const disc = Number(document.getElementById('ie_disc').value);
+  const tax = Number(document.getElementById('ie_tax').value);
+  if(!name || ![retail,tp,disc,tax].every(Number.isFinite) || retail<0 || tp<=0 || tax<0 || disc < -100 || disc>100){
+    toast('Enter a name, positive TP and valid billing amounts',true); return;
   }
+  lines[index] = {..._ieDraft,item_name:name,qty:_ieOriginal.qty,retail,tp,disc,tax,
+    bonus:document.getElementById('ie_bonus').value.trim()};
+  calcLine(lines[index]);
+  closeItemEdit(); renderLines(); recalc();
+  toast('Billing item updated');
 }
 document.addEventListener('click', ()=>{ document.querySelectorAll('.line-menu.open').forEach(m=>m.classList.remove('open')); });
 
