@@ -29,7 +29,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   {% if username %}<div class="sub">Logged in as <strong style="color:#667eea">{{ username }}</strong> · enter your admin password</div>
   {% else %}<div class="sub">Enter your admin password</div>{% endif %}
   <form id="loginForm" method="post" action="/auth/admin-login" autocomplete="on">
-    <input type="text" name="username" value="{{ username }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
+    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
     <div class="field">
       <label for="password">Admin Password</label>
       <input type="password" id="password" name="password" placeholder="Admin password" autocomplete="section-admin current-password" required autofocus>

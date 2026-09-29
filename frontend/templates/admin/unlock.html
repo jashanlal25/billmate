@@ -37,7 +37,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div class="locked-info">🔒 Account locked due to too many failed attempts.<br>Try again in ~{{ lock_minutes_left }} minute(s).</div>
   {% else %}
   <form id="adminUnlockForm" method="POST" action="/admin/unlock" autocomplete="on">
-    <input type="text" name="username" value="{{ username }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
+    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
     <div class="field">
       <div class="pw-wrap">
         <input type="password" id="adm_pass" name="password" placeholder="Admin password" autocomplete="section-admin current-password" required autofocus>

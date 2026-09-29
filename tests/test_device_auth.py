@@ -114,6 +114,7 @@ class DeviceAuthTest(unittest.TestCase):
         self.login()
         page = self.client.get('/admin/unlock').get_data(as_text=True)
         self.assertIn('autocomplete="section-admin current-password"', page)
+        self.assertIn('value="first (admin)"', page)
         with patch.dict(os.environ, {'SECRET_KEY': ''}):
             result = self.login()
             self.assertNotIn('device_token', result)
