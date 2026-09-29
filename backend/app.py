@@ -125,7 +125,7 @@ def invoice_pdf():
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
 
     data=request.get_json(silent=True) or {}
     inv=data.get('invoice') or {}; lines=inv.get('lines') or []
@@ -187,7 +187,7 @@ def invoice_pdf():
     head.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
     story += [head,Spacer(1,5*mm)]
 
-    rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
+    rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('TAX/UNIT',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
     for i,l in enumerate(lines,1):
         desc=f"<b>{p(l.get('item_name'),'')}</b>"
         if l.get('bonus_text'): desc+=f"<br/><font color='#16a34a' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
@@ -195,12 +195,14 @@ def invoice_pdf():
         if data.get('show_vendor') and l.get('vendor'): desc+=f"<br/><font color='#6366f1' size='6'><b>{p(l.get('vendor'),'')}</b></font>"
         disc=n(l.get('discount_pct'))
         qty=n(l.get('qty')); line_total=n(l.get('line_net'))+qty*n(l.get('tax_pct'))
-        rows.append([str(i),Paragraph(desc,body),m(l.get('tp')),f"{disc:.1f}%" if disc else '—',f"{qty:.2f}".rstrip('0').rstrip('.'),m(line_total)])
-    it=Table(rows,colWidths=[9*mm,66*mm,28*mm,20*mm,18*mm,33*mm],repeatRows=1)
+        tax=n(l.get('tax_pct'))
+        rows.append([str(i),Paragraph(desc,body),m(l.get('tp')),f"{disc:.1f}%" if disc else '—',m(tax) if tax else '—',f"{qty:.2f}".rstrip('0').rstrip('.'),m(line_total)])
+    it=Table(rows,colWidths=[9*mm,58*mm,27*mm,18*mm,23*mm,16*mm,33*mm],repeatRows=1)
     ts=[('TEXTCOLOR',(0,0),(-1,0),accent),('LINEBELOW',(0,0),(-1,0),1.6,accent),('FONTSIZE',(0,0),(-1,-1),8),
         ('VALIGN',(0,0),(-1,-1),'MIDDLE'),('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(2,-1),'RIGHT'),
-        ('ALIGN',(3,0),(4,-1),'CENTER'),('ALIGN',(5,0),(5,-1),'RIGHT'),('LINEBELOW',(0,1),(-1,-1),.35,light),
-        ('TOPPADDING',(0,0),(-1,-1),6),('BOTTOMPADDING',(0,0),(-1,-1),6)]
+        ('ALIGN',(3,0),(3,-1),'CENTER'),('ALIGN',(4,0),(4,-1),'RIGHT'),('ALIGN',(5,0),(5,-1),'CENTER'),
+        ('ALIGN',(6,0),(6,-1),'RIGHT'),('LINEBELOW',(0,1),(-1,-1),.35,light),
+        ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]
     for r in range(2,len(rows),2): ts.append(('BACKGROUND',(0,r),(-1,r),colors.HexColor('#f8f8ff')))
     it.setStyle(TableStyle(ts)); story += [it,Spacer(1,5*mm)]
 
@@ -217,9 +219,9 @@ def invoice_pdf():
     if len(totals)>total_idx+2:
         sty += [('TEXTCOLOR',(0,total_idx+1),(-1,total_idx+1),colors.HexColor('#92400e')),
                 ('LINEABOVE',(0,-1),(-1,-1),1.5,accent),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('TEXTCOLOR',(0,-1),(-1,-1),accent)]
-    tt.setStyle(TableStyle(sty)); story += [tt,Spacer(1,10*mm),HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#cccccc'),dash=(2,2)),Spacer(1,3*mm)]
+    tt.setStyle(TableStyle(sty))
     footer=shop_name + ((' · '+phone) if phone else '') + ' · Thank you for your business!'
-    story.append(Paragraph(footer,ParagraphStyle('foot',parent=tiny,alignment=TA_CENTER)))
+    story.append(KeepTogether([tt,Spacer(1,10*mm),HRFlowable(width='100%',thickness=.5,color=colors.HexColor('#cccccc'),dash=(2,2)),Spacer(1,3*mm),Paragraph(footer,ParagraphStyle('foot',parent=tiny,alignment=TA_CENTER))]))
     doc.build(story); buf.seek(0)
     return send_file(buf,mimetype='application/pdf',as_attachment=True,download_name=f"{re.sub(r'[^A-Za-z0-9._-]+','_',number)}.pdf")
 

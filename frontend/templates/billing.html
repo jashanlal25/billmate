@@ -2295,6 +2295,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
       <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}${srcHtml}${venHtml}</td>
       <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right;color:${(+l.tax_pct)>0?'#92400e':'#888'}">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
       <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${lineTotal}</td>
     </tr>`;}).join('');
@@ -2327,8 +2328,8 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
     .status-box .val{color:${inv.status==='posted'?'#166534':inv.status==='cancelled'?'#991b1b':'#854d0e'}}
     table{width:100%;border-collapse:collapse;font-size:.86em;margin-top:4px}
     thead tr{background:#fff}
-    th{padding:9px 10px;text-align:left;font-weight:700;font-size:.78em;text-transform:uppercase;letter-spacing:.4px;color:${accent};border-bottom:2px solid ${accent}}
-    td{padding:8px 10px;border-bottom:1px solid #ececec;vertical-align:middle}
+    th{padding:9px 6px;text-align:left;font-weight:700;font-size:.78em;text-transform:uppercase;letter-spacing:.3px;color:${accent};border-bottom:2px solid ${accent}}
+    td{padding:8px 6px;border-bottom:1px solid #ececec;vertical-align:middle}
     .totals-wrap{display:flex;justify-content:flex-end;margin-top:16px}
     .totals-table{width:260px;font-size:.88em}
     .totals-table td{padding:5px 8px;border:none}
@@ -2369,6 +2370,7 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
       <th>Item Description</th>
       <th style="text-align:right">Rate (TP)</th>
       <th style="text-align:center">Disc%</th>
+      <th style="text-align:right">Tax/unit</th>
       <th style="text-align:center">Qty</th>
       <th style="text-align:right">Net Amount</th>
     </tr></thead>
