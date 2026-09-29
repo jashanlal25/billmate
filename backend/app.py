@@ -3248,7 +3248,7 @@ def create_invoice():
             qty=float(line_data.get('qty', 1)),
             tp=float(line_data.get('tp', item.tp if item else 0)),
             discount_pct=float(line_data.get('discount_pct', item.discount_pct if item else 0) or 0),
-            bonus_text=line_data.get('bonus_text', item.bonus_text if item else '') or '',
+            bonus_text=line_data.get('bonus_text', '') or '',
             tax_pct=float(line_data.get('tax_pct', item.tax_pct if item else 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
             vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,

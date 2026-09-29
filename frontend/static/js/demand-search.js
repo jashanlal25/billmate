@@ -29,7 +29,7 @@
         const values=cells.map(c=>c.textContent.replace(/\s+/g,' ').trim());
         const headers=values.map(v=>v.toLowerCase());
         const name=headers.findIndex(v=>/^(item\s*name|product\s*name|description|item|product)$/.test(v));
-        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v)),retail:headers.findIndex(v=>/^(?:retail(?:\s*price)?|mrp|sale\s*price)$/.test(v)),discount:headers.findIndex(v=>/^(?:disc(?:ount)?\s*%?|discount\s*rate)$/.test(v))};continue;}
+        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v)),retail:headers.findIndex(v=>/^(?:retail(?:\s*price)?|mrp|sale\s*price)$/.test(v)),discount:headers.findIndex(v=>/^(?:disc(?:ount)?\s*%?|discount\s*rate)$/.test(v)),bonus:headers.findIndex(v=>/^(?:bonus|bonus\s*(?:%|rate))$/.test(v))};continue;}
         if(!columns||!cells.length||cells.some(c=>c.querySelector('table'))) continue;
         const item=values[columns.name];
         if(!item||!/[a-z]/i.test(item)||cells.length<=columns.name||/^(total|grand total|sub total)\b/i.test(item)) continue;
@@ -41,7 +41,7 @@
         };
         const discountText=columns.discount>=0?values[columns.discount]||'':'';
         const discountMatch=discountText.match(/^\s*(\d+(?:\.\d+)?)\s*%?/);
-        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:readPrice(columns.tp),retail:readPrice(columns.retail),discount_pct:discountMatch?Number(discountMatch[1]):null});
+        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:readPrice(columns.tp),retail:readPrice(columns.retail),discount_pct:discountMatch?Number(discountMatch[1]):null,bonus:columns.bonus>=0?values[columns.bonus]||'':''});
       }
     }
     if(!rows.length) throw Error('No demand items found. Use an HTML table with an Item Name column.');
@@ -342,7 +342,7 @@
     const entries=[...selectedOffers.values()];
     if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
     try{
-      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,customerDiscount:s.demand.discount_pct??null,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
+      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,customerDiscount:s.demand.discount_pct??null,customerBonus:s.demand.bonus||'',required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
       location.assign('/billing?demand_selection=1');
     }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
   });
