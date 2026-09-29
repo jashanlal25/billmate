@@ -1230,7 +1230,7 @@ function renderLines(){
         ${l.item_code?`<div style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
         ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
-        ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}</div>`:''}
+        ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
       </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
