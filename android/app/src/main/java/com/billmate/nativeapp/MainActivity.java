@@ -20,6 +20,7 @@ import android.widget.*;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import androidx.core.content.FileProvider;
+import androidx.fragment.app.FragmentActivity;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -28,7 +29,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.json.*;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends FragmentActivity {
     private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private WebView web;
@@ -39,6 +40,7 @@ public final class MainActivity extends Activity {
     private File pendingShare, pendingDownload, pendingUpdateApk;
     private String pendingName;
     private boolean busy;
+    private BiometricVault biometricVault;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
@@ -69,6 +71,8 @@ public final class MainActivity extends Activity {
         toolbar.setVisibility(View.GONE);
 
         web = new WebView(this);
+        web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
+        biometricVault = new BiometricVault(this);
         web.setBackgroundColor(Color.rgb(18, 34, 56));
         FrameLayout content = new FrameLayout(this);
         content.addView(web, new FrameLayout.LayoutParams(-1, -1));
@@ -87,7 +91,7 @@ public final class MainActivity extends Activity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/1.7");
+        settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/" + BuildConfig.VERSION_NAME);
         // The existing website gates its persistent file batch on standalone mode.
         // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -100,6 +104,11 @@ public final class MainActivity extends Activity {
                 .setPositiveButton("OK", null).show();
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "BillMateNativeAuth",
+                Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
+                    if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) || message.getData() == null) return;
+                    biometricVault.receive(message.getData(), reply);
+                });
             WebViewCompat.addWebMessageListener(web, "BillMateNativeShare",
                 Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
                     if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) || message.getData() == null) return;
@@ -118,6 +127,7 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                biometricVault.cancel();
                 if (!busy) { toolbar.setVisibility(View.VISIBLE); status.setText("Opening…"); }
             }
             @Override public void onPageFinished(WebView view, String url) {
@@ -792,6 +802,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if (biometricVault != null) biometricVault.cancel();
         CookieManager.getInstance().flush();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         worker.shutdown();

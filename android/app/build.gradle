@@ -6,15 +6,31 @@ android {
         applicationId 'com.billmate.nativeapp'
         minSdk 26
         targetSdk 35
-        versionCode 10
-        versionName '1.9'
+        versionCode 11
+        versionName '1.10'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    buildFeatures { buildConfig true }
+    signingConfigs {
+        release {
+            def signingPath = System.getenv('BILLMATE_KEYSTORE_PATH')
+            if (signingPath) {
+                storeFile file(signingPath)
+                storePassword System.getenv('BILLMATE_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('BILLMATE_KEY_ALIAS')
+                keyPassword System.getenv('BILLMATE_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes { release { signingConfig signingConfigs.release } }
 }
 dependencies {
+    // Align transitive stdlib-jdk7/jdk8 with the merged Kotlin 1.8 stdlib.
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
+    implementation 'androidx.biometric:biometric:1.1.0'
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'

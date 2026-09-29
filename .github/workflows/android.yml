@@ -38,14 +38,37 @@ jobs:
           path: |
             android/app/build/reports/tests/
             android/app/build/reports/lint-results-debug.html
-      - name: Publish downloadable Android test build
+      - name: Restore permanent APK signing key
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/build/billmate-native-apk'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BILLMATE_ANDROID_KEYSTORE_BASE64 }}
+          BILLMATE_KEYSTORE_PASSWORD: ${{ secrets.BILLMATE_ANDROID_KEYSTORE_PASSWORD }}
+          BILLMATE_KEY_ALIAS: ${{ secrets.BILLMATE_ANDROID_KEY_ALIAS }}
+          BILLMATE_KEY_PASSWORD: ${{ secrets.BILLMATE_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$BILLMATE_KEYSTORE_PASSWORD" ] || [ -z "$BILLMATE_KEY_ALIAS" ] || [ -z "$BILLMATE_KEY_PASSWORD" ]; then
+            echo '::error::Configure permanent BILLMATE_ANDROID signing secrets before publishing. A fresh debug key would break in-place updates and saved login data.'
+            exit 1
+          fi
+          umask 077
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/billmate-signing.jks"
+      - name: Build APK with permanent signing identity
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/build/billmate-native-apk'
+        working-directory: android
+        env:
+          BILLMATE_KEYSTORE_PATH: ${{ runner.temp }}/billmate-signing.jks
+          BILLMATE_KEYSTORE_PASSWORD: ${{ secrets.BILLMATE_ANDROID_KEYSTORE_PASSWORD }}
+          BILLMATE_KEY_ALIAS: ${{ secrets.BILLMATE_ANDROID_KEY_ALIAS }}
+          BILLMATE_KEY_PASSWORD: ${{ secrets.BILLMATE_ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+      - name: Publish downloadable Android build
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/build/billmate-native-apk'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk BillMate-Native.apk
+          cp android/app/build/outputs/apk/release/app-release.apk BillMate-Native.apk
           if ! gh release view native-latest >/dev/null 2>&1; then
-            gh release create native-latest --target "$GITHUB_SHA" --title "BillMate Native Android (test build)" --notes "Android 8 or newer. Test build for native file sharing." --prerelease
+            gh release create native-latest --target "$GITHUB_SHA" --title "BillMate Native Android" --notes "Android 8 or newer. Signed with the permanent BillMate key." --prerelease
           fi
           gh release upload native-latest BillMate-Native.apk --clobber
