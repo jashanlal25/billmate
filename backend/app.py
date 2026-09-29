@@ -2793,6 +2793,68 @@ def _pos_customers_from_mast(rows):
         customers.append({'CCOD': code, 'CNM': name, 'TOTRCV': balance})
     return customers
 
+def _parse_demand_pdf_table(page_text):
+    """Read Anas row text and MedList's selectable, cell-per-line PDF tables."""
+    lines = [re.sub(r'\s+', ' ', line).strip() for line in page_text.splitlines()]
+    row_re = re.compile(
+        r'^(\d{1,6})\s+(.+?)\s+(\d+)\s+'
+        r'([\d,]+(?:\.\d+)?)\s+(.+?)\s+([\d,]+(?:\.\d+)?)$'
+    )
+    money_re = re.compile(r'^[\d,]+(?:\.\d+)?$')
+
+    def row(code, name, qty, tp, discount):
+        match = re.match(r'^(\d+(?:\.\d+)?)\s*%?', discount)
+        return {
+            'code': code, 'name': name, 'qty': qty,
+            'tp': float(tp.replace(',', '')),
+            'discount_pct': float(match.group(1)) if match else None,
+            'retail': None, 'box': '', 'pcs': ''
+        }
+
+    rows = []
+    for line in lines:
+        match = row_re.match(line)
+        if match and re.search(r'[A-Za-z]', match.group(2)):
+            rows.append(row(match.group(1), match.group(2).strip(),
+                            match.group(3), match.group(4), match.group(5)))
+    if rows:
+        return rows
+
+    # In a ReportLab PDF each table cell can be a separate extracted line.
+    # Require the column header before interpreting a run of numeric cells.
+    expected = ['Code', 'Item', 'Qty', 'TP', 'Disc%']
+    for start in range(len(lines)):
+        if lines[start:start + 5] != expected:
+            continue
+        headers = expected[:]
+        cursor = start + 5
+        for optional in ('Bonus', 'Tax'):
+            if cursor < len(lines) and lines[cursor] == optional:
+                headers.append(optional)
+                cursor += 1
+        if cursor >= len(lines) or lines[cursor] != 'Net':
+            continue
+        headers.append('Net')
+        cursor += 1
+        while cursor + len(headers) <= len(lines):
+            if lines[cursor].lower().startswith('total items'):
+                break
+            cells = lines[cursor:cursor + len(headers)]
+            data = dict(zip(headers, cells))
+            if (re.fullmatch(r'\d{1,6}', data['Code'])
+                    and re.search(r'[A-Za-z]', data['Item'])
+                    and re.fullmatch(r'\d+', data['Qty'])
+                    and money_re.fullmatch(data['TP'])
+                    and money_re.fullmatch(data['Net'])):
+                rows.append(row(data['Code'], data['Item'], data['Qty'],
+                                data['TP'], data['Disc%']))
+                cursor += len(headers)
+            else:
+                cursor += 1
+        break
+    return rows
+
+
 @app.route('/api/demand/pdf-text', methods=['POST'])
 def demand_pdf_text():
     """Extract demand rows from selectable-text PDFs for Demand Search."""
@@ -2811,29 +2873,11 @@ def demand_pdf_text():
             return jsonify({'error': 'PDF has too many pages (maximum 100)'}), 413
         pages = []
         rows = []
-        row_re = re.compile(
-            r'^\s*(\d{1,6})\s+(.+?)\s+(\d+)\s+'
-            r'([\d,]+(?:\.\d+)?)\s+(.+?)\s+([\d,]+(?:\.\d+)?)\s*$'
-        )
         for page in reader.pages:
             page_text = page.extract_text() or ''
             if page_text.strip():
                 pages.append(page_text)
-            for raw_line in page_text.splitlines():
-                line = re.sub(r'\s+', ' ', raw_line).strip()
-                match = row_re.match(line)
-                if not match:
-                    continue
-                item = match.group(2).strip()
-                qty = match.group(3)
-                if re.search(r'[A-Za-z]', item):
-                    discount_match = re.match(r'\s*(\d+(?:\.\d+)?)\s*%?', match.group(5))
-                    rows.append({
-                        'code': match.group(1), 'name': item, 'qty': qty,
-                        'tp': float(match.group(4).replace(',', '')),
-                        'discount_pct': float(discount_match.group(1)) if discount_match else None,
-                        'retail': None, 'box': '', 'pcs': ''
-                    })
+            rows.extend(_parse_demand_pdf_table(page_text))
         text = '\n'.join(f"{row['name']} ({row['qty']})" for row in rows).strip() if rows else '\n'.join(pages).strip()
     except Exception:
         return jsonify({'error': 'Could not read this PDF'}), 400
