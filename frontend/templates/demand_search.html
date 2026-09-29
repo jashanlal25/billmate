@@ -51,7 +51,7 @@
   <p class="muted">Upload an HTM, HTML, TXT, or PDF demand file, review the items, then search all vendors in your inventory. Your demand stays here until you load a new one or tap Clear.</p>
   <label for="pastedDemand"><strong>Or paste a text list</strong></label>
   <textarea id="pastedDemand" placeholder="Methachlor drop (10)&#10;Nexum 40 (3)&#10;Truva 10 (2) lazmi" aria-describedby="textDemandHint"></textarea>
-  <p id="textDemandHint" class="muted note">One item per line. The number in parentheses is the requested quantity; “lazmi” is kept as a note. Text demand lists are for searching, not adding to Inventory.</p>
+  <p id="textDemandHint" class="muted note">Paste one item per line with quantity in parentheses, or paste a full order message with Code, QTY and ITM fields. “Lazmi” is kept as a note. Text demand lists are for searching, not adding to Inventory.</p>
   <button id="loadTextDemand" class="btn btn-outline" disabled>Load text demand</button>
   <div class="controls"><label><input id="ignoreShelf" type="checkbox" checked> Ignore trailing shelf codes (such as C-55) when comparing names. Uncheck if these are part of the product name.</label></div>
   <p id="demandStatus" role="status" aria-live="polite">No demand loaded.</p>

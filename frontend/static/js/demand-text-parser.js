@@ -1,7 +1,39 @@
-/* Plain-text demand lists: one item per line, optional (quantity) and lazmi. */
+/* Plain-text demand lists and supplier-style order messages. */
 (function(root){
   'use strict';
+  function parseOrderMessage(text){
+    const rows=[];
+    let item={code:'',qty:'',discount_pct:null,bonus:''};
+    for(const raw of String(text).split(/\r?\n/)){
+      const field=raw.trim().match(/^\*?(Code|QTY|Disc|Bonus|ITM)\*?\s*:\s*(.*)$/i);
+      if(!field)continue; // Customer, List No, separators and totals are not items.
+      const [,label,value]=field;
+      switch(label.toLowerCase()){
+        case 'code': item.code=value.trim();break;
+        case 'qty': item.qty=value.trim();break;
+        case 'disc': {
+          const number=value.match(/^-?\d+(?:\.\d+)?/);
+          item.discount_pct=number?Number(number[0]):null;
+          break;
+        }
+        case 'bonus': item.bonus=value.trim();break;
+        case 'itm': {
+          const name=value.trim();
+          if(!name||!/[a-z]/i.test(name))throw Error('An ITM field is missing its medicine name.');
+          if(item.qty&&!/^\d+(?:\.\d+)?$/.test(item.qty))throw Error(`Invalid quantity for ${name}.`);
+          rows.push({name,qty:item.qty,code:item.code,discount_pct:item.discount_pct,
+            bonus:item.bonus,required:false,box:'',pcs:''});
+          if(rows.length>2000)throw Error('Please split this demand into lists of no more than 2,000 items.');
+          item={code:'',qty:'',discount_pct:null,bonus:''};
+          break;
+        }
+      }
+    }
+    if(!rows.length)throw Error('No ITM entries found in the pasted order.');
+    return rows;
+  }
   function parse(text){
+    if(/^\s*\*?ITM\*?\s*:/im.test(String(text||'')))return parseOrderMessage(text);
     const rows=[];
     for(const raw of String(text||'').split(/\r?\n/)){
       let line=raw.trim().replace(/^\s*(?:[-•*]\s+|\d+[.)]\s+)/,'').trim();
