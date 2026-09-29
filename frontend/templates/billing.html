@@ -584,7 +584,7 @@ input[type=number]{-moz-appearance:textfield}
             <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Disc%</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Tax</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Qty</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Net</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Amount incl. tax</th>
           </tr>
         </thead>
         <tbody id="mInvLines"></tbody>
@@ -2158,7 +2158,7 @@ function _guestViewInvoice(id){
       <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.qty).toFixed(l.qty%1?2:0)}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${(+l.line_net).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${((+l.line_net)+(+l.qty)*(+l.tax_pct||0)).toFixed(2)}</td>
     </tr>`).join('');
   document.getElementById('mSubtotal').textContent='Rs.'+(+inv.subtotal).toFixed(2);
   document.getElementById('mDiscount').textContent='Rs.'+(+inv.discount_amount).toFixed(2);
@@ -2225,7 +2225,7 @@ async function viewInvoice(id){
       <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.qty).toFixed(l.qty%1?2:0)}</td>
-      <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${(+l.line_net).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${((+l.line_net)+(+l.qty)*(+l.tax_pct||0)).toFixed(2)}</td>
     </tr>`).join('');
 
   document.getElementById('mSubtotal').textContent  = 'Rs.' + (+inv.subtotal).toFixed(2);
