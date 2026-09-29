@@ -1208,7 +1208,7 @@ function addLine(item){
   const line={
     item_id:item.id, item_name:item.name, item_code:item.code,
     qty:1, retail:+item.retail_price, tp:+item.tp,
-    disc:+item.discount_pct, bonus:'', tax:+item.tax_pct,
+    disc:+item.discount_pct, bonus:'', supplierBonus:item.bonus_text||'', tax:+item.tax_pct,
     rate_source:item.rate_source||'',
     vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
     is_global:!!item.is_global,
@@ -1262,6 +1262,7 @@ function renderLines(){
         ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
+        ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
       </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
@@ -1499,7 +1500,7 @@ function selectItemEdit(index){
   _ieDraft = {
     item_id:item.id,item_name:item.name,item_code:item.code,qty:_ieOriginal.qty,
     retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
-    bonus:_ieOriginal.bonus||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
+    bonus:_ieOriginal.bonus||'',supplierBonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
     vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',
     vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
     is_global:!!item.is_global,lineNet:0
@@ -1702,8 +1703,28 @@ async function restoreAutoDraft(){
     document.getElementById('invNo').textContent = 'Invoice # ' + inv.invoice_number;
     document.getElementById('savedInvInfo').textContent = 'Restored unsaved bill · '+inv.invoice_number;
     renderLines(); recalc();
+    restoreSupplierBonuses();
     toast('Restored your unsaved bill');
   }catch(e){ /* ignore */ }
+}
+// Supplier terms are reference information only; invoice bonus_text is the customer's bonus.
+async function restoreSupplierBonuses(){
+  const pending=lines.filter(l=>l.item_id!=null && !l.supplierBonus);
+  if(!pending.length)return;
+  try{
+    const catalog=await _fetchItems('');
+    const byId=new Map(catalog.map(item=>[String(item.id),item]));
+    let changed=false;
+    for(const line of pending){
+      if(!lines.includes(line))continue;
+      const item=byId.get(String(line.item_id));
+      if(item && String(item.vendor||'').toLowerCase()===String(line.vendor||'').toLowerCase() && item.bonus_text){
+        line.supplierBonus=item.bonus_text;
+        changed=true;
+      }
+    }
+    if(changed)renderLines();
+  }catch(e){ /* Billing remains usable if Inventory is temporarily unavailable. */ }
 }
 async function importDemandSelection(){
   const notice=document.getElementById('demandImportNotice');
@@ -1747,7 +1768,7 @@ async function importDemandSelection(){
        lines.some(line=>String(line.item_id)===String(item.id))){skipped++;continue;}
     const line={item_id:item.id,item_name:item.name,item_code:item.code||'',qty,
       retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:customerDiscount??(Number(item.discount_pct)||0),
-      bonus:customerBonus,tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
+      bonus:customerBonus,supplierBonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
       vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,is_global:!!item.is_global,lineNet:0};
     calcLine(line);lines.push(line);added++;
     if(entry.review)reviewed++;
@@ -2191,6 +2212,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
   savedInvoiceId=inv.id;
   renderLines();recalc();
+  restoreSupplierBonuses();
   window.scrollTo({top:0,behavior:'smooth'});
   toast('Invoice loaded — make changes then save');
 }
@@ -2627,6 +2649,7 @@ function loadIntoBuilder(id){
   savedInvoiceId = inv.id;
   renderLines();
   recalc();
+  restoreSupplierBonuses();
   window.scrollTo({top:0, behavior:'smooth'});
   toast('Invoice loaded — make changes then save');
 }
@@ -2933,7 +2956,7 @@ function applyScanResults(){
         item_id: item.id, item_name: item.name, item_code: item.code,
         vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
         qty: qty, retail: +item.retail_price, tp: +item.tp,
-        disc: +item.discount_pct, bonus: '', tax: +item.tax_pct,
+        disc: +item.discount_pct, bonus: '', supplierBonus:item.bonus_text||'', tax: +item.tax_pct,
         is_global: !!item.is_global, lineNet: 0
       };
       calcLine(line);
