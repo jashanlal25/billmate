@@ -243,15 +243,16 @@ async function doDelete(id){
 
 function buildInvoicePrintHtml(inv, forPdf){
   const s=shopSettings, accent='#4f46e5';
+  const monochromePrintCss = forPdf ? '' : '@media print{body{color:#000}table tr,.meta-box{background:#fff!important}table th,table td,table td *, .shop-name,.shop-info,.cust-block *, .meta-box *,.totals-table td,.footer{color:#000!important}table tbody td:nth-child(3),table tbody td:nth-child(4){font-weight:700}table th{border-bottom:2px solid #000}table td{border-bottom:1px solid #777}.meta-box{border-color:#000}.divider{border-top-color:#000}.grand-row td{border-top-color:#000}.footer{border-top-color:#555}}';
   const now=new Date();
   const timeStr=now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
   const rows=inv.lines.map((l,i)=>{
     const lineTotal=((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
-    return `<tr style="${i%2===1?'background:#f8f8ff':''}">
+    return `<tr>
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
       <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}</td>
-      <td style="text-align:right;color:#111;font-weight:700">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="text-align:center;color:#111;font-weight:700">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:center;color:#555">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
       <td style="text-align:right;color:#111">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
       <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${lineTotal}</td>
@@ -289,7 +290,8 @@ function buildInvoicePrintHtml(inv, forPdf){
     .grand-row td{font-size:1.05em;font-weight:800;color:${accent};border-top:2px solid ${accent};padding-top:8px}
     .prev-row td{color:#92400e;font-size:.9em}
     .footer{margin-top:28px;padding-top:12px;border-top:1px dashed #ccc;text-align:center;font-size:.78em;color:#888}
-    @media print{body{padding:12px 16px;color:#000}@page{margin:10mm}table tr,.meta-box{background:#fff!important}table th,table td,table td *, .shop-name,.shop-info,.cust-block *, .meta-box *,.totals-table td,.footer{color:#000!important}table th{border-bottom:2px solid #000}table td{border-bottom:1px solid #777}.meta-box{border-color:#000}.divider{border-top-color:#000}.grand-row td{border-top-color:#000}.footer{border-top-color:#555}}
+    @media print{body{padding:12px 16px}@page{margin:10mm}}
+    ${monochromePrintCss}
   </style></head><body>
   <div class="shop-header">
     <div class="shop-name">${s.shop_name||'Your Shop'}</div>

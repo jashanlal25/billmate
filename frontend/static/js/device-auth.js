@@ -25,6 +25,8 @@
   window.BillMateDeviceAuth = {
     enrollRequested() { return !!document.getElementById('enableFingerprint')?.checked && !!bridge; },
     async save(result) {
+      // AJAX login does not always notify Android's Autofill service itself.
+      if (bridge) { try { await call('autofill_commit', context); } catch (_) {} }
       if (result.fingerprint_error) { alert(result.fingerprint_error); return; }
       if (!result.device_token || !bridge) return;
       try {

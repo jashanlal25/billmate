@@ -138,10 +138,8 @@ def invoice_pdf():
     def p(v,d='—'):
         s=str(v or '').strip(); return s if s else d
 
-    # Use high-contrast ink throughout the PDF, including headers and notes,
-    # so a monochrome printer does not wash out the invoice's columns.
-    accent=colors.black; dark=colors.black
-    gray=colors.HexColor('#222222'); light=colors.HexColor('#777777')
+    accent=colors.HexColor('#4f46e5'); dark=colors.HexColor('#1a1a2e')
+    gray=colors.HexColor('#555555'); light=colors.HexColor('#ececec')
     buf=io.BytesIO(); number=p(inv.get('invoice_number'),'invoice')
     doc=SimpleDocTemplate(buf,pagesize=A4,leftMargin=10*mm,rightMargin=10*mm,topMargin=8*mm,bottomMargin=10*mm)
     ss=getSampleStyleSheet()
@@ -149,7 +147,7 @@ def invoice_pdf():
     info=ParagraphStyle('info',parent=ss['Normal'],fontSize=8.5,leading=12,textColor=gray,alignment=TA_CENTER)
     body=ParagraphStyle('body',parent=ss['Normal'],fontSize=8.5,leading=11,textColor=dark)
     bodyb=ParagraphStyle('bodyb',parent=body,fontName='Helvetica-Bold')
-    tiny=ParagraphStyle('tiny',parent=body,fontSize=6.5,leading=8,textColor=gray)
+    tiny=ParagraphStyle('tiny',parent=body,fontSize=6.5,leading=8,textColor=colors.HexColor('#888888'))
     th=ParagraphStyle('th',parent=tiny,fontName='Helvetica-Bold',textColor=accent)
     story=[]
 
@@ -170,9 +168,9 @@ def invoice_pdf():
     ct.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'MIDDLE'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),2),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
     status=str(inv.get('status') or '').lower()
     status_label={'posted':'INVOICED','cancelled':'CANCELLED','draft':'DRAFT'}.get(status,status.upper() or 'DRAFT')
-    status_border=accent
-    status_bg=colors.white
-    status_fg=accent
+    status_border=colors.HexColor('#16a34a' if status=='posted' else '#dc2626' if status=='cancelled' else '#d97706')
+    status_bg=colors.HexColor('#f0fdf4' if status=='posted' else '#fef2f2' if status=='cancelled' else '#fefce8')
+    status_fg=colors.HexColor('#166534' if status=='posted' else '#991b1b' if status=='cancelled' else '#854d0e')
     boxdata=[
       [Paragraph('INVOICE #',tiny),Paragraph('DATE',tiny)],
       [Paragraph(number,bodyb),Paragraph(p(inv.get('invoice_date'),''),bodyb)],
@@ -193,9 +191,9 @@ def invoice_pdf():
     rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('TAX/UNIT',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
     for i,l in enumerate(lines,1):
         desc=f"<b>{p(l.get('item_name'),'')}</b>"
-        if l.get('bonus_text'): desc+=f"<br/><font color='#111111' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
-        if data.get('show_rate_source') and l.get('rate_source'): desc+=f"<br/><font color='#222222' size='6'>by {p(l.get('rate_source'),'')}</font>"
-        if data.get('show_vendor') and l.get('vendor'): desc+=f"<br/><font color='#111111' size='6'><b>{p(l.get('vendor'),'')}</b></font>"
+        if l.get('bonus_text'): desc+=f"<br/><font color='#16a34a' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
+        if data.get('show_rate_source') and l.get('rate_source'): desc+=f"<br/><font color='#888888' size='6'>by {p(l.get('rate_source'),'')}</font>"
+        if data.get('show_vendor') and l.get('vendor'): desc+=f"<br/><font color='#6366f1' size='6'><b>{p(l.get('vendor'),'')}</b></font>"
         disc=n(l.get('discount_pct'))
         qty=n(l.get('qty')); line_total=n(l.get('line_net'))+qty*n(l.get('tax_pct'))
         tax=n(l.get('tax_pct'))
