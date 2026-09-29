@@ -244,7 +244,8 @@ input[type=number]{-moz-appearance:textfield}
       <div class="sum-row"><span class="sum-label">Total Qty</span><span id="sumQty">0</span></div>
       <div class="sum-total"><span>Total Cost</span><span id="sumTotal">Rs. 0.00</span></div>
       <button class="btn btn-green" onclick="savePurchase()">💾 Save Purchase</button>
-      <button class="btn btn-outline" onclick="clearAll()">✕ Clear All</button>
+      <button class="btn btn-outline" id="purchaseClear" onclick="clearAll()">✕ Clear All</button>
+      <button class="btn btn-outline" id="purchaseCancel" style="display:none" onclick="cancelPurchaseDraft()">← Cancel draft & return to Billing</button>
     </div>
   </div>
 </div>
@@ -327,6 +328,7 @@ function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay
 
 let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={};
 let invoiceGroups=[], activeInvoiceGroup=-1, purchaseSaving=false, sourceInvoiceId=null, sourceInvoiceNumber='';
+let invoiceSourceGroups=new Map();
 function isSupplierLine(l){
   const vendor=String(l.vendor||'').trim();
   return !!vendor && !(vendor.toLowerCase()==='stock' && !String(l.vendor_list_no||'').trim());
@@ -365,6 +367,8 @@ function reloadInvoicePreparation(){
 
 function renderInvoiceGroups(){
   const panel=document.getElementById('invoiceImport');
+  document.getElementById('purchaseClear').textContent=sourceInvoiceId?'↻ Reset items from Billing':'✕ Clear All';
+  document.getElementById('purchaseCancel').style.display=sourceInvoiceId?'block':'none';
   if(!invoiceGroups.length){
     panel.style.display='block';
     document.getElementById('invoiceImportStatus').textContent='All supplier bills from this invoice were prepared in this tab.';
@@ -433,11 +437,18 @@ async function importCustomerInvoice(){
       groups.get(vendor).push(line);
     }
     sourceInvoiceId=id;sourceInvoiceNumber=invoice.invoice_number;
+    invoiceSourceGroups=new Map([...groups].map(([vendor,rows])=>[vendor.toLocaleLowerCase(),rows.map(line=>({...line}))]));
     let previous;
     try{previous=JSON.parse(sessionStorage.getItem('billmate-supplier-prep-'+id)||'null');}catch(e){}
     invoiceGroups=previous?.invoiceNumber===invoice.invoice_number && Array.isArray(previous.groups)
       ? previous.groups
       : [...groups].map(([vendor,rows])=>({vendor,lines:rows,supplier:null,invoiceNumber:invoice.invoice_number}));
+    // Older Clear All emptied the saved draft even though the customer invoice
+    // still contains these items. Restore only unsaved, empty supplier groups.
+    invoiceGroups.forEach(group=>{
+      const original=invoiceSourceGroups.get(String(group.vendor||'').toLocaleLowerCase());
+      if(original?.length && !group.lines?.length)group.lines=original.map(line=>({...line}));
+    });
     if(!invoiceGroups.length){
       if(!groups.size)throw Error('This invoice has no supplier names to prepare');
       renderInvoiceGroups();return;
@@ -653,7 +664,9 @@ async function savePurchase(){
     sessionPurchases.unshift(res);
     renderSessionHistory();
     loadPurchaseHistory();
-    clearAll();
+    lines=[];
+    document.getElementById('itemSearch').value='';
+    renderLines();
     clearSupplier();
     if(activeInvoiceGroup>=0){
       invoiceGroups.splice(activeInvoiceGroup,1);
@@ -721,9 +734,36 @@ function closeSesModal(){
 }
 
 function clearAll(){
-  lines=[];
+  if(sourceInvoiceId && activeInvoiceGroup>=0){
+    const group=invoiceGroups[activeInvoiceGroup];
+    const original=invoiceSourceGroups.get(group.vendor.toLocaleLowerCase());
+    if(original){
+      lines=original.map(line=>({...line}));
+      group.lines=lines;
+      toast(`${group.vendor} restored from Billing. No purchase was saved.`);
+    }else{
+      toast('Could not restore items from Billing. Use Load invoice again.',true);
+      return;
+    }
+  }else{
+    lines=[];
+  }
   renderLines();
   document.getElementById('itemSearch').value='';
+}
+
+function cancelPurchaseDraft(){
+  if(purchaseSaving)return;
+  if(sourceInvoiceId && activeInvoiceGroup>=0){
+    const group=invoiceGroups[activeInvoiceGroup];
+    const original=invoiceSourceGroups.get(group.vendor.toLocaleLowerCase());
+    if(original){
+      group.lines=original.map(line=>({...line}));
+      lines=group.lines;
+      storeInvoicePreparation();
+    }
+  }
+  window.location.href='/billing';
 }
 
 document.addEventListener('click',e=>{

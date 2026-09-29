@@ -5,7 +5,8 @@ const vm=require('node:vm');
 const path=require('node:path');
 
 const html=fs.readFileSync(path.join(__dirname,'../frontend/templates/purchase.html'),'utf8');
-const source=html.slice(html.indexOf('let lines=[], supplier=null'),html.indexOf('// Supplier search'));
+const source=html.slice(html.indexOf('let lines=[], supplier=null'),html.indexOf('// Supplier search'))
+  +html.slice(html.indexOf('function clearAll(){'),html.indexOf("document.addEventListener('click'",html.indexOf('function clearAll(){')));
 
 test('customer invoice prepares separate supplier bills with supplier discounts',async()=>{
   const nodes={};
@@ -19,7 +20,7 @@ test('customer invoice prepares separate supplier bills with supplier discounts'
     {id:2,vendor:'SKR',tp:150,retail_price:220,tax_pct:0,qty:4,bonus_text:'',vendor_discount_pct:25}
   ];
   const context={
-    URLSearchParams,location:{search:'?invoice=42'},
+    URLSearchParams,location:{search:'?invoice=42'},window:{location:{href:''}},
     document:{getElementById(id){return nodes[id] ||= {style:{},innerHTML:'',textContent:''};}},
     fetch:async(url)=>({ok:true,json:async()=>url.includes('/api/invoices/')?invoice:url.startsWith('/api/items')?items:[]}),
     esc:x=>String(x),clearSupplier(){context.supplier=null;},selectSupplier(id,name){context.supplier={id,name};},
@@ -39,4 +40,18 @@ test('customer invoice prepares separate supplier bills with supplier discounts'
   assert.equal(prepared[1].vendor,'SKR');
   assert.equal(prepared[1].lines[0].disc,25);
   assert.equal(nodes.invoiceImport.style.display,'block');
+  vm.runInContext('lines=[]; invoiceGroups[0].lines=lines; clearAll()',context);
+  assert.equal(vm.runInContext('lines.length',context),1);
+  assert.equal(vm.runInContext('invoiceGroups[0].lines[0].vendorCode',context),'A1');
+  assert.equal(nodes.purchaseClear.textContent,'↻ Reset items from Billing');
+  vm.runInContext('lines=[]; cancelPurchaseDraft()',context);
+  assert.equal(vm.runInContext('invoiceGroups[0].lines.length',context),1);
+  assert.equal(context.window.location.href,'/billing');
+  context.sessionStorage={getItem:()=>JSON.stringify({invoiceNumber:'SSD-0042',groups:[
+    {vendor:'DOSANI',lines:[],supplier:null,invoiceNumber:'SSD-0042'},
+    {vendor:'SKR',lines:[prepared[1].lines[0]],supplier:null,invoiceNumber:'SSD-0042'}
+  ]}),setItem(){}};
+  await vm.runInContext('importCustomerInvoice()',context);
+  assert.equal(vm.runInContext('invoiceGroups[0].lines.length',context),1);
+  assert.equal(vm.runInContext('invoiceGroups[1].lines.length',context),1);
 });
