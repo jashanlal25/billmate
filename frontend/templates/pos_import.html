@@ -11,6 +11,8 @@
  <div style="padding:16px;border:1.5px solid var(--border);border-radius:14px;background:var(--inp);margin-bottom:16px"><input id="posBackupFile" type="file" accept=".zip,application/zip" style="width:100%;color:var(--text)"></div>
  <button id="posBackupBtn" onclick="syncPosBackup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.95em;font-weight:700;cursor:pointer">Upload & Sync POS Backup</button>
  <div id="posBackupResult" style="font-size:.84em;color:var(--sub);margin-top:16px;line-height:1.7"></div>
+ <button type="button" onclick="previewSupplierCleanup()" style="margin-top:16px;padding:10px;border-radius:10px;background:var(--inp);color:var(--text);border:1px solid var(--border)">Preview incorrectly imported suppliers</button>
+ <div id="supplierCleanupPreview" style="max-height:320px;overflow-y:auto;color:var(--text)"></div>
 </div>
 <script>
 function _dbfRows(buf){
@@ -34,20 +36,6 @@ function _zipEntry(zip,wanted){
 }
 async function _readDbf(zip,name){
  let e=_zipEntry(zip,name);
- // Fallback for legacy backups with unusual padding/encoding in filenames:
- // identify customer/supplier master DBFs by their field schema.
- if(!e && name==='MSPLR.DBF'){
-  for(const candidate of Object.values(zip.files)){
-   if(candidate.dir||!candidate.name.toUpperCase().endsWith('.DBF'))continue;
-   const rows=_dbfRows(await candidate.async('arraybuffer'));
-   if(!rows.length)continue;
-   const keys=new Set(Object.keys(rows[0]).map(k=>String(k).trim().toUpperCase()));
-   // Supplier fallback requires a supplier-looking compact master and must not
-   // accidentally claim the customer master.
-   if(name==='MSPLR.DBF'&&!keys.has('TOTRCV')&&keys.has('CODE')&&keys.has('NAME')&&keys.size<=8)return rows;
-  }
-  return [];
- }
  return e?_dbfRows(await e.async('arraybuffer')):[];
 }
 function _posCustomers(rows){
@@ -59,6 +47,31 @@ function _posCustomers(rows){
    throw new Error('Invalid customer code, name or balance in MAST.DBF; no data has been sent.');
   return {CCOD:code,CNM:name,TOTRCV:balance};
  });
+}
+function _posSuppliers(rows){
+ return rows.filter(r=>String(r.MODE||'').trim().toUpperCase()==='S').map(r=>{
+  const code=String(r.CODE??'').trim(),name=String(r.NAME??'').trim();
+  const balance=String(r.TDBAL??'').trim().replace(/,/g,'');
+  if(!code||!name||!balance||!Number.isFinite(Number(balance)))
+   throw new Error('Invalid supplier code, name or balance in MAST.DBF; no data has been sent.');
+  return {CODE:code,NAME:name,_PAYABLE:balance};
+ });
+}
+async function previewSupplierCleanup(){
+ const out=document.getElementById('supplierCleanupPreview'),file=document.getElementById('posBackupFile').files[0];
+ if(!file){out.textContent='Select your POS backup ZIP first.';return;}
+ out.textContent='Checking imported suppliers…';
+ try{
+  const zip=await JSZip.loadAsync(file);
+  const [master,companies]=await Promise.all([_readDbf(zip,'MAST.DBF'),_readDbf(zip,'COMPANYF.DBF')]);
+  const suppliers=_posSuppliers(master);
+  if(!suppliers.length)throw new Error('Supplier accounts were not found in MAST.DBF');
+  const response=await fetch('/api/pos-backup/supplier-cleanup-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({suppliers,companies:companies.map(r=>({CODE:r.CODE,NAME:r.NAME}))})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||'Preview failed');
+  out.replaceChildren();
+  const title=document.createElement('p');title.textContent=result.candidates.length+' incorrectly imported company accounts found. Preview only; nothing has been changed.';out.append(title);
+  for(const row of result.candidates){const entry=document.createElement('p');entry.textContent=row.name+' ('+row.code+') — '+(row.protected_reasons.length?'Keep: '+row.protected_reasons.join(', '):'Eligible for cleanup after review');out.append(entry);}
+ }catch(e){out.textContent='Could not preview: '+e.message;}
 }
 function _posStock(items,ledger){
  if(!ledger.length)throw new Error('Current stock ledger OPSRB.DBF is missing; no data has been sent.');
@@ -95,27 +108,17 @@ async function syncPosBackup(){
  b.disabled=true;b.textContent='Reading backup…';out.textContent='Extracting POS backup locally on this device…';
  try{
   const zip=await JSZip.loadAsync(f.files[0]);
-  const [suppliers,itemRows,mastRows,purchases,sopen,stockLedger]=await Promise.all([
-   _readDbf(zip,'MSPLR.DBF'),_readDbf(zip,'ITEM.DBF'),
-   _readDbf(zip,'MAST.DBF'),_readDbf(zip,'PUR1.DBF'),_readDbf(zip,'SOPEN.DBF'),_readDbf(zip,'OPSRB.DBF')
+  const [itemRows,mastRows,stockLedger]=await Promise.all([
+   _readDbf(zip,'ITEM.DBF'),_readDbf(zip,'MAST.DBF'),_readDbf(zip,'OPSRB.DBF')
   ]);
-  const customers=_posCustomers(mastRows);
+  const customers=_posCustomers(mastRows),suppliers=_posSuppliers(mastRows);
+  if(!suppliers.length)throw new Error('No supplier accounts found in MAST.DBF; no data has been sent.');
   if(!customers.length)throw new Error('No current customers found in MAST.DBF. Check the POS backup; no data has been sent.');
   const items=itemRows.length?itemRows:mastRows;
   if(!customers.length&&!suppliers.length&&!items.length)throw new Error('POS customer, supplier and stock DBF files were not found');
   out.textContent='Extracted locally: '+customers.length+' customers, '+suppliers.length+' suppliers, '+items.length+' catalogue items. Filtering stock…';
 
-  // Supplier payable is calculated locally so the large purchase history never
-  // needs to cross the network. Only the resulting current payable is synced.
-  const payable={};
-  for(const r of purchases.concat(sopen)){
-   if(['Y','1','T'].includes(String(r.CAN||'').trim().toUpperCase()))continue;
-   const sc=String(r.SCODE||'').trim().replace(/^0+/,'')||'0';
-   const amount=parseFloat(String(r.AMOUNT||'').trim())||0,paid=parseFloat(String(r.PAID||'').trim())||0;
-   payable[sc]=(payable[sc]||0)+amount-paid;
-  }
-  const slimCustomers=customers;
-  const slimSuppliers=suppliers.map(r=>{const sc=String(r.CODE||'').trim().replace(/^0+/,'')||'0';return {CODE:r.CODE,NAME:r.NAME,_PAYABLE:payable[sc]||0}});
+  const slimCustomers=customers,slimSuppliers=suppliers;
   // Import only POS items that actually have stock. ITEM/MAST contains the
   // whole historical catalogue, which can be thousands of zero-stock records.
   const slimItems=_posStock(items,stockLedger);

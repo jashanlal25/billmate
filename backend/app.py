@@ -494,7 +494,7 @@ def check_auth():
                 session['is_admin'] = True
             # Allow: billing page, api/settings, api/invoices (create/view only), admin/setup
             setup_allowed = ['/billing', '/api/settings', '/api/invoices', '/api/items',
-                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/api/pos-backup/import-records', '/api/pos-backup/import-batch', '/admin/setup',
+                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/api/pos-backup/import-records', '/api/pos-backup/import-batch', '/api/pos-backup/supplier-cleanup-preview', '/admin/setup',
                              '/admin/unlock', '/admin/forgot-password', '/api/change-login-password',
                              '/api/change-admin-password']
             if not any(path.startswith(p) or path == p for p in setup_allowed):
@@ -2796,6 +2796,23 @@ def _pos_stock_from_ledger(items, ledger):
         output.append(dict(row, TDBAL=str(qty), _UPDATE_ONLY=qty <= 0))
     return output
 
+def _pos_suppliers_from_mast(rows):
+    suppliers = []
+    for row in rows:
+        if str(row.get('MODE') or '').strip().upper() != 'S':
+            continue
+        code = str(row.get('CODE') if row.get('CODE') is not None else '').strip()
+        name = str(row.get('NAME') or '').strip()
+        balance = str(row.get('TDBAL') if row.get('TDBAL') is not None else '').strip().replace(',', '')
+        try:
+            valid = Decimal(balance).is_finite()
+        except Exception:
+            valid = False
+        if not code or not name or not valid:
+            raise ValueError('Invalid supplier code, name or balance in MAST.DBF')
+        suppliers.append({'CODE': code, 'NAME': name, '_PAYABLE': balance})
+    return suppliers
+
 def _pos_customers_from_mast(rows):
     """Map only current customer accounts into the existing batch contract."""
     customers = []
@@ -2906,6 +2923,51 @@ def demand_pdf_text():
         return jsonify({'error': 'No selectable text was found in this PDF. Scanned/image-only PDFs are not supported yet.'}), 400
     return jsonify({'text': text, 'rows': rows, 'pages': len(reader.pages), 'items': len(rows)})
 
+def _supplier_cleanup_candidate(supplier, companies, current_names, linked_ids, linked_names):
+    name_key = _pos_key(supplier.name)
+    if name_key in current_names or not supplier.is_active:
+        return None
+    marker = re.fullmatch(r'POS supplier code: (.+)', (supplier.notes or '').strip())
+    if not marker or (name_key, marker.group(1).strip()) not in companies:
+        return None
+    reasons = []
+    if supplier.phone or supplier.address:
+        reasons.append('saved contact details')
+    if _pos_num(supplier.balance) or _pos_num(supplier.opening_balance):
+        reasons.append('nonzero balance')
+    if supplier.id in linked_ids or name_key in linked_names:
+        reasons.append('linked business records')
+    return {'id': supplier.id, 'name': supplier.name, 'code': supplier.code,
+            'protected_reasons': reasons}
+
+@app.route('/api/pos-backup/supplier-cleanup-preview', methods=['POST'])
+def supplier_cleanup_preview():
+    """Read-only review; never deletes or deactivates accounts."""
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered account required'}), 403
+    data = request.get_json(silent=True) or {}
+    companies = data.get('companies') or []
+    current = data.get('suppliers') or []
+    if not isinstance(companies, list) or not isinstance(current, list) or not current or len(companies) > 2000 or len(current) > 2000:
+        return jsonify({'error': 'Invalid supplier preview data'}), 400
+    if any(not isinstance(row, dict) for row in companies + current):
+        return jsonify({'error': 'Invalid supplier preview rows'}), 400
+    company_keys = {(_pos_key(row.get('NAME')), str(row.get('CODE') or '').strip()) for row in companies}
+    current_names = {_pos_key(row.get('NAME')) for row in current}
+    purchases = Purchase.query.filter_by(user_id=uid).all()
+    payments = SupplierPayment.query.filter_by(user_id=uid).all()
+    linked_ids = {row.supplier_id for row in purchases + payments if row.supplier_id}
+    linked_names = {_pos_key(row.supplier_name) for row in purchases if row.supplier_name}
+    linked_names.update(_pos_key(row.billing_name) for row in payments if row.billing_name)
+    linked_names.update(_pos_key(row.vendor) for row in Item.query.filter_by(user_id=uid).all() if row.vendor)
+    candidates = []
+    for supplier in Supplier.query.filter_by(user_id=uid).order_by(Supplier.name).all():
+        candidate = _supplier_cleanup_candidate(supplier, company_keys, current_names, linked_ids, linked_names)
+        if candidate:
+            candidates.append(candidate)
+    return jsonify({'candidates': candidates, 'preview_only': True})
+
 @app.route('/api/pos-backup/import-batch', methods=['POST'])
 def import_pos_backup_batch():
     """Synchronize one small locally-extracted POS batch."""
@@ -2960,11 +3022,13 @@ def import_pos_backup():
             customers=_pos_customers_from_mast(_zip_dbf(zf,'MAST.DBF'))
             if not customers:
                 return jsonify({'error':'No current customers found in MAST.DBF'}),400
-            suppliers=_zip_dbf(zf,'MSPLR.DBF')
+            suppliers=_pos_suppliers_from_mast(_zip_dbf(zf,'MAST.DBF'))
+            if not suppliers:
+                return jsonify({'error':'No supplier accounts found in MAST.DBF'}),400
             items=_zip_dbf(zf,'ITEM.DBF') or _zip_dbf(zf,'MAST.DBF')
             items=_pos_stock_from_ledger(items,_zip_dbf(zf,'OPSRB.DBF'))
-            purchases=_zip_dbf(zf,'PUR1.DBF')
-            sopen=_zip_dbf(zf,'SOPEN.DBF')
+            purchases=[]
+            sopen=[]
         except ValueError as exc:
             return jsonify({'error':str(exc)}),400
         except (zipfile.BadZipFile,RuntimeError):
@@ -2996,20 +3060,23 @@ def import_pos_backup():
             db.session.add(obj); db.session.flush()
             cust_by_name[_pos_key(name)]=obj; stats['customers_created']+=1
 
-    # Current supplier payable reconstructed from non-cancelled POS purchases/opening:
-    # outstanding = invoice amount - paid. Only suppliers present in backup are touched.
-    payable={}
-    for r in purchases+sopen:
-        if str(r.get('CAN') or '').strip().upper() in ('Y','1','T'): continue
-        sc=str(r.get('SCODE') or '').strip().lstrip('0') or '0'
-        payable[sc]=payable.get(sc,0.0)+_pos_num(r.get('AMOUNT'))-_pos_num(r.get('PAID'))
+    # The supplier account's current POS balance is authoritative.
+    # Reject unsupported old batches instead of replacing balances with guessed zeroes.
+    for row in suppliers:
+        try:
+            valid = '_PAYABLE' in row and Decimal(str(row['_PAYABLE']).replace(',', '')).is_finite()
+        except Exception:
+            valid = False
+        if not valid:
+            db.session.rollback()
+            return jsonify({'error':'Supplier balance is missing or invalid; reopen POS Import and try again'}),400
     existing_suppliers=Supplier.query.filter_by(user_id=uid).all()
     sup_by_name={_pos_key(x.name):x for x in existing_suppliers}
     for r in suppliers:
         name=(r.get('NAME') or '').strip()
         if not name: continue
         sc=str(r.get('CODE') or '').strip().lstrip('0') or '0'
-        target=round(payable.get(sc,_pos_num(r.get('_PAYABLE'))),2)
+        target=round(float(Decimal(str(r['_PAYABLE']).replace(',', ''))),2)
         obj=sup_by_name.get(_pos_key(name))
         if obj:
             activity=round(supplier_balance(obj.id,uid)-float(obj.opening_balance or 0),2)
