@@ -28,17 +28,21 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div class="title">Admin Login</div>
   {% if username %}<div class="sub">Logged in as <strong style="color:#667eea">{{ username }}</strong> · enter your admin password</div>
   {% else %}<div class="sub">Enter your admin password</div>{% endif %}
-  <form id="loginForm">
+  <form id="loginForm" method="post" action="/auth/admin-login" autocomplete="on">
+    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
     <div class="field">
       <label for="password">Admin Password</label>
-      <input type="password" id="password" name="password" placeholder="Admin password" required autofocus>
+      <input type="password" id="password" name="password" placeholder="Admin password" autocomplete="section-admin current-password" required autofocus>
     </div>
     <div id="error" class="err"></div>
+    {% include '_fingerprint.html' %}
     <button type="submit" class="btn">Login to Admin</button>
   </form>
   <a href="/admin/unlock" class="back">Unlock with existing password →</a>
 </div>
+<script src="/static/js/device-auth.js"></script>
 <script>
+BillMateDeviceAuth.init('admin', {{ username|tojson }});
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   const formData = new FormData(this);
@@ -51,13 +55,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        password: formData.get('password')
+        password: formData.get('password'), enroll_fingerprint: BillMateDeviceAuth.enrollRequested()
       })
     });
 
     const data = await response.json();
 
     if (response.ok) {
+      await BillMateDeviceAuth.save(data);
       window.location.href = '/admin/sales';
     } else {
       errorDiv.textContent = data.error || 'Login failed';

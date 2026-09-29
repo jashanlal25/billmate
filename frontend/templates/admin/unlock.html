@@ -36,17 +36,20 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   {% if locked %}
   <div class="locked-info">🔒 Account locked due to too many failed attempts.<br>Try again in ~{{ lock_minutes_left }} minute(s).</div>
   {% else %}
-  <form method="POST" action="/admin/unlock">
+  <form id="adminUnlockForm" method="POST" action="/admin/unlock" autocomplete="on">
+    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
     <div class="field">
       <div class="pw-wrap">
-        <input type="password" id="adm_pass" name="password" placeholder="Admin password" autofocus>
+        <input type="password" id="adm_pass" name="password" placeholder="Admin password" autocomplete="section-admin current-password" required autofocus>
         <button type="button" class="eye-btn" onclick="toggleEye()">👁️</button>
       </div>
     </div>
     {% if error %}
     <div class="err">{{ error }}</div>
     {% endif %}
-    <button type="submit" class="btn">Unlock Admin</button>
+    {% include '_fingerprint.html' %}
+    <div class="err" id="adminError" role="alert"></div>
+    <button type="submit" class="btn" id="adminUnlockButton">Unlock Admin</button>
   </form>
   {% endif %}
   {% if reset_pending %}
@@ -57,7 +60,25 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div id="forgotMsg" class="forgot-msg"></div>
   <a href="/billing" class="back">← Back to Billing</a>
 </div>
+<script src="/static/js/device-auth.js"></script>
 <script>
+BillMateDeviceAuth.init('admin', {{ username|tojson }});
+document.getElementById('adminUnlockForm')?.addEventListener('submit', async function(e){
+  e.preventDefault();
+  const button=document.getElementById('adminUnlockButton');
+  if(button.disabled)return;
+  button.disabled=true;
+  const error=document.getElementById('adminError');
+  error.textContent='';
+  try {
+    const r=await fetch('/admin/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('adm_pass').value,enroll_fingerprint:BillMateDeviceAuth.enrollRequested()})});
+    const result=await r.json();
+    if(!r.ok) { error.textContent=result.error||'Unable to unlock admin.'; if(r.status===429)button.hidden=true; return; }
+    await BillMateDeviceAuth.save(result);
+    location.assign(result.redirect||'/admin/sales');
+  } catch(_) { error.textContent='Check your connection and try again.'; }
+  finally { button.disabled=false; }
+});
 function toggleEye(){
   const inp=document.getElementById('adm_pass');
   const btn=event.currentTarget;
