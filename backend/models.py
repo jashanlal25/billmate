@@ -299,6 +299,7 @@ class Purchase(db.Model):
         return {
             'id': self.id,
             'purchase_number': self.purchase_number,
+            'supplier_id': self.supplier_id,
             'supplier_name': self.supplier_name,
             'purchase_date': self.purchase_date.isoformat(),
             'total_cost': float(self.total_cost or 0),

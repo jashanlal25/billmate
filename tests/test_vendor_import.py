@@ -119,4 +119,25 @@ class VendorImportTest(unittest.TestCase):
         self.assertEqual(float(item.vendor_discount_pct),12)
         self.assertEqual(float(item.qty),3)
 
+    def test_saved_counter_purchase_can_be_linked_to_supplier(self):
+        created=self.client.post('/api/purchase',json={
+            'supplier_name':'Counter','lines':[{'item_name':'MED A','qty':2,'tp':100,'retail':120,'disc':10}]
+        })
+        self.assertEqual(created.status_code,200,created.get_data(as_text=True))
+        purchase=created.json
+        self.assertIsNone(purchase['supplier_id'])
+        self.assertEqual(len(self.client.get('/api/purchases').json),1)
+        supplier=Supplier(user_id=1,name='DOSANI')
+        db.session.add(supplier);db.session.commit()
+        updated=self.client.put('/api/purchases/'+str(purchase['id']),json={
+            'supplier_id':supplier.id,'supplier_name':'DOSANI',
+            'lines':[{'item_id':purchase['lines'][0]['item_id'],'item_name':'MED A',
+                      'qty':2,'tp':100,'retail':120,'disc':10,'tax':0}]
+        })
+        self.assertEqual(updated.status_code,200,updated.get_data(as_text=True))
+        self.assertEqual(updated.json['supplier_id'],supplier.id)
+        self.assertEqual(float(supplier.balance),180)
+        self.assertEqual(Item.query.one().vendor,'DOSANI')
+        self.assertEqual(float(Item.query.one().qty),2)
+
 if __name__=='__main__': unittest.main()

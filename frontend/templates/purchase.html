@@ -139,6 +139,14 @@ input[type=number]{-moz-appearance:textfield}
   <div>
   <div class="panel">
     <div class="panel-title">🛒 Purchase Entry</div>
+    <div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--inp)">
+      <div style="font-weight:700;margin-bottom:8px">Bring items from Billing</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="billingInvoicePicker" aria-label="Saved customer bill" style="flex:1;min-width:190px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"><option value="">Loading saved bills…</option></select>
+        <button type="button" onclick="prepareSelectedInvoice()" style="padding:10px 14px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-weight:700">Prepare supplier bills</button>
+      </div>
+      <div style="font-size:.78em;color:var(--sub);margin-top:7px">Choose a customer bill to fill the supplier items below. Purchases are recorded only when you tap Save Purchase.</div>
+    </div>
     <div id="invoiceImport" style="display:none;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--inp)">
       <div id="invoiceImportStatus" style="font-weight:600;margin-bottom:8px"></div>
       <label id="invoiceVendorLabel" for="invoiceVendor" style="display:block;font-size:.82em;margin-bottom:5px">Supplier bill to prepare</label>
@@ -157,6 +165,7 @@ input[type=number]{-moz-appearance:textfield}
         <span id="selSupName"></span>
         <button onclick="clearSupplier()" style="background:none;border:none;cursor:pointer;font-size:1.1em;color:#888;margin-left:auto">✕</button>
       </div>
+      <div style="font-size:.78em;color:var(--sub);margin-top:6px">Select an existing supplier or type a new name. A new account is created when you save. Leave blank only for Counter purchases.</div>
     </div>
 
     <!-- Item search -->
@@ -220,9 +229,9 @@ input[type=number]{-moz-appearance:textfield}
 
   </div><!-- /.panel -->
 
-  <!-- Recent purchases (session only) -->
+  <!-- Saved purchases -->
   <div id="histSection" style="display:none">
-    <div class="hist-title">Recent Purchases</div>
+    <div class="hist-title">Saved Purchases</div>
     <div class="hist-card" id="sessionList"></div>
   </div>
   </div><!-- /left column -->
@@ -318,6 +327,26 @@ function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay
 
 let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={};
 let invoiceGroups=[], activeInvoiceGroup=-1, purchaseSaving=false, sourceInvoiceId=null, sourceInvoiceNumber='';
+
+async function loadBillingInvoices(){
+  const picker=document.getElementById('billingInvoicePicker');
+  try{
+    const r=await fetch('/api/invoices?offset=0&limit=100');
+    if(!r.ok)throw Error('Could not load saved bills');
+    const data=await r.json();
+    const invoices=(data.items||[]).filter(inv=>(inv.lines||[]).some(l=>String(l.vendor||'').trim()));
+    picker.innerHTML='<option value="">Select a saved bill…</option>'+invoices.map(inv=>
+      `<option value="${Number(inv.id)}">${esc(inv.invoice_number)} · ${esc(inv.customer_name||'Walk-in')} · ${inv.lines.length} items</option>`).join('');
+    if(!invoices.length)picker.innerHTML='<option value="">No saved bills with supplier items</option>';
+    const current=new URLSearchParams(location.search).get('invoice');
+    if(current && invoices.some(inv=>String(inv.id)===current))picker.value=current;
+  }catch(e){picker.innerHTML='<option value="">Could not load saved bills</option>';}
+}
+function prepareSelectedInvoice(){
+  const id=document.getElementById('billingInvoicePicker').value;
+  if(!id){toast('Select a saved bill first',true);return;}
+  window.location.href='/purchase?invoice='+encodeURIComponent(id);
+}
 
 function storeInvoicePreparation(){
   if(!sourceInvoiceId)return;
@@ -588,14 +617,15 @@ async function savePurchase(){
   if(activeInvoiceGroup>=0 && !confirm(`Save ${lines.length} received item${lines.length===1?'':'s'} from ${invoiceGroups[activeInvoiceGroup].vendor}? This adds stock and supplier payable balance.`))return;
   purchaseSaving=true;
   try{
-  if(activeInvoiceGroup>=0 && !supplier){
-    const vendor=invoiceGroups[activeInvoiceGroup].vendor;
-    const listResponse=await fetch('/api/suppliers?q='+encodeURIComponent(vendor));
+  const typedSupplier=document.getElementById('supplierSearch').value.trim();
+  const requestedSupplier=typedSupplier || (!supplier && activeInvoiceGroup>=0 ? invoiceGroups[activeInvoiceGroup].vendor : '');
+  if(requestedSupplier){
+    const listResponse=await fetch('/api/suppliers?q='+encodeURIComponent(requestedSupplier));
     if(!listResponse.ok)throw Error('Could not check supplier account');
     const matches=await listResponse.json();
-    let account=matches.find(s=>s.name.trim().toLocaleLowerCase()===vendor.toLocaleLowerCase());
+    let account=matches.find(s=>s.name.trim().toLocaleLowerCase()===requestedSupplier.toLocaleLowerCase());
     if(!account){
-      const createResponse=await fetch('/api/suppliers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:vendor})});
+      const createResponse=await fetch('/api/suppliers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:requestedSupplier})});
       account=await createResponse.json();
       if(!createResponse.ok)throw Error(account.error||'Could not create supplier account');
     }
@@ -618,6 +648,7 @@ async function savePurchase(){
     }
     sessionPurchases.unshift(res);
     renderSessionHistory();
+    loadPurchaseHistory();
     clearAll();
     clearSupplier();
     if(activeInvoiceGroup>=0){
@@ -632,7 +663,7 @@ async function savePurchase(){
 }
 
 function renderSessionHistory(){
-  if(!sessionPurchases.length) return;
+  if(!sessionPurchases.length){document.getElementById('histSection').style.display='none';return;}
   document.getElementById('histSection').style.display='block';
   document.getElementById('sessionList').innerHTML=sessionPurchases.map((p,idx)=>`
     <div class="hist-row" style="grid-template-columns:auto 1fr auto auto">
@@ -645,6 +676,20 @@ function renderSessionHistory(){
         <button onclick="viewSessionPurchase(${idx})" style="padding:5px 11px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:.78em;font-weight:700;cursor:pointer">View</button>
       </span>
     </div>`).join('');
+}
+
+async function loadPurchaseHistory(){
+  try{
+    const r=await fetch('/api/purchases');
+    if(!r.ok)throw Error('Could not load saved purchases');
+    const purchases=await r.json();
+    if(!Array.isArray(purchases))throw Error('Invalid purchase history');
+    sessionPurchases=purchases;
+    renderSessionHistory();
+  }catch(e){
+    document.getElementById('histSection').style.display='block';
+    document.getElementById('sessionList').textContent='Could not load saved purchases. Refresh to retry.';
+  }
 }
 
 function viewSessionPurchase(idx){
@@ -685,6 +730,8 @@ document.addEventListener('click',e=>{
 fetch('/api/settings').then(r=>r.json()).then(s=>{purShopSettings=s;if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
 importCustomerInvoice();
+loadBillingInvoices();
+loadPurchaseHistory();
 
 function buildPurchasePrintHtml(p, forPdf){
   const s=purShopSettings, accent='#4f46e5';

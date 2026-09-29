@@ -182,10 +182,24 @@ function updateEditLine(idx, field, val){
 function closePurEdit(){document.getElementById('purEditModal').classList.remove('open');}
 
 async function savePurEdit(){
+  const requestedName=document.getElementById('pe_supplier').value.trim()||'Counter';
+  let linkedSupplier=null;
+  if(requestedName.toLocaleLowerCase()!=='counter'){
+    const lookup=await fetch('/api/suppliers?q='+encodeURIComponent(requestedName));
+    if(!lookup.ok){toast('Could not check supplier account',true);return;}
+    const matches=await lookup.json();
+    linkedSupplier=matches.find(s=>s.name.trim().toLocaleLowerCase()===requestedName.toLocaleLowerCase());
+    if(!linkedSupplier){
+      const created=await fetch('/api/suppliers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:requestedName})});
+      linkedSupplier=await created.json();
+      if(!created.ok){toast(linkedSupplier.error||'Could not create supplier account',true);return;}
+    }
+  }
   const payload={
-    supplier_name: document.getElementById('pe_supplier').value.trim()||'Counter',
+    supplier_id:linkedSupplier?.id||null,
+    supplier_name:linkedSupplier?.name||'Counter',
     purchase_date: document.getElementById('pe_date').value,
-    lines: editPur.lines.map(l=>({item_id:l.item_id,qty:+l.qty,tp:+l.tp,retail:+l.retail,disc:+(l.disc_pct||0),tax:+(l.tax||0)}))
+    lines: editPur.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,qty:+l.qty,tp:+l.tp,retail:+l.retail,disc:+(l.disc_pct||0),tax:+(l.tax||0)}))
   };
   const r=await fetch(`/api/purchases/${editPur.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   if(r.ok){toast('Purchase updated!');closePurEdit();loadPurchases();}

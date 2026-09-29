@@ -2263,6 +2263,14 @@ def update_purchase(pid):
     if not uid or p.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json()
+    old_supplier_id = p.supplier_id
+    old_total = float(p.total_cost or 0)
+    new_supplier_id = data.get('supplier_id')
+    new_supplier = None
+    if new_supplier_id:
+        new_supplier = Supplier.query.get(new_supplier_id)
+        if not new_supplier or new_supplier.user_id != uid or not new_supplier.is_active:
+            return jsonify({'error': 'Invalid supplier'}), 400
 
     # Reverse old stock
     for line in p.lines:
@@ -2277,8 +2285,8 @@ def update_purchase(pid):
     db.session.flush()
 
     # Update header
-    p.supplier_id = data.get('supplier_id')
-    p.supplier_name = data.get('supplier_name', 'Counter')
+    p.supplier_id = new_supplier.id if new_supplier else None
+    p.supplier_name = new_supplier.name if new_supplier else data.get('supplier_name', 'Counter')
     if data.get('purchase_date'):
         from datetime import date as _date
         p.purchase_date = _date.fromisoformat(data['purchase_date'])
@@ -2333,9 +2341,17 @@ def update_purchase(pid):
             if tp > 0: item.tp = tp
             if retail > 0: item.retail_price = retail
             item.tax_pct = tax
+            if new_supplier and not item.is_global and item.user_id == uid and not item.vendor:
+                item.vendor = new_supplier.name
             # Keep supplier purchase discounts separate from customer discounts.
 
     p.total_cost = round(total_cost, 2)
+    if old_supplier_id:
+        old_supplier = Supplier.query.get(old_supplier_id)
+        if old_supplier:
+            old_supplier.balance = round(float(old_supplier.balance or 0) - old_total, 2)
+    if new_supplier:
+        new_supplier.balance = round(float(new_supplier.balance or 0) + float(p.total_cost), 2)
     db.session.commit()
     return jsonify(p.to_dict())
 
