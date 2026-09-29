@@ -2201,7 +2201,12 @@ def save_purchase():
                 name=item_name,
                 retail_price=retail if retail > 0 else (tp / 0.85 if tp > 0 else 0),
                 tp=tp if tp > 0 else (retail * 0.85 if retail > 0 else 0),
-                discount_pct=disc,
+                discount_pct=0,
+                vendor=purchase.supplier_name if purchase.supplier_name != 'Counter' else None,
+                vendor_code=(line.get('vendor_code') or '').strip()[:100] or None,
+                vendor_name=(line.get('vendor_name') or '').strip()[:300] or None,
+                vendor_discount_pct=disc,
+                bonus_text=(line.get('supplier_bonus') or '').strip()[:100],
                 tax_pct=tax,
                 qty=0,
             )
@@ -2218,14 +2223,8 @@ def save_purchase():
             if tp > 0: item.tp = tp
             if retail > 0: item.retail_price = retail
             item.tax_pct = tax
-            # Save discount per-user
-            uid = session.get('user_id')
-            if uid and disc:
-                ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=item.id).first()
-                if ud:
-                    ud.discount_pct = disc
-                else:
-                    db.session.add(UserItemDiscount(user_id=uid, item_id=item.id, discount_pct=disc))
+            # Purchase discount belongs to the supplier bill. Customer discounts
+            # are managed separately in Billing / Inventory.
 
     purchase.total_cost = round(total_cost, 2)
     # Update supplier balance
@@ -2313,7 +2312,12 @@ def update_purchase(pid):
                 name=item_name,
                 retail_price=retail if retail > 0 else (tp / 0.85 if tp > 0 else 0),
                 tp=tp if tp > 0 else (retail * 0.85 if retail > 0 else 0),
-                discount_pct=disc,
+                discount_pct=0,
+                vendor=p.supplier_name if p.supplier_name != 'Counter' else None,
+                vendor_code=(line.get('vendor_code') or '').strip()[:100] or None,
+                vendor_name=(line.get('vendor_name') or '').strip()[:300] or None,
+                vendor_discount_pct=disc,
+                bonus_text=(line.get('supplier_bonus') or '').strip()[:100],
                 tax_pct=tax,
                 qty=0,
             )
@@ -2329,14 +2333,7 @@ def update_purchase(pid):
             if tp > 0: item.tp = tp
             if retail > 0: item.retail_price = retail
             item.tax_pct = tax
-            # Save discount per-user
-            uid = session.get('user_id')
-            if uid and disc:
-                ud = UserItemDiscount.query.filter_by(user_id=uid, item_id=item.id).first()
-                if ud:
-                    ud.discount_pct = disc
-                else:
-                    db.session.add(UserItemDiscount(user_id=uid, item_id=item.id, discount_pct=disc))
+            # Keep supplier purchase discounts separate from customer discounts.
 
     p.total_cost = round(total_cost, 2)
     db.session.commit()

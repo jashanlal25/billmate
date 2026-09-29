@@ -15,7 +15,7 @@ def sqlite_init(self, app):
     _init(self, app)
 with patch.object(SQLAlchemy, 'init_app', sqlite_init):
     import app as service
-from models import db, User, Item, Settings
+from models import db, User, Item, Settings, Supplier, UserItemDiscount, Purchase
 service._defaults_seeded = True
 
 class VendorImportTest(unittest.TestCase):
@@ -86,5 +86,37 @@ class VendorImportTest(unittest.TestCase):
         line.vendor_discount_pct=None;line.vendor_list_no='DIFFERENT';db.session.commit()
         backfill_supplier_discounts(db.session);db.session.commit();db.session.expire_all()
         self.assertIsNone(line.vendor_discount_pct)
+
+    def test_supplier_purchase_keeps_customer_discount_separate(self):
+        self.upload(vendor='DOSANI')
+        item=Item.query.one()
+        db.session.add(UserItemDiscount(user_id=1,item_id=item.id,discount_pct=4))
+        supplier=Supplier.query.filter_by(user_id=1,name='DOSANI').one()
+        response=self.client.post('/api/purchase',json={
+            'supplier_id':supplier.id,'supplier_name':'DOSANI',
+            'lines':[{'item_id':item.id,'qty':2,'tp':100,'retail':120,'disc':13,'tax':0}]
+        })
+        self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+        self.assertEqual(float(Purchase.query.one().lines[0].disc_pct),13)
+        self.assertEqual(float(Purchase.query.one().total_cost),174)
+        self.assertEqual(float(supplier.balance),174)
+        self.assertEqual(float(UserItemDiscount.query.one().discount_pct),4)
+        self.assertEqual(float(Item.query.one().discount_pct),13)  # inventory offer remains its own field
+
+    def test_new_purchase_item_is_linked_to_supplier_not_customer_rate(self):
+        supplier=Supplier(user_id=1,name='DOSANI')
+        db.session.add(supplier);db.session.commit()
+        response=self.client.post('/api/purchase',json={
+            'supplier_id':supplier.id,'supplier_name':'DOSANI',
+            'lines':[{'item_name':'NEW MED','qty':3,'tp':100,'retail':120,'disc':12,
+                      'vendor_code':'A42','vendor_name':'NEW MED ORIGINAL','supplier_bonus':'10+1'}]
+        })
+        self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+        item=Item.query.one()
+        self.assertEqual((item.vendor,item.vendor_code,item.vendor_name,item.bonus_text),
+                         ('DOSANI','A42','NEW MED ORIGINAL','10+1'))
+        self.assertEqual(float(item.discount_pct),0)
+        self.assertEqual(float(item.vendor_discount_pct),12)
+        self.assertEqual(float(item.qty),3)
 
 if __name__=='__main__': unittest.main()

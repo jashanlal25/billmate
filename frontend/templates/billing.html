@@ -2272,6 +2272,7 @@ async function viewInvoice(id){
   const acts = document.getElementById('mActions');
   const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
   const custPh = (inv.customer_whatsapp||inv.customer_phone||'').replace(/[^\d]/g,'');
+  const supplierPurchaseBtn = !IS_GUEST && hasVendor ? `<button class="mbtn" style="background:#0f766e;color:#fff" onclick="window.location.href='/purchase?invoice=${encodeURIComponent(inv.id)}'">📥 Prepare supplier purchases</button>` : '';
   const printPdfBtns = `
     <button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
@@ -2282,16 +2283,16 @@ async function viewInvoice(id){
   if(inv.status === 'draft'){
     acts.innerHTML = `
       ${sc?`<button class="mbtn mbtn-load" onclick="loadIntoBuilder(${inv.id})">▶ Resume</button>`:''}
-      ${sc?printPdfBtns:''}
+      ${sc?printPdfBtns+supplierPurchaseBtn:''}
       <button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
   } else if(inv.status === 'posted'){
     acts.innerHTML = `
       ${sc?`<button class="mbtn mbtn-load" onclick="loadIntoBuilder(${inv.id})">✏️ Edit</button>
       <button class="mbtn mbtn-post" onclick="finaliseInvoice(${inv.id})">✅ Finalise</button>`:''}
-      ${sc?printPdfBtns:''}
+      ${sc?printPdfBtns+supplierPurchaseBtn:''}
       <button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
   } else {
-    acts.innerHTML = `${sc?printPdfBtns:''}<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+    acts.innerHTML = `${sc?printPdfBtns+supplierPurchaseBtn:''}<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
   }
 
   _initShowSourceToggle(inv);

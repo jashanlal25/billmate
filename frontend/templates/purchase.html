@@ -48,6 +48,7 @@ td{padding:8px 10px;color:var(--text);font-size:.88em;border-bottom:1px solid va
 .num{text-align:right}
 .qty-inp{width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font-size:.88em;text-align:center;outline:none}
 .qty-inp:focus{border-color:var(--accent)}
+.mob-lbl{display:none}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 input[type=number]{-moz-appearance:textfield}
 .empty-lines{text-align:center;padding:40px;color:var(--sub);font-size:.9em}
@@ -94,6 +95,7 @@ input[type=number]{-moz-appearance:textfield}
   table tbody tr{display:block;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative}
   table td{display:block;padding:3px 0;border:none}
   table td:first-child{font-weight:700;font-size:.9em;padding-bottom:6px}
+  .mob-lbl{display:inline-block;width:105px;font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase}
 }
 </style>
 </head>
@@ -137,6 +139,13 @@ input[type=number]{-moz-appearance:textfield}
   <div>
   <div class="panel">
     <div class="panel-title">🛒 Purchase Entry</div>
+    <div id="invoiceImport" style="display:none;margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--inp)">
+      <div id="invoiceImportStatus" style="font-weight:600;margin-bottom:8px"></div>
+      <label id="invoiceVendorLabel" for="invoiceVendor" style="display:block;font-size:.82em;margin-bottom:5px">Supplier bill to prepare</label>
+      <select id="invoiceVendor" onchange="switchInvoiceVendor(this.value)" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></select>
+      <button id="invoiceReset" type="button" onclick="reloadInvoicePreparation()" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:7px;background:var(--card);color:var(--text)">Load invoice again</button>
+      <div style="font-size:.78em;color:var(--sub);margin-top:8px">Review actual items, quantities, TP, supplier discount and tax against the supplier invoice. Saving records the purchase, adds received stock and updates the supplier balance.</div>
+    </div>
 
     <!-- Supplier row -->
     <div style="position:relative;margin-bottom:14px" id="supplierSection">
@@ -197,7 +206,7 @@ input[type=number]{-moz-appearance:textfield}
           <th>Item</th>
           <th>Retail</th>
           <th>TP</th>
-          <th>Disc%</th>
+          <th>Supplier Disc%</th>
           <th>Tax</th>
           <th>Qty</th>
           <th class="num">Total</th>
@@ -308,6 +317,103 @@ function toast(msg,err=false){
 function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay').style.display='flex';return true;}return false;}
 
 let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={};
+let invoiceGroups=[], activeInvoiceGroup=-1, purchaseSaving=false, sourceInvoiceId=null, sourceInvoiceNumber='';
+
+function storeInvoicePreparation(){
+  if(!sourceInvoiceId)return;
+  if(activeInvoiceGroup>=0 && invoiceGroups[activeInvoiceGroup])invoiceGroups[activeInvoiceGroup].lines=lines;
+  try{sessionStorage.setItem('billmate-supplier-prep-'+sourceInvoiceId,JSON.stringify({invoiceNumber:sourceInvoiceNumber,groups:invoiceGroups}));}catch(e){}
+}
+function reloadInvoicePreparation(){
+  if(!confirm('Load all supplier items from the customer invoice again? Purchases already saved will not be reversed.'))return;
+  try{sessionStorage.removeItem('billmate-supplier-prep-'+sourceInvoiceId);}catch(e){}
+  location.reload();
+}
+
+function renderInvoiceGroups(){
+  const panel=document.getElementById('invoiceImport');
+  if(!invoiceGroups.length){
+    panel.style.display='block';
+    document.getElementById('invoiceImportStatus').textContent='All supplier bills from this invoice were prepared in this tab.';
+    document.getElementById('invoiceVendorLabel').style.display='none';
+    document.getElementById('invoiceVendor').style.display='none';
+    document.getElementById('invoiceReset').style.display='inline-block';
+    return;
+  }
+  panel.style.display='block';
+  document.getElementById('invoiceVendorLabel').style.display='block';
+  document.getElementById('invoiceVendor').style.display='block';
+  document.getElementById('invoiceReset').style.display='none';
+  document.getElementById('invoiceImportStatus').textContent=`From customer invoice ${invoiceGroups[0].invoiceNumber} · ${invoiceGroups.length} supplier bill${invoiceGroups.length===1?'':'s'} to prepare`;
+  document.getElementById('invoiceVendor').innerHTML=invoiceGroups.map((g,i)=>`<option value="${i}" ${i===activeInvoiceGroup?'selected':''}>${esc(g.vendor)} (${g.lines.length} items)</option>`).join('');
+}
+async function switchInvoiceVendor(value){
+  const next=Number(value);
+  if(!invoiceGroups[next])return;
+  if(activeInvoiceGroup>=0){
+    invoiceGroups[activeInvoiceGroup].lines=lines;
+    invoiceGroups[activeInvoiceGroup].supplier=supplier;
+  }
+  activeInvoiceGroup=next;
+  const group=invoiceGroups[next];
+  lines=group.lines;
+  clearSupplier();
+  if(group.supplier){selectSupplier(group.supplier.id,group.supplier.name,group.supplier.phone||'');}
+  else{
+    const r=await fetch('/api/suppliers?q='+encodeURIComponent(group.vendor));
+    if(r.ok){
+      const matches=await r.json();
+      const exact=matches.find(s=>s.name.trim().toLocaleLowerCase()===group.vendor.trim().toLocaleLowerCase());
+      if(exact && invoiceGroups[next]===group && activeInvoiceGroup===next)selectSupplier(exact.id,exact.name,exact.phone||'');
+    }
+  }
+  renderInvoiceGroups();renderLines();
+}
+async function importCustomerInvoice(){
+  const id=new URLSearchParams(location.search).get('invoice');
+  if(!id)return;
+  const panel=document.getElementById('invoiceImport');
+  panel.style.display='block';
+  document.getElementById('invoiceImportStatus').textContent='Loading customer invoice and supplier offers…';
+  try{
+    const [invoiceResponse,itemsResponse]=await Promise.all([fetch('/api/invoices/'+encodeURIComponent(id)),fetch('/api/items?q=')]);
+    if(!invoiceResponse.ok||!itemsResponse.ok)throw Error('Could not load the invoice or Inventory');
+    const invoice=await invoiceResponse.json(), items=await itemsResponse.json();
+    const catalog=new Map(items.map(item=>[String(item.id),item]));
+    const groups=new Map();
+    let unassigned=0;
+    for(const row of invoice.lines||[]){
+      const vendor=String(row.vendor||'').trim();
+      if(!vendor){unassigned++;continue;}
+      const item=catalog.get(String(row.item_id));
+      // Use the saved supplier choice and offer; never import the customer discount or bonus.
+      const sameOffer=item && String(item.vendor||'').trim().toLocaleLowerCase()===vendor.toLocaleLowerCase();
+      const offeredDiscount=row.vendor_discount_pct!=null?Number(row.vendor_discount_pct):(sameOffer?Number(item.vendor_discount_pct):0);
+      const line={item_id:sameOffer?item.id:null,name:row.vendor_name||row.item_name,
+        vendorCode:row.vendor_code||'',vendorName:row.vendor_name||'',
+        tp:sameOffer?Number(item.tp)||0:Number(row.tp)||0,
+        retail:sameOffer?Number(item.retail_price)||0:Number(row.retail)||0,
+        disc:Number.isFinite(offeredDiscount)?offeredDiscount:0,
+        tax:sameOffer?Number(item.tax_pct)||0:0,qty:Number(row.qty)||1,
+        currentQty:sameOffer?Number(item.qty)||0:0,supplierBonus:sameOffer?item.bonus_text||'':''};
+      if(!groups.has(vendor))groups.set(vendor,[]);
+      groups.get(vendor).push(line);
+    }
+    sourceInvoiceId=id;sourceInvoiceNumber=invoice.invoice_number;
+    let previous;
+    try{previous=JSON.parse(sessionStorage.getItem('billmate-supplier-prep-'+id)||'null');}catch(e){}
+    invoiceGroups=previous?.invoiceNumber===invoice.invoice_number && Array.isArray(previous.groups)
+      ? previous.groups
+      : [...groups].map(([vendor,rows])=>({vendor,lines:rows,supplier:null,invoiceNumber:invoice.invoice_number}));
+    if(!invoiceGroups.length){
+      if(!groups.size)throw Error('This invoice has no supplier names to prepare');
+      renderInvoiceGroups();return;
+    }
+    activeInvoiceGroup=-1;
+    await switchInvoiceVendor('0');
+    if(unassigned)toast(`${unassigned} item${unassigned===1?'':'s'} without a supplier were skipped; add them to the correct supplier manually.`,true);
+  }catch(e){panel.style.display='block';document.getElementById('invoiceImportStatus').textContent=e.message||'Could not load invoice';}
+}
 
 // Supplier search
 let supTimer;
@@ -437,26 +543,27 @@ function renderLines(){
   const body=document.getElementById('linesBody');
   if(!lines.length){
     body.innerHTML='<tr><td colspan="9"><div class="empty-lines">No items added yet.<br>Search above to add items.</div></td></tr>';
-    recalc(); return;
+    recalc();storeInvoicePreparation();return;
   }
   body.innerHTML=lines.map((l,i)=>`
     <tr>
       <td>${i+1}</td>
-      <td style="font-weight:600">${l.name}<br><span style="font-size:.75em;color:var(--sub)">Stock: ${l.currentQty.toFixed(0)}</span></td>
-      <td><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.retail.toFixed(2)}"
+      <td style="font-weight:600">${esc(l.name)}<br><span style="font-size:.75em;color:var(--sub)">Stock: ${l.currentQty.toFixed(0)}</span>${l.supplierBonus?`<br><span style="font-size:.75em;color:#0f766e">Supplier bonus: ${esc(l.supplierBonus)}</span>`:''}</td>
+      <td><span class="mob-lbl">Retail</span><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.retail.toFixed(2)}"
         onchange="updateField(${i},'retail',this.value)"></td>
-      <td><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}"
+      <td><span class="mob-lbl">TP</span><input class="qty-inp" style="width:80px" type="number" min="0" step="0.01" value="${l.tp.toFixed(2)}"
         onchange="updateField(${i},'tp',this.value)"></td>
-      <td><input class="qty-inp" style="width:60px" type="number" min="0" step="0.1" value="${(l.disc||0).toFixed(1)}"
+      <td><span class="mob-lbl">Supplier Disc%</span><input class="qty-inp" style="width:60px" type="number" min="0" step="0.1" value="${(l.disc||0).toFixed(1)}"
         onchange="updateField(${i},'disc',this.value)"></td>
-      <td><input class="qty-inp" style="width:60px" type="number" min="0" step="0.01" value="${(l.tax||0).toFixed(2)}"
+      <td><span class="mob-lbl">Tax</span><input class="qty-inp" style="width:60px" type="number" min="0" step="0.01" value="${(l.tax||0).toFixed(2)}"
         onchange="updateField(${i},'tax',this.value)"></td>
-      <td><input class="qty-inp" type="number" min="0" step="1" value="${l.qty}"
+      <td><span class="mob-lbl">Received qty</span><input class="qty-inp" type="number" min="0" step="1" value="${l.qty}"
         onchange="updateField(${i},'qty',this.value)"></td>
-      <td class="num" style="font-weight:700">Rs.${lineNet(l).toFixed(2)}</td>
+      <td class="num" style="font-weight:700"><span class="mob-lbl">Cost</span>Rs.${lineNet(l).toFixed(2)}</td>
       <td><button class="remove-btn" onclick="removeLine(${i})">✕</button></td>
     </tr>`).join('');
   recalc();
+  storeInvoicePreparation();
 }
 
 function updateField(i,field,v){lines[i][field]=parseFloat(v)||0;renderLines();}
@@ -473,12 +580,33 @@ function recalc(){
 let sessionPurchases=[];
 
 async function savePurchase(){
+  if(purchaseSaving)return;
   if(!lines.length){toast('Add at least one item',true);return;}
+  if(lines.some(l=>!Number.isFinite(l.qty)||l.qty<=0||!Number.isFinite(l.tp)||l.tp<=0)){
+    toast('Review received quantity and TP for every item before saving',true);return;
+  }
+  if(activeInvoiceGroup>=0 && !confirm(`Save ${lines.length} received item${lines.length===1?'':'s'} from ${invoiceGroups[activeInvoiceGroup].vendor}? This adds stock and supplier payable balance.`))return;
+  purchaseSaving=true;
+  try{
+  if(activeInvoiceGroup>=0 && !supplier){
+    const vendor=invoiceGroups[activeInvoiceGroup].vendor;
+    const listResponse=await fetch('/api/suppliers?q='+encodeURIComponent(vendor));
+    if(!listResponse.ok)throw Error('Could not check supplier account');
+    const matches=await listResponse.json();
+    let account=matches.find(s=>s.name.trim().toLocaleLowerCase()===vendor.toLocaleLowerCase());
+    if(!account){
+      const createResponse=await fetch('/api/suppliers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:vendor})});
+      account=await createResponse.json();
+      if(!createResponse.ok)throw Error(account.error||'Could not create supplier account');
+    }
+    selectSupplier(account.id,account.name,account.phone||'');
+  }
   const supplierName = supplier ? supplier.name : 'Counter';
   const payload={
     supplier_name: supplierName,
     supplier_id: supplier ? supplier.id : null,
-    lines: lines.map(l=>({item_id:l.item_id,item_name:l.name,qty:l.qty,tp:l.tp,retail:l.retail,disc:l.disc||0,tax:l.tax||0}))
+    lines: lines.map(l=>({item_id:l.item_id,item_name:l.name,qty:l.qty,tp:l.tp,retail:l.retail,disc:l.disc||0,tax:l.tax||0,
+      vendor_code:l.vendorCode||'',vendor_name:l.vendorName||'',supplier_bonus:l.supplierBonus||''}))
   };
   const r=await fetch('/api/purchase',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const res=await r.json();
@@ -492,7 +620,15 @@ async function savePurchase(){
     renderSessionHistory();
     clearAll();
     clearSupplier();
+    if(activeInvoiceGroup>=0){
+      invoiceGroups.splice(activeInvoiceGroup,1);
+      activeInvoiceGroup=-1;
+      if(invoiceGroups.length)await switchInvoiceVendor('0');
+      else {storeInvoicePreparation();renderInvoiceGroups();}
+    }
   } else{if(!_checkLocked(res))toast(res.error||'Error saving',true);}
+  }catch(e){toast(e.message||'Could not save purchase',true);}
+  finally{purchaseSaving=false;}
 }
 
 function renderSessionHistory(){
@@ -548,6 +684,7 @@ document.addEventListener('click',e=>{
 (function(){const c=localStorage.getItem('_shopName');if(c){const e=document.getElementById('shopLogo');if(e)e.textContent=c;}})();
 fetch('/api/settings').then(r=>r.json()).then(s=>{purShopSettings=s;if(s.shop_name){const e=document.getElementById('shopLogo');if(e)e.textContent=s.shop_name;localStorage.setItem('_shopName',s.shop_name);}});
 document.addEventListener('click',e=>{document.querySelectorAll('.user-menu.open').forEach(m=>{if(!m.contains(e.target))m.classList.remove('open');});});
+importCustomerInvoice();
 
 function buildPurchasePrintHtml(p, forPdf){
   const s=purShopSettings, accent='#4f46e5';
