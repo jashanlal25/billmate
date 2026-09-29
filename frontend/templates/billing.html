@@ -62,6 +62,12 @@ input[type=number]{-moz-appearance:textfield}
 .remove-btn{background:none;border:none;cursor:pointer;color:#ef4444;font-size:1.1em;padding:2px 6px;border-radius:6px}
 .remove-btn:hover{background:#fef2f2}
 .empty-lines{text-align:center;padding:40px;color:var(--sub);font-size:.9em}
+#linesBody tr[hidden]{display:none!important}
+.bill-line-search{display:flex;align-items:center;gap:8px;margin:12px 0 8px}
+.bill-line-search input{flex:1;min-width:0;padding:10px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);font-size:.9em;outline:none}
+.bill-line-search input:focus{border-color:var(--accent)}
+.bill-line-search button{padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text);cursor:pointer}
+.bill-search-status{font-size:.78em;color:var(--sub);margin-bottom:6px}
 /* Right - summary */
 .summary-card{background:var(--card);border-radius:20px;padding:24px;box-shadow:var(--shadow);position:sticky;top:80px}
 .shop-name{font-size:1.1em;font-weight:700;color:var(--text);margin-bottom:4px}
@@ -111,6 +117,8 @@ input[type=number]{-moz-appearance:textfield}
 /* Print */
 @media print{
   .nav,.summary-card,.hist-title,.hist-card,.no-print{display:none!important}
+  .bill-line-search,.bill-search-status{display:none!important}
+  #linesBody tr[hidden]{display:table-row!important}
   body{background:#fff;padding:0}
   .layout{display:block}
   .panel{box-shadow:none;border-radius:0;padding:10px}
@@ -332,6 +340,12 @@ input[type=number]{-moz-appearance:textfield}
       </div>
 
       <!-- Lines -->
+      <div class="bill-line-search" role="search">
+        <input id="billLineSearch" type="search" placeholder="Find item in this bill..." aria-label="Find item already added to this bill" oninput="filterBillLines()" autocomplete="off">
+        <button type="button" onclick="clearBillLineSearch()" aria-label="Clear bill item search">Clear</button>
+      </div>
+      <div id="billSearchStatus" class="bill-search-status" aria-live="polite"></div>
+      <div id="billSearchEmpty" class="bill-search-status" hidden>No matching items in this bill.</div>
       <table id="linesTable">
         <thead>
           <tr>
@@ -1212,18 +1226,35 @@ function calcLine(l){
   l.lineNet=Math.round((gross-(gross*l.disc/100))*100)/100;
 }
 
+function filterBillLines(){
+  const query=document.getElementById('billLineSearch').value.trim().toLocaleLowerCase();
+  let matches=0;
+  for(const row of document.querySelectorAll('#linesBody tr[data-line-index]')){
+    const line=lines[Number(row.dataset.lineIndex)];
+    const found=!query||[line?.item_name,line?.item_code,line?.vendor].some(value=>String(value||'').toLocaleLowerCase().includes(query));
+    row.hidden=!found;
+    if(found)matches++;
+  }
+  document.getElementById('billSearchStatus').textContent=query&&lines.length?`Showing ${matches} of ${lines.length} bill items`:'';
+  document.getElementById('billSearchEmpty').hidden=!query||!lines.length||matches>0;
+}
+function clearBillLineSearch(){
+  const input=document.getElementById('billLineSearch');
+  input.value='';filterBillLines();input.focus();
+}
 
 function renderLines(){
   scheduleAutoDraft();
   const body=document.getElementById('linesBody');
   if(!lines.length){
     body.innerHTML='<tr><td colspan="9"><div class="empty-lines">Search above to add items to this invoice</div></td></tr>';
+    filterBillLines();
     return;
   }
 
   const order = addOnTop ? lines.map((_,i)=>i).reverse() : lines.map((_,i)=>i);
   body.innerHTML=order.map((i)=>{const l=lines[i];return`
-    <tr>
+    <tr data-line-index="${i}">
       <td style="color:#888;font-size:.8em">${i+1}</td>
       <td>
         <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
@@ -1258,6 +1289,7 @@ function renderLines(){
         </div>
       </td>
     </tr>`;}).join('');
+  filterBillLines();
 }
 
 function updateRetail(i,val){
@@ -2028,6 +2060,7 @@ function newBill(){
   _autoDraftId=null; _autoDraftSaving=false; _billFinalised=false;
   _rememberAutoDraft(null);
   lines=[];customer=null;savedInvoiceId=null;currentOutstanding=0;showingCustInv=false;
+  document.getElementById('billLineSearch').value='';
   document.getElementById('custSearch').value='';
   document.getElementById('custPhone').value='';
   document.getElementById('prevBalSection').style.display='none';
@@ -3063,9 +3096,10 @@ document.addEventListener('keydown', function(e){
     }
     if(key === 'arrowdown' || key === 'arrowup'){
       e.preventDefault();
-      const rows = _domRows(); const d = rows.indexOf(row); const td = d + (key==='arrowdown'?1:-1);
+      const rows = _domRows(); let td = rows.indexOf(row);
+      do{td += key==='arrowdown'?1:-1;}while(td>=0&&td<rows.length&&rows[td].hidden);
       if(td<0 || td>=rows.length) return;
-      const targetLi = addOnTop ? (lines.length-1-td) : td;
+      const targetLi = Number(rows[td].dataset.lineIndex);
       _navCartField(targetLi, _COL_KEY[cidx] || 'q');
       return;
     }
