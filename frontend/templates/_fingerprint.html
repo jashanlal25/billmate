@@ -1,0 +1,6 @@
+<div id="fingerprintSetup" hidden style="margin:14px 0;font-size:.85rem">
+  <label><input id="enableFingerprint" type="checkbox"> Enable fingerprint on this phone</label>
+</div>
+<button id="fingerprintUnlock" hidden type="button" class="btn-main btn" onclick="BillMateDeviceAuth.unlock()">Unlock with fingerprint</button>
+<button id="fingerprintForget" hidden type="button" onclick="BillMateDeviceAuth.forget()" style="margin:12px auto;background:transparent;border:0;color:#667eea;cursor:pointer">Remove saved fingerprint access</button>
+<div id="fingerprintError" role="alert" style="color:#ef4444;font-size:.85rem;margin-top:8px"></div>

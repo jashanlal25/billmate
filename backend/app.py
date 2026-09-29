@@ -22,6 +22,7 @@ from sqlalchemy import func
 import sqlalchemy as sa
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+from device_auth import issue_token, read_token, matches_token
 
 # Heavy imports deferred to first use (cold-start optimization — none of these
 # are needed to serve /share-target, /sw.js or page renders):
@@ -634,25 +635,64 @@ def auth_login():
     session.permanent = True
     session['user_id'] = user.id
     session['username'] = user.username
-    return jsonify({'success': True})
+    result = {'success': True}
+    if data.get('enroll_fingerprint') is True:
+        if os.environ.get('SECRET_KEY'):
+            result.update(device_token=issue_token(app.secret_key, user, 'login'), username=user.username)
+        else:
+            result['fingerprint_error'] = 'Fingerprint setup requires a stable server SECRET_KEY.'
+    return jsonify(result)
+
+@app.route('/auth/device-login', methods=['POST'])
+def auth_device_login():
+    """The APK releases this token only after an authenticated Keystore operation."""
+    ip = get_client_ip()
+    allowed, wait = _login_rate_check(ip)
+    if not allowed:
+        return jsonify({'error': 'Too many attempts. Please try again later.'}), 429
+    data = request.get_json(silent=True) or {}
+    kind = data.get('kind')
+    try:
+        payload = read_token(os.environ.get('SECRET_KEY'), data.get('token'))
+    except ValueError:
+        _login_rate_fail(ip)
+        return jsonify({'error': 'Fingerprint access expired. Log in with your password to enable it again.', 'forget': True}), 401
+    user = db.session.get(User, payload['uid'])
+    if not user or user.is_suspended or user.is_superadmin:
+        return jsonify({'error': 'Account unavailable. Use password login.', 'forget': True}), 403
+    s = Settings.query.filter_by(user_id=user.id).first() if kind == 'admin' else None
+    if kind == 'admin':
+        if session.get('user_id') != user.id or session.get('is_guest'):
+            return jsonify({'error': 'Log in to this account before unlocking admin.'}), 401
+        if not s or not s.admin_password_hash:
+            return jsonify({'error': 'Use your admin password to enable fingerprint again.', 'forget': True}), 401
+        if s.admin_locked_until and datetime.utcnow() < s.admin_locked_until:
+            return jsonify({'error': 'Admin access is locked. Try again after the lock expires.'}), 429
+        # A pending recovery must run through the normal unlock flow.
+        if s.admin_reset_requested_at and datetime.utcnow() - s.admin_reset_requested_at >= timedelta(hours=24):
+            return jsonify({'error': 'Complete admin password recovery first.', 'forget': True}), 401
+    if kind not in ('login', 'admin') or not matches_token(app.secret_key, payload, user, kind, s.admin_password_hash if s else ''):
+        _login_rate_fail(ip)
+        return jsonify({'error': 'Password changed. Enable fingerprint again using your new password.', 'forget': True}), 401
+    _login_rate_clear(ip)
+    if kind == 'login':
+        session.clear()
+        session.permanent = True
+        session.update(user_id=user.id, username=user.username)
+    else:
+        s.admin_failed_attempts = 0
+        s.admin_locked_until = None
+        s.admin_reset_requested_at = None
+        db.session.commit()
+        session['is_admin'] = True
+        if s.admin_password_is_temp:
+            session['force_admin_pwd_change'] = True
+    return jsonify({'success': True, 'redirect': '/admin/sales' if kind == 'admin' else '/billing'})
 
 @app.route('/auth/admin-login', methods=['POST'])
 def auth_admin_login():
-    ip = get_client_ip()
-    allowed, wait = _login_rate_check(ip, max_attempts=10, lockout_min=15)
-    if not allowed:
-        return jsonify({'error': f'Too many failed attempts. Try again in {wait//60+1} minutes.'}), 429
-    data = request.get_json()
-    password = (data.get('password') or '').strip()
-    s = get_user_settings()
-    if not s or not s.admin_password_hash:
-        return jsonify({'error': 'Admin password not set'}), 401
-    if check_password_hash(s.admin_password_hash, password):
-        _login_rate_clear(ip)
-        session['is_admin'] = True  # intentionally additive — preserves user_id/username
-        return jsonify({'success': True})
-    _login_rate_fail(ip, max_attempts=10, lockout_min=15)
-    return jsonify({'error': 'Invalid admin password'}), 401
+    # All admin password entry points share the per-account lockout and recovery.
+    return admin_unlock()
 
 @app.route('/auth/logout')
 def auth_logout():
@@ -1423,6 +1463,15 @@ def superadmin_import_items():
 
 @app.route('/admin/unlock', methods=['GET', 'POST'])
 def admin_unlock():
+    if not session.get('user_id') or session.get('is_guest'):
+        if request.is_json:
+            return jsonify({'error': 'Log in before unlocking admin.'}), 401
+        return redirect('/?next=/admin/unlock')
+    def failure(message, status=401, **context):
+        if request.is_json:
+            return jsonify({'error': message}), status
+        return render_template('admin/unlock.html', error=message,
+                               username=session.get('username', ''), **context)
     s = get_user_settings()
     # No admin password set yet — grant access directly and prompt to set one
     if not s or not s.admin_password_hash:
@@ -1457,10 +1506,10 @@ def admin_unlock():
                 locked = False
     if request.method == 'POST':
         if locked:
-            return render_template('admin/unlock.html', error=f'Account locked. Try again in {lock_minutes_left} min',
-                                   locked=True, lock_minutes_left=lock_minutes_left,
-                                   username=session.get('username', ''))
-        pwd = (request.form.get('password') or '').strip()
+            return failure(f'Account locked. Try again in {lock_minutes_left} min', 429,
+                           locked=True, lock_minutes_left=lock_minutes_left)
+        data = (request.get_json(silent=True) or {}) if request.is_json else request.form
+        pwd = (data.get('password') or '').strip()
         if check_password_hash(s.admin_password_hash, pwd):
             # Success — clear failed attempts, cancel any pending reset
             s.admin_failed_attempts = 0
@@ -1472,19 +1521,25 @@ def admin_unlock():
             if s.admin_password_is_temp:
                 session['force_admin_pwd_change'] = True
             session.modified = True
+            if request.is_json:
+                result = {'success': True, 'redirect': '/admin/sales'}
+                if data.get('enroll_fingerprint') is True:
+                    user = db.session.get(User, session['user_id'])
+                    if os.environ.get('SECRET_KEY'):
+                        result.update(device_token=issue_token(app.secret_key, user, 'admin', s.admin_password_hash), username=user.username)
+                    else:
+                        result['fingerprint_error'] = 'Fingerprint setup requires a stable server SECRET_KEY.'
+                return jsonify(result)
             return redirect('/admin/sales')
         # Wrong password — increment failed attempts
         s.admin_failed_attempts = (s.admin_failed_attempts or 0) + 1
         if s.admin_failed_attempts >= 3:
             s.admin_locked_until = datetime.utcnow() + timedelta(hours=1)
             db.session.commit()
-            return render_template('admin/unlock.html', error='Too many failed attempts. Locked for 1 hour.',
-                                   locked=True, lock_minutes_left=60,
-                                   username=session.get('username', ''))
+            return failure('Too many failed attempts. Locked for 1 hour.', 429, locked=True, lock_minutes_left=60)
         db.session.commit()
         attempts_left = 3 - s.admin_failed_attempts
-        return render_template('admin/unlock.html', error=f'Wrong password. {attempts_left} attempt(s) left before lockout.',
-                               username=session.get('username', ''))
+        return failure(f'Wrong password. {attempts_left} attempt(s) left before lockout.')
     # Check if reset is pending
     reset_pending = False
     reset_hours_left = 0

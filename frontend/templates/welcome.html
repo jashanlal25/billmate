@@ -42,13 +42,14 @@ body.theme-light{background:radial-gradient(circle at 5% 5%,#e8e6ff 0,transparen
     <div class="welcome-title">Welcome Back</div><div class="welcome-sub">Login to your BillMate account</div>
 
     <!-- Login -->
-    <div class="form active" id="formLogin">
-      <div class="field"><label>Username</label><input id="l_user" type="text" placeholder="Your username" autocomplete="username"></div>
-      <div class="field"><label>Password</label><div class="pw-wrap"><input id="l_pass" type="password" placeholder="Your password" autocomplete="current-password"><button type="button" class="eye-btn" onclick="toggleEye('l_pass',this)">👁️</button></div></div>
+    <form class="form active" id="formLogin" method="post" action="/auth/login" autocomplete="on" onsubmit="event.preventDefault();doLogin()">
+      <div class="field"><label for="l_user">Username</label><input id="l_user" name="username" type="text" placeholder="Your username" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+      <div class="field"><label for="l_pass">Password</label><div class="pw-wrap"><input id="l_pass" name="password" type="password" placeholder="Your password" autocomplete="current-password" required><button type="button" class="eye-btn" onclick="toggleEye('l_pass',this)">👁️</button></div></div>
       <div class="err" id="l_err"></div>
-      <button class="btn-main" onclick="doLogin()">Login</button>
+      {% include '_fingerprint.html' %}
+      <button type="submit" class="btn-main" id="loginButton">Login</button>
       <div style="text-align:center;margin-top:12px"><a href="#" onclick="showResetForm();return false" style="font-size:.82em;color:#667eea;text-decoration:none;font-weight:600">Forgot Password?</a></div>
-    </div>
+    </form>
 
     <!-- Forgot Password — request to superadmin -->
     <div class="form" id="formReset">
@@ -84,7 +85,9 @@ body.theme-light{background:radial-gradient(circle at 5% 5%,#e8e6ff 0,transparen
 </section>
 </main>
 
+<script src="/static/js/device-auth.js"></script>
 <script>
+BillMateDeviceAuth.init('login');
 function setWelcomeTheme(theme,btn){
   document.body.classList.remove('theme-light','theme-dim');
   if(theme==='light') document.body.classList.add('theme-light');
@@ -119,15 +122,23 @@ async function doLogin(){
   const username=document.getElementById('l_user').value.trim();
   const password=document.getElementById('l_pass').value;
   if(!username||!password){showErr('l_err','Please fill in all fields');return;}
-  const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+  const button=document.getElementById('loginButton');
+  if(button.disabled)return;
+  button.disabled=true;
+  try {
+  const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,enroll_fingerprint:BillMateDeviceAuth.enrollRequested()})});
   const res=await r.json();
   if(r.ok){
+    await BillMateDeviceAuth.save(res);
     // Return to the page that bounced us here (e.g. a PWA share landing on
     // /items?shared=1). Only same-site absolute paths — never external URLs.
     const nx=new URLSearchParams(location.search).get('next');
-    location.href=(nx&&nx.startsWith('/')&&!nx.startsWith('//'))?nx:(res.redirect||'/billing');
+    const target=nx?new URL(nx,location.origin):null;
+    location.href=(target&&target.origin===location.origin&&nx.startsWith('/'))?(target.pathname+target.search+target.hash):(res.redirect||'/billing');
   }
   else showErr('l_err',res.error||'Login failed');
+  } catch(e) { showErr('l_err','Could not log in. Check your connection and try again.'); }
+  finally { button.disabled=false; }
 }
 
 async function doRegister(){
