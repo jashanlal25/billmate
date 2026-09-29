@@ -495,7 +495,7 @@ def check_auth():
                 session['is_admin'] = True
             # Allow: billing page, api/settings, api/invoices (create/view only), admin/setup
             setup_allowed = ['/billing', '/api/settings', '/api/invoices', '/api/items',
-                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/api/pos-backup/import-records', '/api/pos-backup/import-batch', '/api/pos-backup/supplier-cleanup-preview', '/admin/setup',
+                             '/api/customers', '/api/categories', '/pos-import', '/api/pos-backup/import', '/api/pos-backup/import-records', '/api/pos-backup/import-batch', '/api/pos-backup/supplier-cleanup-preview', '/api/pos-backup/supplier-cleanup', '/admin/setup',
                              '/admin/unlock', '/admin/forgot-password', '/api/change-login-password',
                              '/api/change-admin-password']
             if not any(path.startswith(p) or path == p for p in setup_allowed):
@@ -2941,6 +2941,20 @@ def _supplier_cleanup_candidate(supplier, companies, current_names, linked_ids, 
     return {'id': supplier.id, 'name': supplier.name, 'code': supplier.code,
             'protected_reasons': reasons}
 
+def _supplier_cleanup_links(uid):
+    purchases = Purchase.query.filter_by(user_id=uid).all()
+    payments = SupplierPayment.query.filter_by(user_id=uid).all()
+    linked_ids = {row.supplier_id for row in purchases + payments if row.supplier_id}
+    linked_names = {_pos_key(row.supplier_name) for row in purchases if row.supplier_name}
+    linked_names.update(_pos_key(row.billing_name) for row in payments if row.billing_name)
+    linked_names.update(_pos_key(row.vendor) for row in Item.query.filter_by(user_id=uid).all() if row.vendor)
+    return linked_ids, linked_names
+
+
+def _supplier_cleanup_signer():
+    from itsdangerous import URLSafeTimedSerializer
+    return URLSafeTimedSerializer(app.secret_key, salt='pos-supplier-cleanup')
+
 @app.route('/api/pos-backup/supplier-cleanup-preview', methods=['POST'])
 def supplier_cleanup_preview():
     """Read-only review; never deletes or deactivates accounts."""
@@ -2956,18 +2970,47 @@ def supplier_cleanup_preview():
         return jsonify({'error': 'Invalid supplier preview rows'}), 400
     company_keys = {(_pos_key(row.get('NAME')), str(row.get('CODE') or '').strip()) for row in companies}
     current_names = {_pos_key(row.get('NAME')) for row in current}
-    purchases = Purchase.query.filter_by(user_id=uid).all()
-    payments = SupplierPayment.query.filter_by(user_id=uid).all()
-    linked_ids = {row.supplier_id for row in purchases + payments if row.supplier_id}
-    linked_names = {_pos_key(row.supplier_name) for row in purchases if row.supplier_name}
-    linked_names.update(_pos_key(row.billing_name) for row in payments if row.billing_name)
-    linked_names.update(_pos_key(row.vendor) for row in Item.query.filter_by(user_id=uid).all() if row.vendor)
+    linked_ids, linked_names = _supplier_cleanup_links(uid)
     candidates = []
     for supplier in Supplier.query.filter_by(user_id=uid).order_by(Supplier.name).all():
         candidate = _supplier_cleanup_candidate(supplier, company_keys, current_names, linked_ids, linked_names)
         if candidate:
             candidates.append(candidate)
-    return jsonify({'candidates': candidates, 'preview_only': True})
+    eligible = [row['id'] for row in candidates if not row['protected_reasons']]
+    token = _supplier_cleanup_signer().dumps({'uid': uid, 'ids': eligible,
+        'companies': sorted(company_keys), 'current_names': sorted(current_names)}) if eligible else None
+    return jsonify({'candidates': candidates, 'preview_only': True,
+                    'cleanup_token': token, 'eligible_count': len(eligible)})
+
+@app.route('/api/pos-backup/supplier-cleanup', methods=['POST'])
+def supplier_cleanup():
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered account required'}), 403
+    data = request.get_json(silent=True) or {}
+    if data.get('confirmed') is not True:
+        return jsonify({'error': 'Confirm the cleanup first'}), 400
+    from itsdangerous import BadSignature, SignatureExpired
+    try:
+        review = _supplier_cleanup_signer().loads(data.get('cleanup_token') or '', max_age=600)
+    except (BadSignature, SignatureExpired):
+        return jsonify({'error': 'Preview expired or invalid. Preview the suppliers again.'}), 400
+    if review.get('uid') != uid:
+        return jsonify({'error': 'Access denied'}), 403
+    company_keys = {tuple(row) for row in review['companies']}
+    current_names = set(review['current_names'])
+    # Lock account rows and recheck contacts, balances and references at confirmation.
+    suppliers = Supplier.query.filter_by(user_id=uid).filter(Supplier.id.in_(review['ids'])).with_for_update().all()
+    linked_ids, linked_names = _supplier_cleanup_links(uid)
+    removed = 0
+    for supplier in suppliers:
+        candidate = _supplier_cleanup_candidate(supplier, company_keys, current_names, linked_ids, linked_names)
+        if candidate and not candidate['protected_reasons']:
+            supplier.is_active = False
+            removed += 1
+    db.session.commit()
+    return jsonify({'success': True, 'removed': removed,
+                    'skipped': len(review['ids']) - removed})
 
 @app.route('/api/pos-backup/import-batch', methods=['POST'])
 def import_pos_backup_batch():

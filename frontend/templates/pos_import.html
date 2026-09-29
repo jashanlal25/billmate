@@ -12,6 +12,7 @@
  <button id="posBackupBtn" onclick="syncPosBackup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.95em;font-weight:700;cursor:pointer">Upload & Sync POS Backup</button>
  <div id="posBackupResult" style="font-size:.84em;color:var(--sub);margin-top:16px;line-height:1.7"></div>
  <button type="button" onclick="previewSupplierCleanup()" style="margin-top:16px;padding:10px;border-radius:10px;background:var(--inp);color:var(--text);border:1px solid var(--border)">Preview incorrectly imported suppliers</button>
+ <button id="supplierCleanupBtn" type="button" hidden onclick="cleanupSuppliers()" style="margin-top:12px;padding:12px;border:0;border-radius:10px;background:#b91c1c;color:white">Remove eligible extra suppliers</button>
  <div id="supplierCleanupPreview" style="max-height:320px;overflow-y:auto;color:var(--text)"></div>
 </div>
 <script>
@@ -57,7 +58,11 @@ function _posSuppliers(rows){
   return {CODE:code,NAME:name,_PAYABLE:balance};
  });
 }
+let supplierCleanupToken=null,supplierCleanupCount=0,supplierCleanupBusy=false;
 async function previewSupplierCleanup(){
+ if(supplierCleanupBusy)return;
+ supplierCleanupToken=null;supplierCleanupCount=0;
+ document.getElementById('supplierCleanupBtn').hidden=true;
  const out=document.getElementById('supplierCleanupPreview'),file=document.getElementById('posBackupFile').files[0];
  if(!file){out.textContent='Select your POS backup ZIP first.';return;}
  out.textContent='Checking imported suppliers…';
@@ -68,10 +73,25 @@ async function previewSupplierCleanup(){
   if(!suppliers.length)throw new Error('Supplier accounts were not found in MAST.DBF');
   const response=await fetch('/api/pos-backup/supplier-cleanup-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({suppliers,companies:companies.map(r=>({CODE:r.CODE,NAME:r.NAME}))})});
   const result=await response.json();if(!response.ok)throw new Error(result.error||'Preview failed');
+  supplierCleanupToken=result.cleanup_token;supplierCleanupCount=result.eligible_count||0;
+  const cleanupBtn=document.getElementById('supplierCleanupBtn');cleanupBtn.hidden=!supplierCleanupToken;cleanupBtn.textContent='Remove eligible extra suppliers ('+supplierCleanupCount+')';
   out.replaceChildren();
   const title=document.createElement('p');title.textContent=result.candidates.length+' incorrectly imported company accounts found. Preview only; nothing has been changed.';out.append(title);
   for(const row of result.candidates){const entry=document.createElement('p');entry.textContent=row.name+' ('+row.code+') — '+(row.protected_reasons.length?'Keep: '+row.protected_reasons.join(', '):'Eligible for cleanup after review');out.append(entry);}
  }catch(e){out.textContent='Could not preview: '+e.message;}
+}
+async function cleanupSuppliers(){
+ if(supplierCleanupBusy||!supplierCleanupToken)return;
+ if(!confirm('Remove '+supplierCleanupCount+' eligible extra supplier accounts from your supplier list? Accounts with contacts, balances or linked records will be kept.'))return;
+ const btn=document.getElementById('supplierCleanupBtn'),out=document.getElementById('supplierCleanupPreview');
+ supplierCleanupBusy=true;btn.disabled=true;
+ try{
+  const response=await fetch('/api/pos-backup/supplier-cleanup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cleanup_token:supplierCleanupToken,confirmed:true})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||'Cleanup failed');
+  out.textContent='Cleanup complete: '+result.removed+' extra suppliers removed from the list. '+result.skipped+' accounts were kept or already removed.';
+  supplierCleanupToken=null;supplierCleanupCount=0;btn.hidden=true;
+ }catch(e){out.textContent=e.message+' You can preview again to check the current list.';}
+ finally{supplierCleanupBusy=false;btn.disabled=false;}
 }
 function _posStock(items,ledger){
  if(!ledger.length)throw new Error('Current stock ledger OPSRB.DBF is missing; no data has been sent.');
