@@ -2828,9 +2828,11 @@ def demand_pdf_text():
                 item = match.group(2).strip()
                 qty = match.group(3)
                 if re.search(r'[A-Za-z]', item):
+                    discount_match = re.match(r'\s*(\d+(?:\.\d+)?)\s*%?', match.group(5))
                     rows.append({
                         'code': match.group(1), 'name': item, 'qty': qty,
                         'tp': float(match.group(4).replace(',', '')),
+                        'discount_pct': float(discount_match.group(1)) if discount_match else None,
                         'retail': None, 'box': '', 'pcs': ''
                     })
         text = '\n'.join(f"{row['name']} ({row['qty']})" for row in rows).strip() if rows else '\n'.join(pages).strip()

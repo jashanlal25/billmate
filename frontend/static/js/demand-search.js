@@ -29,7 +29,7 @@
         const values=cells.map(c=>c.textContent.replace(/\s+/g,' ').trim());
         const headers=values.map(v=>v.toLowerCase());
         const name=headers.findIndex(v=>/^(item\s*name|product\s*name|description|item|product)$/.test(v));
-        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v)),retail:headers.findIndex(v=>/^(?:retail(?:\s*price)?|mrp|sale\s*price)$/.test(v))};continue;}
+        if(name>=0){columns={name,code:headers.findIndex(v=>/^(?:item\s*)?code$/.test(v)),box:headers.indexOf('box'),pcs:headers.indexOf('pcs'),tp:headers.findIndex(v=>/^(?:tp|t\.?p\.?|tp\s*rate|trade\s*price|purchase\s*(?:price|rate))$/.test(v)),retail:headers.findIndex(v=>/^(?:retail(?:\s*price)?|mrp|sale\s*price)$/.test(v)),discount:headers.findIndex(v=>/^(?:disc(?:ount)?\s*%?|discount\s*rate)$/.test(v))};continue;}
         if(!columns||!cells.length||cells.some(c=>c.querySelector('table'))) continue;
         const item=values[columns.name];
         if(!item||!/[a-z]/i.test(item)||cells.length<=columns.name||/^(total|grand total|sub total)\b/i.test(item)) continue;
@@ -39,7 +39,9 @@
           const price=match?Number(match[0]):0;
           return Number.isFinite(price)&&price>0?price:null;
         };
-        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:readPrice(columns.tp),retail:readPrice(columns.retail)});
+        const discountText=columns.discount>=0?values[columns.discount]||'':'';
+        const discountMatch=discountText.match(/^\s*(\d+(?:\.\d+)?)\s*%?/);
+        rows.push({name:item,code:columns.code>=0?values[columns.code]||'':'',box:columns.box>=0?values[columns.box]||'':'',pcs:columns.pcs>=0?values[columns.pcs]||'':'',tp:readPrice(columns.tp),retail:readPrice(columns.retail),discount_pct:discountMatch?Number(discountMatch[1]):null});
       }
     }
     if(!rows.length) throw Error('No demand items found. Use an HTML table with an Item Name column.');
@@ -78,7 +80,7 @@
       }
       if(ticket!==version)return;
       if(pasted)$('pastedDemand').value=content;
-      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td><td>${d.retail?esc(Number(d.retail).toFixed(2)):'—'}</td></tr>`).join('');
+      $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td><td>${d.retail?esc(Number(d.retail).toFixed(2)):'—'}</td><td>${d.discount_pct==null?'—':esc(`${d.discount_pct}%`)}</td></tr>`).join('');
       $('demandPreview').hidden=false;
       status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.${saved?'':' This device could not save the demand for later.'}`);
     }catch(e){if(ticket===version) status(e.message);}
@@ -244,7 +246,7 @@
       ?`${entries.length} item${entries.length===1?'':'s'} marked${missing?` (${missing} not in Inventory)`:''}. Check each quantity and any “Needs review” match before proceeding.`
       :'Mark the items you want. Items not found in Inventory will be added to Billing for manual pricing.';
     $('reviewInBilling').disabled=!entries.length||entries.some(([,s])=>!validQty(s.qty));
-    $('selectedOffersList').innerHTML=entries.map(([key,s])=>`<div class="selected-row"><span>${s.offer.status==='missing'?`<strong>${esc(s.demand.name)}</strong> · Not in Inventory; set price in Billing`:`${esc(s.demand.name)} → <strong>${esc(s.offer.item.name)}</strong> · ${esc(s.offer.item.vendor||'Vendor missing')}${s.offer.status==='review'?' · Needs review':''}`}${s.demand.required?' · Lazmi':''}</span><label>Qty <input type="number" min="0.01" max="10000" step="any" inputmode="decimal" data-selected-qty="${key}" value="${esc(s.qty)}" aria-label="Quantity for ${esc(s.offer.item.name)}"></label></div>`).join('');
+    $('selectedOffersList').innerHTML=entries.map(([key,s])=>`<div class="selected-row"><span>${s.offer.status==='missing'?`<strong>${esc(s.demand.name)}</strong> · Not in Inventory; set price in Billing`:`${esc(s.demand.name)} → <strong>${esc(s.offer.item.name)}</strong> · ${esc(s.offer.item.vendor||'Vendor missing')}${s.offer.status==='review'?' · Needs review':''}`}${s.demand.discount_pct==null?'':` · Customer discount ${esc(s.demand.discount_pct)}%`}${s.demand.required?' · Lazmi':''}</span><label>Qty <input type="number" min="0.01" max="10000" step="any" inputmode="decimal" data-selected-qty="${key}" value="${esc(s.qty)}" aria-label="Quantity for ${esc(s.offer.item.name)}"></label></div>`).join('');
     const groups=new Map();
     for(const [,s] of entries){
       const vendor=String(s.offer.item.vendor||'').trim();
@@ -340,7 +342,7 @@
     const entries=[...selectedOffers.values()];
     if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
     try{
-      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
+      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,customerDiscount:s.demand.discount_pct??null,required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
       location.assign('/billing?demand_selection=1');
     }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
   });
