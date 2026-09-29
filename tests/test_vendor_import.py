@@ -47,6 +47,25 @@ class VendorImportTest(unittest.TestCase):
         i=Item.query.filter_by(vendor='A',vendor_code='0296',vendor_list_no='000052').one()
         self.assertEqual((i.to_dict()['code'],i.vendor_name,i.bonus_text),('0296','RENAMED.',''))
 
+    def test_own_stock_import_keeps_message_details_without_creating_supplier(self):
+        html = ('<title>Stock List</title><table><tr class="item">'
+                '<td>1</td><td>58</td><td>ACNE SOFT SOAP</td><td>11%</td>'
+                '<td>238</td><td>2</td><td>0</td><td>211.82</td><td>423.64</td>'
+                '</tr></table>')
+        db.session.add(Item(user_id=1, code='ITM0001', name='ACNE SOFT SOAP',
+                            vendor='STOCK', vendor_code='58', tp=238, retail_price=280, qty=1))
+        db.session.commit()
+        for _ in range(2):
+            r=self.client.post('/api/items/import',data={
+                'vendor':'STOCK','file':(io.BytesIO(html.encode()),'STOCK (5).HTM')})
+            self.assertEqual(r.status_code,200,r.get_data(as_text=True))
+            self.assertTrue(r.json['own_stock'])
+        self.assertEqual(Item.query.count(),1)
+        item=Item.query.one()
+        self.assertEqual((item.vendor,item.vendor_code,item.vendor_discount_pct,item.qty),
+                         ('STOCK','58',11,2))
+        self.assertEqual(Supplier.query.filter_by(user_id=1,name='STOCK').count(),0)
+
     def test_legacy_upgrade_and_global(self):
         db.session.add(Item(user_id=1,code='ITM0001',name='EXACT NAME.',vendor='A',tp=100,retail_price=100))
         db.session.commit(); self.upload()

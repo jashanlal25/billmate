@@ -1905,8 +1905,12 @@ function pdfToCustomer(){
 }
 
 // Show the vendor toggle + "Message Vendor" button only when the invoice has vendors
+function _isSupplierLine(l){
+  const vendor=(l.vendor||'').trim();
+  return !!vendor;
+}
 function _initPostSaveVendorUI(inv){
-  const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
+  const hasVendor = (inv.lines||[]).some(_isSupplierLine);
   const row = document.getElementById('psShowVendorRow');
   const chk = document.getElementById('psShowVendorChk');
   const btn = document.getElementById('psMsgVendorBtn');
@@ -2000,6 +2004,7 @@ function _vendorGroups(){
   const inv = _vendorInv();
   const groups = Object.create(null);
   ((inv&&inv.lines)||lines).forEach(l=>{
+    if(!_isSupplierLine(l)) return;
     const v = (l.vendor||'').trim();
     if(!v) return;
     const key = JSON.stringify([v, l.vendor_list_no||'']);
@@ -2014,7 +2019,8 @@ function _vendorPhone(vendor){
 function _vendorReorderUrl(group, items){
   const vendor = items[0].vendor;
   const msg = SupplierOrder.format(settings.shop_name||'', items);
-  const phone = _vendorPhone(vendor);
+  const ownStock = vendor.trim().toLowerCase()==='stock' && !items[0].vendor_list_no;
+  const phone = ownStock ? '' : _vendorPhone(vendor);
   return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
 }
 
@@ -2034,9 +2040,10 @@ function _renderVendorMsgList(){
     : '';
   box.innerHTML = allBtn + vendors.map(v=>{
     const n = groups[v].length;
+    const ownStock = groups[v][0].vendor.trim().toLowerCase()==='stock' && !groups[v][0].vendor_list_no;
     const hasPhone = !!_vendorPhone(groups[v][0].vendor);
-    const label = groups[v][0].vendor + ' · List ' + (groups[v][0].vendor_list_no||'unknown');
-    return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${esc(JSON.stringify(v))})">🏷 ${esc(label)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${hasPhone?'':' · ⚠ no phone'}</span></button>`;
+    const label = ownStock ? 'STOCK · Own stock' : groups[v][0].vendor + ' · List ' + (groups[v][0].vendor_list_no||'unknown');
+    return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${esc(JSON.stringify(v))})">🏷 ${esc(label)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${ownStock||hasPhone?'':' · ⚠ no phone'}</span></button>`;
   }).join('');
 }
 function openVendorMessage(inv){
@@ -2270,7 +2277,7 @@ async function viewInvoice(id){
 
   // Action buttons based on status
   const acts = document.getElementById('mActions');
-  const hasVendor = (inv.lines||[]).some(l => (l.vendor||'').trim());
+  const hasVendor = (inv.lines||[]).some(_isSupplierLine);
   const custPh = (inv.customer_whatsapp||inv.customer_phone||'').replace(/[^\d]/g,'');
   const supplierPurchaseBtn = !IS_GUEST && hasVendor ? `<button class="mbtn" style="background:#0f766e;color:#fff" onclick="window.location.href='/purchase?invoice=${encodeURIComponent(inv.id)}'">📥 Prepare supplier purchases</button>` : '';
   const printPdfBtns = `

@@ -26,3 +26,10 @@ test('customer discount never leaks into supplier order, including zero',()=>{
  assert.deepEqual([...msg.matchAll(/\*Disc\* : (.*?)%/g)].map(m=>m[1]),['6','2','0']);
  assert.throws(()=>format('',[{...item,vendor_discount_pct:null}]),/Supplier discount is missing/);
 });
+test('own stock message uses its stock code and rate without requiring a supplier list number',()=>{
+ const msg=format('SSD MEDICOS',[{vendor:'STOCK',vendor_list_no:'',vendor_code:'58',
+  vendor_name:'ACNE SOFT SOAP',vendor_discount_pct:11,discount_pct:4,qty:2}]);
+ assert.ok(msg.includes('*List No* : Own Stock'));
+ assert.ok(msg.includes('*Code* : 58\n*QTY*  : 2\n*Disc* : 11%'));
+ assert.ok(msg.includes('*ITM*  : ACNE SOFT SOAP'));
+});

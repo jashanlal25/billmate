@@ -1336,7 +1336,7 @@ def superadmin_import_items():
             item.rate_source = rate_source or None
             if vendor:
                 item.vendor = vendor
-            if stock_qty > 0:
+            if own_stock or stock_qty > 0:
                 item.qty = stock_qty
             updated += 1
         else:
@@ -2464,14 +2464,20 @@ def import_items():
     except Exception:
         return jsonify({'error': 'Could not read file'}), 400
 
+    soup = _get_bs4().BeautifulSoup(html, 'html.parser')
+    # A Stock List export describes the shop's own inventory, not a supplier.
+    own_stock = (bool(soup.title and re.search(r'\bstock\s+list\b', soup.title.get_text(' ', strip=True), re.I))
+                 and any(len(row.find_all('td')) >= 9 for row in soup.find_all('tr', class_='item')))
     uid = session.get('user_id')
     # Vendor (business the file came from) — sent by the import dialog,
     # defaults to the first word of the filename if not provided.
     vendor = (request.form.get('vendor', '') or '').strip()[:50]
     if not vendor:
         vendor = os.path.splitext(f.filename)[0].strip().split(' ')[0][:50]
+    if own_stock:
+        vendor = 'STOCK'
     # Make sure a supplier record exists for this vendor so it can be messaged later
-    if vendor:
+    if vendor and not own_stock:
         _ensure_supplier(vendor, uid)
 
     # ── Load all existing user items once (single query) ──────────────────────
@@ -2513,7 +2519,6 @@ def import_items():
 
     supplier_map = {((i.vendor or '').lower(), i.vendor_list_no or '', i.vendor_code): i
                     for i in existing_items if i.vendor_code}
-
     def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0, vendor_code=''):
         nonlocal added, updated, skipped, alongside_global
         original_name = name.strip()
@@ -2569,7 +2574,6 @@ def import_items():
             supplier_map[supplier_key] = item
 
     try:
-        soup = _get_bs4().BeautifulSoup(html, 'html.parser')
         visible = soup.get_text(' ', strip=True)
         list_match = re.search(r'List\s*No\s*:?\s*([A-Za-z0-9+/_-]+)', visible, re.I)
         vendor_list_no = list_match.group(1) if list_match else ''
@@ -2630,7 +2634,8 @@ def import_items():
         db.session.rollback()
         return jsonify({'error': f'Import failed: {str(e)}'}), 500
 
-    return jsonify({'added': added, 'updated': updated, 'skipped': skipped, 'alongside_global': alongside_global})
+    return jsonify({'added': added, 'updated': updated, 'skipped': skipped,
+                    'alongside_global': alongside_global, 'own_stock': own_stock})
 
 
 # ── Customers API ─────────────────────────────────────────────────────────────

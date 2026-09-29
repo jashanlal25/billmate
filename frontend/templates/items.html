@@ -880,7 +880,7 @@ async function doImport(){
     const res = await r.json();
     if(r.ok){
       const globalNote = res.alongside_global > 0 ? ` · ${res.alongside_global} kept alongside global` : '';
-      _showImportResult(true, `Done! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${globalNote}`);
+      _showImportResult(true, `${res.own_stock?'Own stock imported':'Done'}! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${globalNote}`);
       if(window.ShareStore) ShareStore.clearPendingSharedFile();
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);

@@ -327,6 +327,10 @@ function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay
 
 let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={};
 let invoiceGroups=[], activeInvoiceGroup=-1, purchaseSaving=false, sourceInvoiceId=null, sourceInvoiceNumber='';
+function isSupplierLine(l){
+  const vendor=String(l.vendor||'').trim();
+  return !!vendor && !(vendor.toLowerCase()==='stock' && !String(l.vendor_list_no||'').trim());
+}
 
 async function loadBillingInvoices(){
   const picker=document.getElementById('billingInvoicePicker');
@@ -334,7 +338,7 @@ async function loadBillingInvoices(){
     const r=await fetch('/api/invoices?offset=0&limit=100');
     if(!r.ok)throw Error('Could not load saved bills');
     const data=await r.json();
-    const invoices=(data.items||[]).filter(inv=>(inv.lines||[]).some(l=>String(l.vendor||'').trim()));
+    const invoices=(data.items||[]).filter(inv=>(inv.lines||[]).some(isSupplierLine));
     picker.innerHTML='<option value="">Select a saved bill…</option>'+invoices.map(inv=>
       `<option value="${Number(inv.id)}">${esc(inv.invoice_number)} · ${esc(inv.customer_name||'Walk-in')} · ${inv.lines.length} items</option>`).join('');
     if(!invoices.length)picker.innerHTML='<option value="">No saved bills with supplier items</option>';
@@ -412,8 +416,8 @@ async function importCustomerInvoice(){
     const groups=new Map();
     let unassigned=0;
     for(const row of invoice.lines||[]){
+      if(!isSupplierLine(row)){unassigned++;continue;}
       const vendor=String(row.vendor||'').trim();
-      if(!vendor){unassigned++;continue;}
       const item=catalog.get(String(row.item_id));
       // Use the saved supplier choice and offer; never import the customer discount or bonus.
       const sameOffer=item && String(item.vendor||'').trim().toLocaleLowerCase()===vendor.toLocaleLowerCase();
