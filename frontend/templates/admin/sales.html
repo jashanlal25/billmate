@@ -246,7 +246,12 @@ function buildInvoicePrintHtml(inv, forPdf){
   const monochromePrintCss = forPdf ? '' : '@media print{body{color:#000}table tr,.meta-box{background:#fff!important}table th,table td,table td *, .shop-name,.shop-info,.cust-block *, .meta-box *,.totals-table td,.footer{color:#000!important}table tbody td:nth-child(3),table tbody td:nth-child(4){font-weight:700}table th{border-bottom:2px solid #000}table td{border-bottom:1px solid #777}.meta-box{border-color:#000}.divider{border-top-color:#000}.grand-row td{border-top-color:#000}.footer{border-top-color:#555}}';
   const now=new Date();
   const timeStr=now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
-  const rows=inv.lines.map((l,i)=>{
+  const printLines=[...inv.lines].sort((a,b)=>{
+    const aName=String(a.item_name||'').trim().toUpperCase();
+    const bName=String(b.item_name||'').trim().toUpperCase();
+    return aName<bName?-1:aName>bName?1:0;
+  });
+  const rows=printLines.map((l,i)=>{
     const lineTotal=((+l.line_net)+(+l.qty)*(+l.tax_pct)).toFixed(2);
     return `<tr>
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>

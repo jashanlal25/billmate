@@ -189,7 +189,7 @@ def invoice_pdf():
     story += [head,Spacer(1,5*mm)]
 
     rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('TAX/UNIT',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
-    for i,l in enumerate(lines,1):
+    for i,l in enumerate(sorted(lines, key=lambda line: str(line.get('item_name') or '').strip().casefold()),1):
         desc=f"<b>{p(l.get('item_name'),'')}</b>"
         if l.get('bonus_text'): desc+=f"<br/><font color='#16a34a' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
         if data.get('show_rate_source') and l.get('rate_source'): desc+=f"<br/><font color='#888888' size='6'>by {p(l.get('rate_source'),'')}</font>"

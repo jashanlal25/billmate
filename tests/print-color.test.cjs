@@ -7,8 +7,8 @@ const vm=require('node:vm');
 const root=path.join(__dirname,'../frontend/templates');
 const esc=s=>String(s);
 const invoice={invoice_number:'SSD-001',status:'posted',invoice_date:'2026-09-30',
-  lines:[{item_name:'MED A',tp:100,discount_pct:10,tax_pct:5,qty:2,line_net:180},
-    {item_name:'MED B',tp:80,discount_pct:5,tax_pct:0,qty:1,line_net:76}],
+  lines:[{item_name:'MED B',tp:80,discount_pct:5,tax_pct:0,qty:1,line_net:76},
+    {item_name:'MED A',tp:100,discount_pct:10,tax_pct:5,qty:2,line_net:180}],
   subtotal:180,tax_amount:10,total:190};
 const purchase={purchase_number:'PUR-001',purchase_date:'2026-09-30',supplier_name:'GH',
   lines:[{item_name:'MED A',tp:100,retail:120,disc_pct:10,qty:2,line_total:180},
@@ -36,6 +36,11 @@ for(const [file,fn,next,data] of [
     assert.doesNotMatch(pdf,/color:#000!important/);
     assert.match(pdf,/color:#4f46e5/);
     assert.doesNotMatch(pdf,/background:#f8f8ff/);
+    if(file==='billing.html'||file==='admin/sales.html'){
+      assert.ok(pdf.indexOf('MED A')<pdf.indexOf('MED B'));
+      assert.ok(printed.indexOf('MED A')<printed.indexOf('MED B'));
+      assert.equal(data.lines[0].item_name,'MED B');
+    }
   });
 }
 
