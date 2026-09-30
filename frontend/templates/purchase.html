@@ -286,7 +286,9 @@ input[type=number]{-moz-appearance:textfield}
       <button onclick="printPurchaseModal()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">🖨️ Print</button>
       <button onclick="pdfPurchaseModal()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">📄 PDF</button>
       <button onclick="editCurrentPurchase()" style="padding:10px 18px;border:none;border-radius:10px;background:#f59e0b;color:#111827;font-size:.88em;font-weight:700;cursor:pointer">✏️ Edit Purchase</button>
-            <button onclick="closeSesModal()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--border);color:var(--text);font-size:.88em;font-weight:600;cursor:pointer">Close</button>
+            <button onclick="deleteCurrentPurchase()" style="padding:10px 18px;border:none;border-radius:10px;background:#dc2626;color:#fff;font-size:.88em;font-weight:700;cursor:pointer">🗑️ Delete Purchase</button>
+      <button id="deleteLinkedInvoiceBtn" onclick="deleteLinkedInvoice()" style="display:none;padding:10px 18px;border:none;border-radius:10px;background:#991b1b;color:#fff;font-size:.88em;font-weight:700;cursor:pointer">🧾 Delete Linked Invoice</button>
+      <button onclick="closeSesModal()" style="padding:10px 18px;border:none;border-radius:10px;background:var(--border);color:var(--text);font-size:.88em;font-weight:600;cursor:pointer">Close</button>
     </div>
   </div>
 </div>
@@ -731,6 +733,7 @@ function viewSessionPurchase(idx){
       <td style="padding:8px 10px;text-align:right;font-weight:700;border-bottom:1px solid var(--border)">Rs.${(+l.line_total).toFixed(2)}</td>
     </tr>`).join('');
   document.getElementById('sm_total').textContent='Rs.'+(+p.total_cost).toFixed(2);
+  document.getElementById('deleteLinkedInvoiceBtn').style.display=p.source_invoice_id?'inline-block':'none';
   document.getElementById('sesModal').classList.add('open');
 }
 
@@ -751,6 +754,29 @@ async function editCurrentPurchase(){
   toast('Editing '+p.purchase_number+' — saving will adjust stock by the difference.');
 }
 
+async function deleteCurrentPurchase(){
+  const p=currentViewPurchase;if(!p)return;
+  if(!confirm('Delete '+p.purchase_number+'? Purchased stock and supplier balance will be reversed.'))return;
+  const r=await fetch('/api/purchases/'+p.id,{method:'DELETE'}),res=await r.json();
+  if(!r.ok){toast(res.error||'Could not delete purchase',true);return;}
+  for(const k of Object.keys(localStorage)){if(k.startsWith('items_cache_'))localStorage.removeItem(k);}
+  closeSesModal();currentViewPurchase=null;await loadPurchaseHistory();
+  toast('Purchase deleted. A new purchase can now be created from the linked invoice.');
+}
+async function deleteLinkedInvoice(){
+  const p=currentViewPurchase;if(!p?.source_invoice_id)return;
+  if(!confirm('Remove linked invoice '+p.source_invoice_number+'? Its stock/customer effects will be reversed. The purchase bill will remain unless you delete it separately.'))return;
+  let invResp=await fetch('/api/invoices/'+p.source_invoice_id),inv=await invResp.json();
+  if(!invResp.ok){toast(inv.error||'Could not load linked invoice',true);return;}
+  let r;
+  if(inv.status==='draft') r=await fetch('/api/invoices/'+p.source_invoice_id,{method:'DELETE'});
+  else if(inv.status==='posted'||inv.status==='finalised') r=await fetch('/api/invoices/'+p.source_invoice_id+'/cancel',{method:'POST'});
+  else {toast('Linked invoice is already '+inv.status+'.',true);return;}
+  const res=await r.json();
+  if(!r.ok){toast(res.error||'Could not remove linked invoice',true);return;}
+  for(const k of Object.keys(localStorage)){if(k.startsWith('items_cache_'))localStorage.removeItem(k);}
+  closeSesModal();toast(inv.status==='draft'?'Linked invoice deleted and stock restored.':'Linked invoice cancelled and stock restored.');
+}
 function clearAll(){
   if(sourceInvoiceId && activeInvoiceGroup>=0){
     const group=invoiceGroups[activeInvoiceGroup];
