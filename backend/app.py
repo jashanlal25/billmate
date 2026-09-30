@@ -2257,6 +2257,26 @@ def save_purchase():
     if not lines:
         return jsonify({'error': 'No items'}), 400
 
+    # An invoice-linked supplier group may only create one purchase.
+    source_invoice_id = data.get('source_invoice_id')
+    source_invoice_number = (data.get('source_invoice_number') or '').strip()[:30] or None
+    source_invoice_vendor = (data.get('source_invoice_vendor') or data.get('supplier_name') or '').strip()[:150] or None
+    if source_invoice_id:
+        try:
+            source_invoice_id = int(source_invoice_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid source invoice'}), 400
+        inv = Invoice.query.filter_by(id=source_invoice_id, user_id=uid).first()
+        if not inv:
+            return jsonify({'error': 'Source invoice not found'}), 400
+        existing = Purchase.query.filter_by(user_id=uid, source_invoice_id=source_invoice_id,
+                                            source_invoice_vendor=source_invoice_vendor).first()
+        if existing:
+            return jsonify({'error': f'Purchase already created from {inv.invoice_number} for {source_invoice_vendor or existing.supplier_name}.',
+                            'existing_purchase_id': existing.id,
+                            'existing_purchase_number': existing.purchase_number}), 409
+        source_invoice_number = inv.invoice_number
+
     # Generate purchase number
     last = Purchase.query.order_by(Purchase.id.desc()).first()
     num = (last.id + 1) if last else 1
@@ -2273,6 +2293,9 @@ def save_purchase():
         purchase_number=purchase_number,
         supplier_id=sup_id,
         supplier_name=data.get('supplier_name', 'Counter'),
+        source_invoice_id=source_invoice_id,
+        source_invoice_number=source_invoice_number,
+        source_invoice_vendor=source_invoice_vendor,
     )
     db.session.add(purchase)
     db.session.flush()
