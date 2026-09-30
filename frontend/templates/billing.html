@@ -1634,6 +1634,7 @@ async function saveInvoice(){
     savedInvoiceId = inv.id;
     lastSavedInv = inv;
     lastSavedIsEdit = isEdit;
+    _cacheClear(); // stock changed on the server; never show the previous quantity on the next bill
     document.getElementById('psmTitle').textContent = isEdit ? 'Invoice Updated!' : 'Invoice Saved!';
     document.getElementById('psmSub').textContent = inv.invoice_number + (inv.customer_name && inv.customer_name!=='Walk-in' ? ' · ' + inv.customer_name : '');
     _initPostSaveVendorUI(inv);
