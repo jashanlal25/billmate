@@ -843,6 +843,7 @@ function buildPurchasePrintHtml(p, forPdf){
     <div class="info-item"><div class="lbl">Purchase #</div><div class="val">${p.purchase_number}</div></div>
     <div class="info-item"><div class="lbl">Supplier</div><div class="val">${esc(p.supplier_name)}</div></div>
     <div class="info-item"><div class="lbl">Date</div><div class="val">${p.purchase_date}</div></div>
+    ${p.source_invoice_number?`<div class="info-item"><div class="lbl">Linked Invoice</div><div class="val">${esc(p.source_invoice_number)}</div></div>`:''}
   </div>
   <table>
     <thead><tr>
