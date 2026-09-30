@@ -369,7 +369,7 @@ _defaults_seeded = False
 # requester's own browser — inventory writes go through /api/items/import).
 # Skipping the DB hooks here removes a network round-trip (and on a cold
 # instance, the first PostgreSQL connection) from the share startup path.
-_PWA_DBFREE_PATHS = ('/sw.js', '/share-target')
+_PWA_DBFREE_PATHS = ('/sw.js', '/share-target', '/.well-known/assetlinks.json')
 
 @app.before_request
 def seed_defaults():
@@ -439,7 +439,7 @@ def check_auth():
     # Public, no-session-needed PWA endpoints: the service worker and the
     # share-target bridge (transfers the shared file to the requester's own
     # browser only — inventory writes still require an authenticated session).
-    if path in ('/sw.js', '/share-target', '/download/android', '/api/android/latest'):
+    if path in ('/sw.js', '/share-target', '/download/android', '/api/android/latest', '/.well-known/assetlinks.json'):
         return
     if path == '/api/forgot-password-request':
         return
@@ -633,13 +633,60 @@ def auth_login():
     session.permanent = True
     session['user_id'] = user.id
     session['username'] = user.username
-    result = {'success': True}
+    result = {'success': True, 'username': user.username}
     if data.get('enroll_fingerprint') is True:
         if os.environ.get('SECRET_KEY'):
             result.update(device_token=issue_token(app.secret_key, user, 'login'), username=user.username)
         else:
             result['fingerprint_error'] = 'Fingerprint setup requires a stable server SECRET_KEY.'
     return jsonify(result)
+
+@app.route('/.well-known/assetlinks.json')
+def android_credential_association():
+    return jsonify([{'relation': ['delegate_permission/common.get_login_creds'],
+                     'target': {'namespace': 'android_app', 'package_name': 'com.billmate.nativeapp',
+                                'sha256_cert_fingerprints': ['32:46:3C:64:EB:7F:86:6B:74:BA:24:20:AB:7C:54:31:87:31:4D:66:34:7E:7D:2E:05:35:40:D4:87:35:71:76']}}])
+
+@app.route('/auth/fingerprint/setup')
+def fingerprint_setup():
+    if not session.get('user_id') or session.get('is_guest'):
+        return redirect('/')
+    user = db.session.get(User, session['user_id'])
+    if not user or user.is_suspended or user.is_superadmin:
+        return redirect('/')
+    return render_template('fingerprint_setup.html', username=user.username)
+
+@app.route('/auth/fingerprint/token', methods=['POST'])
+def fingerprint_enrollment_token():
+    """Reverify a password on the separate setup screen; never enroll during login."""
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Log in before setting up fingerprint.'}), 401
+    user = db.session.get(User, uid)
+    if not user or user.is_suspended or user.is_superadmin:
+        return jsonify({'error': 'Account unavailable.'}), 403
+    data = request.get_json(silent=True) or {}
+    if not os.environ.get('SECRET_KEY'):
+        return jsonify({'error': 'Fingerprint setup is unavailable.'}), 503
+    if data.get('kind') == 'admin':
+        settings = get_user_settings()
+        if not settings or not settings.admin_password_hash:
+            return jsonify({'error': 'Set an admin password first.'}), 400
+        # Uses the same lockout/recovery rules as ordinary admin unlock.
+        if data.get('enroll_fingerprint') is not True:
+            return jsonify({'error': 'Enrollment confirmation required.'}), 400
+        return admin_unlock()
+    if data.get('kind') != 'login':
+        return jsonify({'error': 'Invalid access type.'}), 400
+    ip = get_client_ip()
+    allowed, _ = _login_rate_check(ip, max_attempts=10, lockout_min=15)
+    if not allowed:
+        return jsonify({'error': 'Too many attempts. Try again later.'}), 429
+    if not check_password_hash(user.password_hash, (data.get('password') or '').strip()):
+        _login_rate_fail(ip, max_attempts=10, lockout_min=15)
+        return jsonify({'error': 'Wrong account password.'}), 401
+    _login_rate_clear(ip)
+    return jsonify({'device_token': issue_token(app.secret_key, user, 'login'), 'username': user.username})
 
 @app.route('/auth/device-login', methods=['POST'])
 def auth_device_login():

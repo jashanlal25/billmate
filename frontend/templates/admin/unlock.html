@@ -37,7 +37,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div class="locked-info">🔒 Account locked due to too many failed attempts.<br>Try again in ~{{ lock_minutes_left }} minute(s).</div>
   {% else %}
   <form id="adminUnlockForm" method="POST" action="/admin/unlock" autocomplete="on">
-    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" tabindex="-1">
+    <input type="text" name="username" value="{{ username ~ ' (admin)' if username else '' }}" autocomplete="section-admin username" readonly aria-label="Admin account" style="width:100%;margin-bottom:12px;padding:8px;border:1px solid #ddd;border-radius:8px;color:#666">
     <div class="field">
       <div class="pw-wrap">
         <input type="password" id="adm_pass" name="password" placeholder="Admin password" autocomplete="section-admin current-password" required autofocus>
@@ -60,7 +60,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div id="forgotMsg" class="forgot-msg"></div>
   <a href="/billing" class="back">← Back to Billing</a>
 </div>
-<script src="/static/js/device-auth.js"></script>
+<script src="/static/js/device-auth.js?v=2"></script>
 <script>
 BillMateDeviceAuth.init('admin', {{ username|tojson }});
 document.getElementById('adminUnlockForm')?.addEventListener('submit', async function(e){
@@ -71,7 +71,7 @@ document.getElementById('adminUnlockForm')?.addEventListener('submit', async fun
   const error=document.getElementById('adminError');
   error.textContent='';
   try {
-    const r=await fetch('/admin/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('adm_pass').value,enroll_fingerprint:BillMateDeviceAuth.enrollRequested()})});
+    const r=await fetch('/admin/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('adm_pass').value})});
     const result=await r.json();
     if(!r.ok) { error.textContent=result.error||'Unable to unlock admin.'; if(r.status===429)button.hidden=true; return; }
     await BillMateDeviceAuth.save(result);

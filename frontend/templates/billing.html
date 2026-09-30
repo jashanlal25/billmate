@@ -241,6 +241,7 @@ input[type=number]{-moz-appearance:textfield}
     <div class="user-menu" onclick="this.classList.toggle('open')">
       <span class="user-name">{{ session.username or 'Guest' }}</span>
       <div class="user-dropdown">
+        {% if not is_guest %}<a href="/auth/fingerprint/setup" class="user-dropdown-item">Fingerprint settings</a>{% endif %}
         <a href="/auth/logout" class="user-dropdown-item">Logout</a>
       </div>
     </div>
@@ -257,6 +258,7 @@ input[type=number]{-moz-appearance:textfield}
   <a href="/backup"   class="nav-link">💾 Backup</a>
   {% if not is_guest %}<a href="/pos-import" class="nav-link">🔄 POS Import</a>{% endif %}
   <a href="/admin"     class="nav-link">🛡️ Admin</a>
+  {% if not is_guest %}<a href="/auth/fingerprint/setup" class="nav-link">🔒 Fingerprint settings</a>{% endif %}
   <button id="nativeUpdateBtn" class="nav-link" onclick="checkNativeUpdate()" style="display:none;border:0;width:100%;text-align:left;background:transparent;cursor:pointer">⬆️ Update BillMate</button>
 </div>
 

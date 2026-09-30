@@ -85,7 +85,7 @@ body.theme-light{background:radial-gradient(circle at 5% 5%,#e8e6ff 0,transparen
 </section>
 </main>
 
-<script src="/static/js/device-auth.js"></script>
+<script src="/static/js/device-auth.js?v=2"></script>
 <script>
 BillMateDeviceAuth.init('login');
 function setWelcomeTheme(theme,btn){
@@ -126,7 +126,7 @@ async function doLogin(){
   if(button.disabled)return;
   button.disabled=true;
   try {
-  const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,enroll_fingerprint:BillMateDeviceAuth.enrollRequested()})});
+  const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
   const res=await r.json();
   if(r.ok){
     await BillMateDeviceAuth.save(res);
