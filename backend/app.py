@@ -654,6 +654,8 @@ def fingerprint_setup():
     user = db.session.get(User, session['user_id'])
     if not user or user.is_suspended or user.is_superadmin:
         return redirect('/')
+    if not session.get('is_admin'):
+        return redirect('/admin/unlock')
     return render_template('fingerprint_setup.html', username=user.username)
 
 @app.route('/auth/fingerprint/token', methods=['POST'])

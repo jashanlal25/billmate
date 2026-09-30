@@ -27,10 +27,10 @@
     <a href="/download/android" class="nav-link billmate-install-link" title="Download BillMate Android APK">📱 Install App</a>
     {% block nav_right_extra %}
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
-    <div class="user-menu" onclick="this.classList.toggle('open')">
-      <span class="user-name">{{ session.username or 'Guest' }}</span>
+    <div class="user-menu">
+      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false" onclick="const open=this.parentElement.classList.toggle('open');this.setAttribute('aria-expanded',String(open))">{{ session.username or 'Guest' }} ▾</button>
       <div class="user-dropdown">
-        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
+        <a href="/auth/logout" class="user-dropdown-item">↪ Log out</a>
       </div>
     </div>
     {% endblock %}

@@ -60,7 +60,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   <div id="forgotMsg" class="forgot-msg"></div>
   <a href="/billing" class="back">← Back to Billing</a>
 </div>
-<script src="/static/js/device-auth.js?v=2"></script>
+<script src="/static/js/device-auth.js?v=3"></script>
 <script>
 BillMateDeviceAuth.init('admin', {{ username|tojson }});
 document.getElementById('adminUnlockForm')?.addEventListener('submit', async function(e){

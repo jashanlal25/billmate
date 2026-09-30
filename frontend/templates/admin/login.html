@@ -40,7 +40,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#1a1a2e
   </form>
   <a href="/admin/unlock" class="back">Unlock with existing password →</a>
 </div>
-<script src="/static/js/device-auth.js?v=2"></script>
+<script src="/static/js/device-auth.js?v=3"></script>
 <script>
 BillMateDeviceAuth.init('admin', {{ username|tojson }});
 document.getElementById('loginForm').addEventListener('submit', async function(e) {

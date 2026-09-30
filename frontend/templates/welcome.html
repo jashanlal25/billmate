@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Welcome — BillMate</title>
+<script>
+if (window.__BILLMATE_NATIVE__ || /BillMateNative\//i.test(navigator.userAgent)) {
+  document.documentElement.classList.add('billmate-native');
+}
+</script>
 <link rel="manifest" href="/static/manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
 <link rel="apple-touch-icon" sizes="192x192" href="/static/icon-192.png">
@@ -17,6 +22,7 @@ body:before,body:after{content:"";position:fixed;pointer-events:none;border-radi
 .welcome-title{font-size:2rem;font-weight:800;margin-bottom:4px}.welcome-sub{color:#aab8dc;margin-bottom:30px}.form{display:none}.form.active{display:block}.field{margin-bottom:20px}.field label{display:block;font-size:.78rem;font-weight:800;color:#c6d3f4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}.field input{width:100%;padding:15px 16px;border:1.5px solid rgba(151,177,240,.52);border-radius:15px;font-size:1rem;outline:none;color:#fff;background:rgba(119,144,204,.18);transition:.2s}.field input::placeholder{color:#9eacd1}.field input:focus{border-color:#55a7ff;box-shadow:0 0 0 3px rgba(61,143,255,.13);background:rgba(119,144,204,.25)}.pw-wrap{position:relative}.pw-wrap input{padding-right:48px}.eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:0;cursor:pointer;font-size:1.15rem;color:#d7e1ff}.btn-main{width:100%;padding:15px;border:0;border-radius:15px;background:linear-gradient(100deg,#a42cff,#5148ff 52%,#299cff);color:#fff;font-size:1.05rem;font-weight:800;cursor:pointer;margin-top:5px;box-shadow:0 12px 30px rgba(72,69,255,.3);transition:.2s}.btn-main:hover{transform:translateY(-1px);filter:brightness(1.08)}.err{color:#ff8c9c;font-size:.82rem;margin-top:8px;display:none}.divider{display:flex;align-items:center;gap:14px;margin:22px 0;color:#9facce;font-size:.85rem}.divider:before,.divider:after{content:"";flex:1;height:1px;background:rgba(159,181,235,.34)}.btn-guest{width:100%;padding:14px;border:1.5px solid #3c8cff;border-radius:15px;background:rgba(8,25,70,.32);color:#fff;font-size:1rem;font-weight:700;cursor:pointer}.guest-note{font-size:.78rem;color:#a6b2d1;text-align:center;margin-top:12px}.denied-msg{background:rgba(185,40,70,.2);border:1px solid rgba(255,116,143,.45);border-radius:10px;padding:10px 14px;color:#ffc1ce;font-size:.85rem;margin-bottom:20px;text-align:center}
 .mobile-brand,.mobile-features,.theme-switch{display:none}
 #apkDownload{display:block!important;width:max-content;max-width:100%;margin:14px auto 0!important;padding:7px 12px!important;border-radius:9px!important;text-align:center;text-decoration:none!important;font-size:.76rem!important;font-weight:650!important;color:#9fc8ff!important;border:1px solid rgba(105,159,255,.4)!important;background:rgba(17,37,88,.45)!important}
+html.billmate-native #apkDownload{display:none!important}
 @media(max-width:760px){
 body{padding:18px 14px 28px;align-items:flex-start;background:radial-gradient(circle at 0 0,#342087 0,transparent 31%),radial-gradient(circle at 100% 12%,#0756a7 0,transparent 34%),linear-gradient(165deg,#07132f,#0a1d4d 58%,#190d50);min-height:100dvh}
 .page{display:block;width:100%;max-width:460px}.brand-panel{display:none}.auth-wrap{max-width:none}.mobile-brand{display:block;text-align:center;padding-top:42px;margin-bottom:22px}.mobile-brand .app-icon{width:76px;height:76px;border-radius:21px;margin:0 auto 14px}.mobile-brand .logo-text{font-size:2.85rem;letter-spacing:-2px}.mobile-brand .logo-sub{font-size:1rem;margin-top:6px}.theme-switch{display:flex;position:absolute;right:4px;top:0;background:rgba(17,35,83,.72);border:1px solid rgba(105,137,214,.32);padding:4px;border-radius:18px;gap:3px}.theme-switch button{border:0;background:transparent;color:#aebbe0;width:34px;height:30px;border-radius:14px;font-size:15px}.theme-switch .active{background:linear-gradient(135deg,#438fff,#8b2dff);color:white}.card{padding:24px 20px 22px;border-radius:27px}.tab-row{margin-bottom:24px}.tab{padding:12px 8px}.welcome-title,.welcome-sub{display:none}.field{margin-bottom:16px}.field input{padding:14px}.btn-main{padding:14px}.divider{margin:18px 0}.mobile-features{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:24px 0 0;text-align:center}.mobile-features .micon{width:44px;height:44px;margin:0 auto 7px;border-radius:50%;display:grid;place-items:center;background:rgba(26,62,135,.7);border:1px solid rgba(78,138,255,.55);font-size:20px}.mobile-features b{font-size:.76rem;display:block}.mobile-features span{font-size:.65rem;color:#9cadd4;display:block;line-height:1.25;margin-top:3px}.invoice-art-mobile{height:55px;margin-top:-2px;opacity:.38;position:relative;overflow:hidden}.invoice-art-mobile:before{content:"";position:absolute;width:150px;height:100px;left:12%;top:5px;border:1px solid #3f70ff;border-radius:18px;transform:rotate(-8deg);background:linear-gradient(145deg,#365cff55,#782cff33)}
@@ -85,7 +91,7 @@ body.theme-light{background:radial-gradient(circle at 5% 5%,#e8e6ff 0,transparen
 </section>
 </main>
 
-<script src="/static/js/device-auth.js?v=2"></script>
+<script src="/static/js/device-auth.js?v=3"></script>
 <script>
 BillMateDeviceAuth.init('login');
 function setWelcomeTheme(theme,btn){
@@ -102,11 +108,6 @@ function setWelcomeTheme(theme,btn){
     if(b) setWelcomeTheme(saved,b);
   }catch(e){}
 
-  // Hide the APK download inside the installed Android WebView.
-  if (/; wv\)/i.test(navigator.userAgent)) {
-    const el=document.getElementById('apkDownload');
-    if(el) el.style.display='none';
-  }
 })();
 function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['login','register'][i]===tab));

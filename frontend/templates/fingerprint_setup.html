@@ -1,9 +1,22 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fingerprint settings — BillMate</title>
+{% extends 'admin/base.html' %}
+{% block title %}Fingerprint Setup — BillMate{% endblock %}
+{% block btn_fingerprint %}active{% endblock %}
+{% block content_main %}
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#eef2ff;min-height:100vh;display:grid;place-items:center;padding:20px}.card{width:100%;max-width:430px;padding:28px;background:#17243d;border-radius:24px}h1{font-size:1.4rem}p{line-height:1.5;color:#cbd5e1}label{display:block;margin:16px 0 8px}input,select,button{width:100%;padding:13px;border-radius:12px;font:inherit}input,select{background:#243653;color:white;border:1px solid #64748b}button{margin-top:16px;border:0;background:linear-gradient(135deg,#667eea,#764ba2);color:white;cursor:pointer}button:disabled{opacity:.5}a{color:#a5b4fc}#fingerprintForget{color:#a5b4fc!important}#setupMessage{margin:16px 0;line-height:1.5}
-</style></head><body><main class="card">
-<h1>Fingerprint settings</h1><p>Account: <strong>{{ username }}</strong></p>
+.fingerprint-card{max-width:540px;margin:0 auto;padding:24px;color:var(--text)}
+.fingerprint-card h1{font-size:1.4rem;margin-bottom:12px}
+.fingerprint-card p{line-height:1.5;margin:12px 0;color:var(--sub)}
+.fingerprint-card label{display:block;margin:16px 0 8px}
+.fingerprint-card input,.fingerprint-card select,.fingerprint-card button{width:100%;min-height:48px;padding:13px;border-radius:12px;font:inherit}
+.fingerprint-card input,.fingerprint-card select{background:var(--inp);color:var(--text);border:1px solid var(--border)}
+.fingerprint-card button{margin-top:16px;border:0;background:linear-gradient(135deg,#667eea,#764ba2);color:white;cursor:pointer}
+.fingerprint-card button:disabled{opacity:.5}
+.fingerprint-card a{color:var(--accent)}
+#fingerprintForget{background:transparent;color:#dc2626;border:1px solid currentColor}
+#setupMessage,#fingerprintError{margin-top:16px;line-height:1.5}
+</style>
+<section class="card fingerprint-card">
+<h1>Fingerprint Setup</h1><p>Account: <strong>{{ username }}</strong></p>
 <p>Enable account login and admin access separately on this phone. Your passwords are not stored by BillMate.</p>
 <label for="setupKind">Access</label><select id="setupKind"><option value="login">Account login</option><option value="admin">Admin access</option></select>
 <p id="setupStatus">Use the latest BillMate Android app to enable fingerprint.</p>
@@ -15,8 +28,9 @@
 <button id="fingerprintUnlock" hidden type="button" onclick="BillMateDeviceAuth.unlock()">Test fingerprint unlock</button>
 <button id="fingerprintForget" hidden type="button" onclick="BillMateDeviceAuth.forget()">Remove saved fingerprint access</button>
 <div id="fingerprintError" role="alert"></div>
-<p><a href="/billing">← Back to BillMate</a></p>
-</main><script src="/static/js/device-auth.js?v=2"></script><script>
+<p><a href="/admin/setup">← Shop Setup</a></p>
+</section>
+<script src="/static/js/device-auth.js?v=3"></script><script>
 const setupUsername={{ username|tojson }};
 const kindSelect=document.getElementById('setupKind');
 kindSelect.addEventListener('change',()=>{
@@ -30,4 +44,6 @@ document.getElementById('setupForm').addEventListener('submit',async e=>{
  try{await BillMateDeviceAuth.setup(kindSelect.value,setupUsername);}finally{kindSelect.disabled=false;}
 });
 BillMateDeviceAuth.init('login',setupUsername);
-</script></body></html>
+</script>
+
+{% endblock %}

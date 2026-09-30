@@ -62,7 +62,8 @@
         const setupButton = document.getElementById('setupButton');
         if (setupButton) setupButton.disabled = !state.available || state.setupVersion !== 2;
         document.getElementById('fingerprintUnlock').hidden = !state.available || !state.saved;
-        document.getElementById('fingerprintForget').hidden = !state.saved;
+        const forgetButton = document.getElementById('fingerprintForget');
+        if (forgetButton) forgetButton.hidden = !state.saved;
         rememberedUsername = state.username || '';
         const status = document.getElementById('setupStatus');
         if (status) status.textContent = state.setupVersion !== 2 ? 'Update BillMate to v1.11 or later before enabling fingerprint.' : state.saved ? 'Fingerprint access is already enabled.' : state.available ? 'Verify your password, then scan your fingerprint.' : 'Set up a supported fingerprint in phone settings first.';

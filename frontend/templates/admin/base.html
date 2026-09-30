@@ -5,7 +5,7 @@
 
 {% block page_styles %}
 .dash-title{color:#fff;font-size:1.4em;font-weight:700;margin-bottom:20px}
-.dash-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}
+.dash-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px}
 .dash-btn{background:var(--card);border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;border:2px solid transparent;box-shadow:var(--shadow);transition:all .2s;user-select:none;text-decoration:none;display:block}
 .dash-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.2)}
 .dash-btn.active{background:linear-gradient(135deg,#667eea,#764ba2);border-color:transparent;box-shadow:0 6px 20px rgba(102,126,234,.4)}
@@ -129,6 +129,11 @@ input[type=number]{-moz-appearance:textfield}
       <div class="dash-icon">⚙️</div>
       <div class="dash-label">Setup</div>
       <div class="dash-sub">Shop settings</div>
+    </a>
+    <a href="/auth/fingerprint/setup" class="dash-btn {% block btn_fingerprint %}{% endblock %}">
+      <div class="dash-icon">🔒</div>
+      <div class="dash-label">Fingerprint Setup</div>
+      <div class="dash-sub">Login &amp; admin access</div>
     </a>
   </div>
 
