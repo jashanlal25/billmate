@@ -50,11 +50,12 @@ final class BiometricVault {
             if (action.equals("autofill_commit")) {
                 AutofillManager autofill = activity.getSystemService(AutofillManager.class);
                 if (autofill != null) autofill.commit();
+                if (kind.equals("login") && !username.isEmpty()) preferences.edit().putString("login-username", username).apply();
                 respond(reply, id, new JSONObject().put("success", true));
             } else if (action.equals("status")) {
                 JSONObject saved = saved(slot);
-                respond(reply, id, new JSONObject().put("available", available()).put("saved", saved != null)
-                    .put("username", saved == null ? "" : saved.optString("username")));
+                respond(reply, id, new JSONObject().put("setupVersion", 2).put("available", available()).put("saved", saved != null)
+                    .put("username", saved == null ? (kind.equals("login") ? preferences.getString("login-username", "") : "") : saved.optString("username")));
             } else if (action.equals("forget")) {
                 forget(slot);
                 respond(reply, id, new JSONObject().put("success", true));
@@ -99,29 +100,33 @@ final class BiometricVault {
             if (enrolling) cipher.init(Cipher.ENCRYPT_MODE, key);
             else cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, Base64.decode(saved.getString("iv"), Base64.NO_WRAP)));
             // Bind encrypted data to the account/access level as well as its key.
-            cipher.updateAAD(slot.getBytes(StandardCharsets.UTF_8));
+            // AAD is submitted only after biometric authorization succeeds.
             prompt = new BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), new BiometricPrompt.AuthenticationCallback() {
                 @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
                     prompt = null;
                     try {
+                        if (result.getCryptoObject() == null || result.getCryptoObject().getCipher() == null)
+                            throw new java.security.GeneralSecurityException("Missing authenticated cipher");
                         Cipher unlocked = result.getCryptoObject().getCipher();
                         if (enrolling) {
-                            byte[] encrypted = unlocked.doFinal(token.getBytes(StandardCharsets.UTF_8));
+                            byte[] iv = unlocked.getIV();
+                            byte[] encrypted = VaultCipher.finish(unlocked, slot, token.getBytes(StandardCharsets.UTF_8));
                             JSONObject record = new JSONObject().put("alias", alias).put("username", username)
-                                .put("iv", Base64.encodeToString(unlocked.getIV(), Base64.NO_WRAP))
+                                .put("iv", Base64.encodeToString(iv, Base64.NO_WRAP))
                                 .put("ciphertext", Base64.encodeToString(encrypted, Base64.NO_WRAP));
                             if (!preferences.edit().putString(slot, record.toString()).commit()) throw new Exception();
                             pendingAlias = null;
                             if (saved != null) deleteKey(saved.optString("alias"));
                             respond(reply, id, new JSONObject().put("success", true));
                         } else {
-                            byte[] plain = unlocked.doFinal(Base64.decode(saved.getString("ciphertext"), Base64.NO_WRAP));
+                            byte[] plain = VaultCipher.finish(unlocked, slot, Base64.decode(saved.getString("ciphertext"), Base64.NO_WRAP));
                             respond(reply, id, new JSONObject().put("token", new String(plain, StandardCharsets.UTF_8)));
                             java.util.Arrays.fill(plain, (byte) 0);
                         }
                     } catch (Exception e) {
                         if (enrolling) clearPendingKey(); else forget(slot);
-                        error(reply, id, "Use password login to enable fingerprint again.");
+                        error(reply, id, "Fingerprint " + (enrolling ? "setup" : "unlock") + " could not finish ("
+                            + e.getClass().getSimpleName() + "). Retry from Fingerprint settings.");
                     }
                 }
                 @Override public void onAuthenticationError(int code, CharSequence text) {

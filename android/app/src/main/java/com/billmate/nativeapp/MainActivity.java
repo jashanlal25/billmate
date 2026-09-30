@@ -71,6 +71,7 @@ public final class MainActivity extends FragmentActivity {
         toolbar.setVisibility(View.GONE);
 
         web = new WebView(this);
+        web.setId(R.id.billmate_webview);
         web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
         biometricVault = new BiometricVault(this);
         web.setBackgroundColor(Color.rgb(18, 34, 56));
@@ -128,6 +129,13 @@ public final class MainActivity extends FragmentActivity {
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 biometricVault.cancel();
+                // Reverification belongs to fingerprint setup, not password saving.
+                boolean setup = ShareUpload.isTrusted(url) && Uri.parse(url).getPath().equals("/auth/fingerprint/setup");
+                web.setImportantForAutofill(setup ? View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS : View.IMPORTANT_FOR_AUTOFILL_YES);
+                if (setup) {
+                    android.view.autofill.AutofillManager manager = getSystemService(android.view.autofill.AutofillManager.class);
+                    if (manager != null) manager.cancel();
+                }
                 if (!busy) { toolbar.setVisibility(View.VISIBLE); status.setText("Opening…"); }
             }
             @Override public void onPageFinished(WebView view, String url) {
