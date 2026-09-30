@@ -120,5 +120,27 @@ class DeviceAuthTest(unittest.TestCase):
             self.assertNotIn('device_token', result)
             self.assertIn('fingerprint_error', result)
 
+    def test_separate_setup_requires_current_account_password_and_preserves_session(self):
+        self.assertEqual(self.client.post('/auth/fingerprint/token', json={'kind': 'login', 'password': 'account-password'}).status_code, 401)
+        self.login(enroll=False)
+        response = self.client.post('/auth/fingerprint/token', json={'kind': 'login', 'password': 'wrong', 'username': 'second'})
+        self.assertEqual(response.status_code, 401)
+        response = self.client.post('/auth/fingerprint/token', json={'kind': 'login', 'password': 'account-password'})
+        self.assertEqual(response.status_code, 200)
+        with self.client.session_transaction() as sess: self.assertEqual(sess['user_id'], 1)
+        self.assertEqual(self.unlock(response.json['device_token']).status_code, 200)
+        self.assertEqual(self.client.get('/auth/fingerprint/setup').status_code, 200)
+
+    def test_separate_admin_setup_observes_lockout_and_public_association(self):
+        self.login(enroll=False)
+        for _ in range(3):
+            self.client.post('/auth/fingerprint/token', json={'kind': 'admin', 'password': 'wrong', 'enroll_fingerprint': True})
+        response = self.client.post('/auth/fingerprint/token', json={'kind': 'admin', 'password': 'admin-password', 'enroll_fingerprint': True})
+        self.assertEqual(response.status_code, 429)
+        self.client.get('/auth/logout')
+        response = self.client.get('/.well-known/assetlinks.json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json[0]['target']['package_name'], 'com.billmate.nativeapp')
+
 if __name__ == '__main__':
     unittest.main()
