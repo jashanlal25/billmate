@@ -291,6 +291,9 @@ class Purchase(db.Model):
     supplier_name = db.Column(db.String(150), default='Counter')
     purchase_date = db.Column(db.Date, nullable=False, default=date.today)
     total_cost = db.Column(db.Numeric(10, 2), default=0)
+    source_invoice_id = db.Column(db.Integer, nullable=True, index=True)
+    source_invoice_number = db.Column(db.String(30), nullable=True)
+    source_invoice_vendor = db.Column(db.String(150), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     lines = db.relationship('PurchaseLine', backref='purchase', lazy=True, cascade='all, delete-orphan')
@@ -303,6 +306,9 @@ class Purchase(db.Model):
             'supplier_name': self.supplier_name,
             'purchase_date': self.purchase_date.isoformat(),
             'total_cost': float(self.total_cost or 0),
+            'source_invoice_id': self.source_invoice_id,
+            'source_invoice_number': self.source_invoice_number or '',
+            'source_invoice_vendor': self.source_invoice_vendor or '',
             'lines': [l.to_dict() for l in self.lines],
         }
 
