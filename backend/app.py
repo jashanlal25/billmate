@@ -206,10 +206,9 @@ def invoice_pdf():
         ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]
     it.setStyle(TableStyle(ts)); story += [it,Spacer(1,5*mm)]
 
-    totals=[['Subtotal',m(inv.get('subtotal'))]]
+    totals=[]
     if n(inv.get('discount_amount'))>0: totals.append(['Discount','- '+m(inv.get('discount_amount'))])
-    if n(inv.get('tax_amount'))>0: totals.append(['Tax',m(inv.get('tax_amount'))])
-    totals.append(['Total',m(inv.get('total'))]); total_idx=len(totals)-1
+    totals.append(['Total Bill (incl. tax)',m(inv.get('total'))]); total_idx=len(totals)-1
     if data.get('show_previous_balance') and n(inv.get('previous_balance')) and inv.get('customer_id'):
         totals += [['Previous Balance',m(inv.get('previous_balance'))],['Grand Total',m(n(inv.get('previous_balance'))+n(inv.get('total')))]]
     tt=Table(totals,colWidths=[42*mm,33*mm],hAlign='RIGHT')

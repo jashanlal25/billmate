@@ -22,7 +22,7 @@
         <th>Customer</th>
         <th>Date</th>
         <th>Status</th>
-        <th class="num">Total</th>
+        <th class="num">Total Bill (incl. tax)</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -60,10 +60,10 @@
       <tbody id="dLines"></tbody>
     </table>
     <div class="totals">
-      <div class="total-row"><span style="color:var(--sub)">Subtotal</span><span id="dSub"></span></div>
+      <div style="display:none" class="total-row"><span style="color:var(--sub)">Subtotal</span><span id="dSub"></span></div>
       <div class="total-row"><span style="color:var(--sub)">Discount</span><span id="dDisc"></span></div>
-      <div class="total-row"><span style="color:var(--sub)">Tax</span><span id="dTax"></span></div>
-      <div class="total-row grand"><span>Total</span><span id="dTotal"></span></div>
+      <div style="display:none" class="total-row"><span style="color:var(--sub)">Tax</span><span id="dTax"></span></div>
+      <div class="total-row grand"><span>Total Bill (incl. tax)</span><span id="dTotal"></span></div>
     </div>
     <div class="modal-actions" id="dActions"></div>
   </div>
@@ -326,10 +326,10 @@ function buildInvoicePrintHtml(inv, forPdf){
   </table>
   <div class="totals-wrap">
     <table class="totals-table">
-      <tr><td class="t-label">Subtotal</td><td class="t-val">Rs.${(+inv.subtotal).toFixed(2)}</td></tr>
+
       ${(+inv.discount_amount)>0?`<tr><td class="t-label">Discount</td><td class="t-val">- Rs.${(+inv.discount_amount).toFixed(2)}</td></tr>`:''}
-      ${(+inv.tax_amount)>0?`<tr><td class="t-label">Tax</td><td class="t-val">Rs.${(+inv.tax_amount).toFixed(2)}</td></tr>`:''}
-      <tr class="grand-row"><td>Total</td><td style="text-align:right">Rs.${(+inv.total).toFixed(2)}</td></tr>
+
+      <tr class="grand-row"><td>Total Bill (incl. tax)</td><td style="text-align:right">Rs.${(+inv.total).toFixed(2)}</td></tr>
       ${(+inv.previous_balance)&&inv.customer_id?`
       <tr class="prev-row"><td>Previous Balance</td><td style="text-align:right">Rs.${(+inv.previous_balance).toFixed(2)}</td></tr>
       <tr class="grand-row"><td>Grand Total</td><td style="text-align:right">Rs.${((+inv.previous_balance)+(+inv.total)).toFixed(2)}</td></tr>`:''}
