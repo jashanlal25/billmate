@@ -77,6 +77,39 @@ class VendorImportTest(unittest.TestCase):
                          ('STOCK','58',11,2))
         self.assertEqual(Supplier.query.filter_by(user_id=1,name='STOCK').count(),0)
 
+    def test_stock_export_footers_are_not_incomplete_items(self):
+        row = ('<tr class="item"><td>1</td><td>58</td><td>SOAP</td>'
+               '<td>11%</td><td>238</td><td>2</td><td>0</td><td>0</td><td>0</td></tr>')
+        footer = ('<tr class="item"><td colspan="9"><b><hr></b></td></tr>'
+                  '<tr class="item"><td colspan="8"><b>Total Items :</b></td><td>1</td></tr>')
+        def send(extra):
+            html = '<title>Stock List</title><table>' + row + extra + '</table>'
+            return self.client.post('/api/items/import', data={
+                'file': (io.BytesIO(html.encode()), 'STOCK.HTM')})
+        for _ in range(2):
+            result = send(footer)
+            self.assertEqual(result.status_code, 200, result.get_data(as_text=True))
+        self.assertEqual(Item.query.count(), 1)
+        self.assertEqual(Item.query.one().qty, 2)
+        broken = send('<tr class="item"><td colspan="9">Broken medicine</td></tr>')
+        self.assertEqual(broken.status_code, 500)
+        self.assertIn("Incomplete item row", broken.json["error"])
+        self.assertEqual(Item.query.count(), 1)
+        self.assertEqual(Item.query.one().qty, 2)
+
+    def test_uploaded_stock_export_reimports_without_duplicates(self):
+        file = Path(__file__).resolve().parents[2] / 'upload' / 'STOCK.HTM'
+        if not file.exists():
+            self.skipTest('User stock fixture unavailable')
+        for added in (104, 0):
+            result = self.client.post('/api/items/import', data={
+                'file': (io.BytesIO(file.read_bytes()), 'STOCK.HTM')})
+            self.assertEqual(result.status_code, 200, result.get_data(as_text=True))
+            self.assertTrue(result.json['own_stock'])
+            self.assertEqual(result.json['added'], added)
+        self.assertEqual(Item.query.count(), 104)
+        self.assertEqual(Supplier.query.count(), 0)
+
     def test_legacy_upgrade_and_global(self):
         db.session.add(Item(user_id=1,code='ITM0001',name='EXACT NAME.',vendor='A',tp=100,retail_price=100))
         db.session.commit(); self.upload()

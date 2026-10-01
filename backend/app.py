@@ -2756,6 +2756,14 @@ def import_items():
             for row in soup.find_all('tr', class_='item'):
                 tds = row.find_all('td')
                 if len(tds) < 4:
+                    # Stock exports also mark separator/total footer rows as items.
+                    # Skip only recognized spanning footers, not broken item data.
+                    text = row.get_text(' ', strip=True)
+                    stock_footer = (own_stock and any(td.has_attr('colspan') for td in tds)
+                                    and ((not text and row.find('hr') is not None)
+                                         or re.fullmatch(r'Total\s+Items\s*:\s*\d+', text, re.I)))
+                    if stock_footer:
+                        continue
                     raise ValueError('Incomplete item row; the previous catalogue was kept')
                 if len(tds) >= 8:
                     name     = tds[2].get_text().strip()
