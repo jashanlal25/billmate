@@ -3425,7 +3425,7 @@ def guest_claim_invoice():
 # ── Invoices API ──────────────────────────────────────────────────────────────
 
 def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_text='', user_id=None, preferred_code=''):
-    """Auto-create an item in the user's catalog if it doesn't already exist (by name)."""
+    """Auto-create a new manual item, but keep previous-bill items as snapshots."""
     query = Item.query.filter(Item.name.ilike(name), Item.is_active == True)
     if user_id:
         query = query.filter(db.or_(Item.user_id == user_id, Item.is_global == True))
@@ -3434,6 +3434,16 @@ def _ensure_item_exists(name, tp, retail_price, tax_pct, discount_pct=0, bonus_t
     existing = query.first()
     if existing:
         return existing
+    # An old billed item may have disappeared when a supplier list was replaced.
+    # Reusing that invoice snapshot must not create phantom stock or a new catalog row.
+    if user_id and (db.session.query(InvoiceLine.id)
+            .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
+            .filter(Invoice.user_id == user_id,
+                    Invoice.status.notin_(['deleted', 'cancelled']),
+                    ~Invoice.invoice_number.like('DRAFT-%'),
+                    func.lower(InvoiceLine.item_name) == name.lower())
+            .first()):
+        return None
     requested_code = str(preferred_code or '').strip()[:30]
     code = requested_code if requested_code and not Item.query.filter_by(code=requested_code, user_id=user_id).first() else ''
     if not code:

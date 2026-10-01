@@ -15,7 +15,7 @@ def sqlite_init(self, app):
     _init(self, app)
 with patch.object(SQLAlchemy, 'init_app', sqlite_init):
     import app as service
-from models import db, User, Invoice, InvoiceLine
+from models import db, User, Invoice, InvoiceLine, Item
 service._defaults_seeded = True
 
 
@@ -56,6 +56,10 @@ class BilledItemSearchTest(unittest.TestCase):
         self.assertIsNone(row['id'])
         self.assertEqual(row['qty'], 0)
         self.assertTrue(row['historical'])
+        self.assertIsNone(service._ensure_item_exists('FAMOSPIN 20', 350, 0, 4, user_id=1))
+        self.assertEqual(Item.query.count(), 0)
+        new_item = service._ensure_item_exists('NEW MANUAL ITEM', 100, 120, 0, user_id=1)
+        self.assertEqual(new_item.name, 'NEW MANUAL ITEM')
         with self.client.session_transaction() as s: s.clear()
         self.assertNotEqual(self.client.get('/api/items/history?q=famospin').status_code, 200)
 
