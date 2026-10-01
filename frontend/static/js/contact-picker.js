@@ -92,17 +92,31 @@
     };
     panel.append(title, guide, file, search, list, close); overlay.append(panel); document.body.append(overlay);
   }
+  let activeFields = null;
   window.BillMateContacts = {
+    nativeFill(name, phone) {
+      if (!activeFields) return;
+      fill({name: name || '', tel: phone || ''}, activeFields);
+      activeFields = null;
+    },
     async pick(fields) {
+      activeFields = fields;
+      // Native BillMate APK: open the actual Android phone Contacts picker.
+      // The website continues to use the browser Contact Picker when available.
+      if (window.BillMateNative && typeof window.BillMateNative.pickContact === 'function') {
+        window.BillMateNative.pickContact();
+        return;
+      }
       if (navigator.contacts && typeof navigator.contacts.select === 'function') {
         try {
           const result = await navigator.contacts.select(supportedProperties, {multiple: false});
           if (result?.length && !fill(result[0], fields)) fallback(fields, 'no-phone');
           return;
         } catch (error) {
-          if (error?.name === 'AbortError') return;
+          if (error?.name === 'AbortError') { activeFields = null; return; }
         }
       }
+      activeFields = null;
       fallback(fields, 'unsupported');
     },
     init() {
