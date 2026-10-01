@@ -1345,7 +1345,8 @@ function updateTp(i,val){
 function updateQty(i,val){
   lines[i].qty=Math.max(1,parseFloat(val)||1);
   calcLine(lines[i]);
-  renderLines();
+  _refreshLineAmount(i);
+  scheduleAutoDraft();
   recalc();
 }
 function stepQty(i,delta){
@@ -1358,8 +1359,17 @@ function stepQty(i,delta){
 function updateDisc(i,val){
   lines[i].disc=Math.min(100,Math.max(-100,parseFloat(val)||0));
   calcLine(lines[i]);
-  renderLines();
+  _refreshLineAmount(i);
+  scheduleAutoDraft();
   recalc();
+}
+
+// Keep the active input in the DOM when Android commits an edit on Enter.
+// Replacing the row here can discard the keyboard event before focus advances.
+function _refreshLineAmount(i){
+  const row=document.querySelector(`#linesBody tr[data-line-index="${i}"]`);
+  const amount=row?.querySelectorAll('td')[7];
+  if(amount) amount.textContent='Rs.'+(lines[i].lineNet+lines[i].qty*lines[i].tax).toFixed(2);
 }
 
 function updateTax(i,val){
@@ -3078,10 +3088,10 @@ function _focusRowField(lineIdx, key){
   const cell = row.querySelectorAll('td')[_CART_COL[key]]; if(!cell) return;
   const inp = cell.querySelector('input'); if(inp){ inp.focus(); inp.select(); }
 }
-// Blur first (commit value → may re-render), then focus the target on the fresh DOM
+// Focus the next input directly. The resulting change event commits the old value
+// without removing either field (important for Android's Next keyboard action).
 function _navCartField(lineIdx, key){
-  const el = document.activeElement; if(el && el.blur) el.blur();
-  setTimeout(()=>_focusRowField(lineIdx, key), 0);
+  _focusRowField(lineIdx, key);
 }
 
 function _focusCartField(key, lineIdx){
@@ -3178,7 +3188,7 @@ document.addEventListener('keydown', function(e){
       e.preventDefault();
       const pos = _ENTER_ORDER.indexOf(_COL_KEY[cidx]);
       if(pos>=0 && pos < _ENTER_ORDER.length-1){ _navCartField(li, _ENTER_ORDER[pos+1]); }
-      else { el.blur(); _focusSearch(); }
+      else { _focusSearch(); }
       return;
     }
     if(key === 'arrowdown' || key === 'arrowup'){
