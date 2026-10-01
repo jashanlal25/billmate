@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.provider.ContactsContract;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.print.PrintAttributes;
@@ -30,7 +31,7 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends FragmentActivity {
-    private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12;
+    private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12, PICK_CONTACT = 13;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private WebView web;
     private TextView status;
@@ -92,6 +93,9 @@ public final class MainActivity extends FragmentActivity {
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        // The Android WebView does not expose navigator.contacts. Bridge the
+        // app's contact button to the real Android contact picker instead.
+        web.addJavascriptInterface(new NativeContactsBridge(), "BillMateNative");
         settings.setUserAgentString(settings.getUserAgentString() + " BillMateNative/" + BuildConfig.VERSION_NAME);
         // The existing website gates its persistent file batch on standalone mode.
         // Set this before page scripts run, only on the exact BillMate origin.
@@ -732,6 +736,11 @@ public final class MainActivity extends FragmentActivity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == PICK_CONTACT) {
+            if (result == RESULT_OK && data != null && data.getData() != null) {
+                fillContactFromUri(data.getData());
+            }
+        }
         if (request == PICK_FILE && fileCallback != null) {
             List<Uri> uris = new ArrayList<>();
             if (result == RESULT_OK && data != null) {
@@ -763,6 +772,41 @@ public final class MainActivity extends FragmentActivity {
             else toast("Update permission was not enabled.");
         }
 
+    }
+
+    private final class NativeContactsBridge {
+        @android.webkit.JavascriptInterface
+        public void pickContact() {
+            runOnUiThread(() -> {
+                if (!ShareUpload.isTrusted(web.getUrl())) return;
+                Intent pick = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+                try { startActivityForResult(pick, PICK_CONTACT); }
+                catch (ActivityNotFoundException e) { toast("No phone contact picker is available."); }
+            });
+        }
+    }
+
+    private void fillContactFromUri(Uri uri) {
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri,
+                new String[] {
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                }, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                String name = cursor.getString(0);
+                String phone = cursor.getString(1);
+                String nameJson = org.json.JSONObject.quote(name == null ? "" : name);
+                String phoneJson = org.json.JSONObject.quote(phone == null ? "" : phone);
+                String script = "window.BillMateContacts&&window.BillMateContacts.nativeFill(" + nameJson + "," + phoneJson + ");";
+                web.evaluateJavascript(script, null);
+            }
+        } catch (Exception e) {
+            toast("Could not read the selected contact.");
+        } finally {
+            if (cursor != null) cursor.close();
+        }
     }
 
     private void openExternal(Uri uri) {
