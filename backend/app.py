@@ -207,6 +207,8 @@ def invoice_pdf():
     it.setStyle(TableStyle(ts)); story += [it,Spacer(1,5*mm)]
 
     totals=[]
+    if data.get('show_tax_breakdown') is True:
+        totals.extend([['Subtotal',m(inv.get('subtotal'))],['Tax',m(inv.get('tax_amount'))]])
     if n(inv.get('discount_amount'))>0: totals.append(['Discount','- '+m(inv.get('discount_amount'))])
     totals.append(['Total Bill (incl. tax)',m(inv.get('total'))]); total_idx=len(totals)-1
     if data.get('show_previous_balance') and n(inv.get('previous_balance')) and inv.get('customer_id'):

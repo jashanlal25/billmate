@@ -59,10 +59,11 @@
       </thead>
       <tbody id="dLines"></tbody>
     </table>
+    <label style="display:flex;align-items:center;gap:7px;margin:10px 0;font-size:.85em;cursor:pointer"><input type="checkbox" data-tax-breakdown-toggle onchange="setTaxBreakdown(this.checked)"> Show subtotal &amp; tax</label>
     <div class="totals">
-      <div style="display:none" class="total-row"><span style="color:var(--sub)">Subtotal</span><span id="dSub"></span></div>
+      <div data-tax-breakdown style="display:none" class="total-row"><span style="color:var(--sub)">Subtotal</span><span id="dSub"></span></div>
       <div class="total-row"><span style="color:var(--sub)">Discount</span><span id="dDisc"></span></div>
-      <div style="display:none" class="total-row"><span style="color:var(--sub)">Tax</span><span id="dTax"></span></div>
+      <div data-tax-breakdown style="display:none" class="total-row"><span style="color:var(--sub)">Tax</span><span id="dTax"></span></div>
       <div class="total-row grand"><span>Total Bill (incl. tax)</span><span id="dTotal"></span></div>
     </div>
     <div class="modal-actions" id="dActions"></div>
@@ -73,6 +74,14 @@
 {% block scripts %}
 {{ super() }}
 <script>
+let _taxBreakdown = false;
+function showTaxBreakdown(){ return _taxBreakdown; }
+function setTaxBreakdown(enabled){
+  _taxBreakdown = !!enabled;
+  document.querySelectorAll('[data-tax-breakdown]').forEach(row=>row.style.display=_taxBreakdown?'flex':'none');
+  document.querySelectorAll('[data-tax-breakdown-toggle]').forEach(input=>input.checked=_taxBreakdown);
+}
+
 var allInvoices=[], currentFilter='all', currentInv=null, shopSettings={};
 var pageOffset=0, pageLimit=100, pageTotal=0;
 
@@ -326,6 +335,7 @@ function buildInvoicePrintHtml(inv, forPdf){
   </table>
   <div class="totals-wrap">
     <table class="totals-table">
+      ${typeof showTaxBreakdown==='function' && showTaxBreakdown()?`<tr><td class="t-label">Subtotal</td><td class="t-val">Rs.${(+inv.subtotal).toFixed(2)}</td></tr><tr><td class="t-label">Tax</td><td class="t-val">Rs.${(+inv.tax_amount).toFixed(2)}</td></tr>`:''}
 
       ${(+inv.discount_amount)>0?`<tr><td class="t-label">Discount</td><td class="t-val">- Rs.${(+inv.discount_amount).toFixed(2)}</td></tr>`:''}
 
