@@ -225,6 +225,7 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="/static/js/contact-picker.js?v=1"></script>
 <script>
 let _taxBreakdown = false;
 function showTaxBreakdown(){ return _taxBreakdown; }
@@ -3089,20 +3090,7 @@ function applyScanResults(){
 // Focus a cart field on the last-added row (q=qty, d=disc, p=retail, t=tp)
 // Contact Picker (mobile)
 async function pickContact(){
-  try{
-    const contacts = await navigator.contacts.select(['tel','name'],{multiple:false});
-    if(contacts && contacts.length){
-      const c = contacts[0];
-      const tel = (c.tel && c.tel[0]) ? c.tel[0].replace(/[\s\-()]/g,'') : '';
-      if(tel) document.getElementById('custPhone').value = tel;
-      if(!document.getElementById('custSearch').value.trim() && c.name && c.name[0]){
-        document.getElementById('custSearch').value = c.name[0];
-      }
-    }
-  }catch(e){}
-}
-if('contacts' in navigator && 'ContactsManager' in window){
-  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+  await BillMateContacts.pick({phoneId:'custPhone', nameId:'custSearch'});
 }
 
 // Column index of each editable cart field (desktop layout: # Item Qty Disc TP Retail Tax Net ⋯)

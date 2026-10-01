@@ -223,6 +223,7 @@ textarea{resize:vertical;min-height:70px}
   </div>
 </div>
 
+<script src="/static/js/contact-picker.js?v=1"></script>
 <script>
 const theme = localStorage.getItem('theme') || 'light';
 if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
@@ -353,20 +354,7 @@ function toggleNav(){document.getElementById('navMenu').classList.toggle('open')
 
 // Contact Picker API (mobile browsers)
 async function pickContact(phoneId, waId){
-  try{
-    const contacts = await navigator.contacts.select(['tel','name'],{multiple:false});
-    if(contacts && contacts.length){
-      const c = contacts[0];
-      const tel = (c.tel && c.tel[0]) ? c.tel[0].replace(/[\s\-()]/g,'') : '';
-      if(tel){
-        document.getElementById(phoneId).value = tel;
-        if(waId) document.getElementById(waId).value = tel;
-      }
-    }
-  }catch(e){ toast('Contact picker not available',true); }
-}
-if('contacts' in navigator && 'ContactsManager' in window){
-  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+  await BillMateContacts.pick({phoneId, whatsappId:waId, nameId:'f_name'});
 }
 
 loadCustomers();

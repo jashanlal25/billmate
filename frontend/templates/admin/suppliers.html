@@ -176,16 +176,7 @@ async function deleteSupplier(id,name){
 function toTitleCase(str){ return str.replace(/(\b\w)/g, c => c.toUpperCase()); }
 
 async function pickContact(phoneId){
-  try{
-    const contacts = await navigator.contacts.select(['tel'],{multiple:false});
-    if(contacts && contacts.length){
-      const tel = (contacts[0].tel && contacts[0].tel[0]) ? contacts[0].tel[0].replace(/[\s\-()]/g,'') : '';
-      if(tel) document.getElementById(phoneId).value = tel;
-    }
-  }catch(e){ toast('Contact picker not available',true); }
-}
-if('contacts' in navigator && 'ContactsManager' in window){
-  document.querySelectorAll('.contact-pick-btn').forEach(b=>b.style.display='inline-flex');
+  await BillMateContacts.pick({phoneId, nameId:'s_name'});
 }
 
 loadSuppliers();
