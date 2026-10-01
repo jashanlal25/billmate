@@ -74,6 +74,30 @@ class VendorImportTest(unittest.TestCase):
         self.upload(admin=True)
         self.assertEqual(Item.query.filter_by(is_global=True).one().vendor_code,'0296')
 
+    def test_invoice_edit_totals_use_new_lines_once(self):
+        self.upload()
+        item=Item.query.one()
+        created=self.client.post('/api/invoices',json={'lines':[
+            {'item_id':item.id,'qty':1,'tp':100,'discount_pct':0,'tax_pct':0}]})
+        self.assertEqual(created.status_code,201)
+        inv=created.json
+        updated=self.client.put('/api/invoices/'+str(inv['id']),json={'lines':[
+            {'item_id':item.id,'qty':2,'tp':100,'discount_pct':10,'tax_pct':12}],
+            'discount_amount':5})
+        self.assertEqual(updated.status_code,200)
+        result=updated.json
+        self.assertEqual(result['subtotal'],180)
+        self.assertEqual(result['tax_amount'],24)
+        self.assertEqual(result['total'],199)
+        self.assertEqual(len(result['lines']),1)
+        self.assertEqual(result['lines'][0]['qty'],2)
+        stock=float(Item.query.one().qty)
+        again=self.client.put('/api/invoices/'+str(inv['id']),json={
+            'lines':result['lines'],'discount_amount':5})
+        self.assertEqual(again.status_code,200)
+        self.assertEqual(again.json['total'],199)
+        self.assertEqual(float(Item.query.one().qty),stock)
+
     def test_invoice_snapshot(self):
         self.upload(); item=Item.query.one()
         r=self.client.post('/api/invoices',json={'lines':[{'item_id':item.id,'qty':2,'tp':100,'discount_pct':4}]})

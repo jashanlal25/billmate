@@ -3664,7 +3664,10 @@ def update_invoice(inv_id):
         line.calculate_line_net()
         db.session.add(line)
 
-    db.session.flush()  # write new lines to DB so inv.lines reloads correctly below
+    db.session.flush()
+    # Flush does not invalidate an already-loaded relationship. Reload the
+    # replacement lines before calculating totals and deducting their stock.
+    db.session.expire(inv, ['lines'])
     inv.recalculate_totals()
     inv.total = round(float(inv.subtotal) + float(inv.tax_amount) - inv.discount_amount, 2)
     db.session.flush()

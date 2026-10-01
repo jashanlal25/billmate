@@ -2640,6 +2640,13 @@ async function deleteInvoice(id){
   else { const e=await r.json(); toast(e.error||'Error',true); }
 }
 
+function invoiceEditMismatch(inv){
+  const calculated = Math.round((inv.lines.reduce((sum,l)=>sum+Number(l.line_net||0)+Number(l.qty||0)*Number(l.tax_pct||0),0)-Number(inv.discount_amount||0))*100)/100;
+  const saved = Number(inv.total);
+  if(!Number.isFinite(saved)||!Number.isFinite(calculated)||Math.abs(calculated-saved)<0.011)return '';
+  return `Saved total: Rs.${saved.toFixed(2)} · Total from saved items: Rs.${calculated.toFixed(2)}. Review the tax and amounts before saving; opening this bill does not change its saved total.`;
+}
+
 function loadIntoBuilder(id){
   const inv = currentInv;
   closeInvModal();
@@ -2670,8 +2677,10 @@ function loadIntoBuilder(id){
   renderLines();
   recalc();
   restoreSupplierBonuses();
+  const mismatch = invoiceEditMismatch(inv);
+  if(mismatch)document.getElementById('savedInvInfo').textContent += ' · ' + mismatch;
   window.scrollTo({top:0, behavior:'smooth'});
-  toast('Invoice loaded — make changes then save');
+  toast(mismatch ? 'Saved total differs from item totals — review before saving' : 'Invoice loaded — make changes then save', !!mismatch);
 }
 
 async function loadIntoBuilderById(id){
