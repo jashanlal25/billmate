@@ -41,11 +41,22 @@ class VendorImportTest(unittest.TestCase):
 
     def test_identity_and_reimport(self):
         self.upload();self.upload(vendor='B');self.upload(code='+021');self.upload(list_no='000053')
-        self.assertEqual(Item.query.count(),4)
+        self.assertEqual(Item.query.count(),3)
+        self.assertEqual(Item.query.filter_by(vendor='A',is_active=True).count(),1)
         self.assertEqual(self.upload(name='RENAMED.',bonus='')['updated'],1)
-        self.assertEqual(Item.query.count(),4)
+        self.assertEqual(Item.query.count(),3)
         i=Item.query.filter_by(vendor='A',vendor_code='0296',vendor_list_no='000052').one()
         self.assertEqual((i.to_dict()['code'],i.vendor_name,i.bonus_text),('0296','RENAMED.',''))
+
+    def test_serial_numbers_are_not_supplier_item_codes(self):
+        def send(names):
+            rows=''.join(f'<tr class="item"><td>{idx}</td><td>{name}</td><td><input></td><td>10%</td><td></td><td>100</td></tr>' for idx,name in enumerate(names,1))
+            return self.client.post('/api/items/import',data={'vendor':'A','file':(io.BytesIO(('<div>List No : 1</div><table>'+rows+'</table>').encode()),'offer.htm')})
+        self.assertEqual(send(['MED A','MED B']).status_code,200)
+        ids={i.name:i.id for i in Item.query.all()}
+        self.assertEqual(send(['MED B','MED A']).json['added'],0)
+        self.assertEqual({i.name:i.id for i in Item.query.all()},ids)
+        self.assertTrue(all(i.vendor_code is None for i in Item.query.all()))
 
     def test_own_stock_import_keeps_message_details_without_creating_supplier(self):
         html = ('<title>Stock List</title><table><tr class="item">'

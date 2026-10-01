@@ -2570,6 +2570,8 @@ def bulk_delete_items():
 def import_items():
     if session.get('is_guest'):
         return jsonify({'error': 'Guests cannot import items.'}), 403
+    if not session.get('user_id'):
+        return jsonify({'error': 'Login required'}), 401
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
     f = request.files['file']
@@ -2602,15 +2604,21 @@ def import_items():
         vendor = os.path.splitext(f.filename)[0].strip().split(' ')[0][:50]
     if own_stock:
         vendor = 'STOCK'
-    # Make sure a supplier record exists for this vendor so it can be messaged later
+    # Serialize imports for this account; list numbers describe versions, not identity.
+    User.query.filter_by(id=uid).with_for_update().first()
+    # Make sure a supplier record exists for this vendor so it can be messaged later.
     if vendor and not own_stock:
         _ensure_supplier(vendor, uid)
-
-    # ── Load all existing user items once (single query) ──────────────────────
-    existing_items = Item.query.filter_by(user_id=uid, is_active=True).all()
+    existing_items = Item.query.filter_by(user_id=uid, is_global=False).all()
+    def _key(value):
+        return re.sub(r'\s+', ' ', value or '').strip().casefold()
+    # Prefer an active stocked row, then an active row, then the oldest archived row.
+    existing_items.sort(key=lambda i: (not i.is_active, not bool(i.qty), i.id))
     # keyed by (name, vendor) so importing the same item from a different
     # vendor creates a new row instead of overwriting the existing one.
-    existing_map = {(item.name.lower(), (item.vendor or '').lower()): item for item in existing_items}
+    existing_map = {}
+    for item in existing_items:
+        existing_map.setdefault((_key(item.name), _key(item.vendor)), item)
     # collect ALL codes (including soft-deleted) to avoid unique constraint violations
     used_codes = {r[0] for r in Item.query.filter_by(user_id=uid).with_entities(Item.code).all()}
     # running counter for new codes
@@ -2642,9 +2650,12 @@ def import_items():
         return float(m.group()) if m else 0.0
 
     added = updated = skipped = alongside_global = 0
-
-    supplier_map = {((i.vendor or '').lower(), i.vendor_list_no or '', i.vendor_code): i
-                    for i in existing_items if i.vendor_code}
+    archived = stock_kept = 0
+    seen_items = set()
+    supplier_map = {}
+    for item in existing_items:
+        if item.vendor_code:
+            supplier_map.setdefault((_key(item.vendor), _key(item.vendor_code)), item)
     def _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source='', stock_qty=0, vendor_code=''):
         nonlocal added, updated, skipped, alongside_global
         original_name = name.strip()
@@ -2652,8 +2663,8 @@ def import_items():
         if not name:
             skipped += 1
             return
-        key = (name.lower(), (vendor or '').lower())
-        supplier_key = (vendor.lower(), vendor_list_no, vendor_code)
+        key = (_key(name), _key(vendor))
+        supplier_key = (_key(vendor), _key(vendor_code))
         item = supplier_map.get(supplier_key) if vendor_code else existing_map.get(key)
         legacy = existing_map.get(key)
         if not item and vendor_code and legacy and not legacy.vendor_code:
@@ -2667,6 +2678,7 @@ def import_items():
                 item.tax_pct = tax_pct
             item.bonus_text = bonus
             item.rate_source = rate_source or None
+            item.is_active = True
             if vendor:
                 item.vendor = vendor
             if stock_qty > 0:
@@ -2691,6 +2703,7 @@ def import_items():
                 alongside_global += 1
             added += 1
 
+        seen_items.add(id(item))
         item.name = original_name
         item.vendor_code = vendor_code or None
         item.vendor_name = original_name
@@ -2710,7 +2723,7 @@ def import_items():
             for row in new_rows:
                 tds = row.find_all('td')
                 if len(tds) < 2:
-                    continue
+                    raise ValueError('Incomplete item row; the previous catalogue was kept')
                 name = tds[1].get_text().strip()
                 tp = float(row.get('data-tp', 0) or 0)
                 disc_pct = float(row.get('data-disc', 0) or 0)
@@ -2727,7 +2740,7 @@ def import_items():
             for row in soup.find_all('tr', class_='item'):
                 tds = row.find_all('td')
                 if len(tds) < 4:
-                    continue
+                    raise ValueError('Incomplete item row; the previous catalogue was kept')
                 if len(tds) >= 8:
                     name     = tds[2].get_text().strip()
                     parsed   = _parse_offer_cell(tds[3].get_text())
@@ -2753,15 +2766,33 @@ def import_items():
                 retail = round(tp / 0.85, 2) if tp and tp > 0 else 0
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct=0,
                         rate_source=rate_source, stock_qty=stock_qty,
-                        vendor_code=tds[1 if len(tds) >= 8 else 0].get_text().strip())
+                        vendor_code=(tds[1 if len(tds) >= 8 else 0].get_text().strip()
+                                     if len(tds) >= 7 else ''))
 
+        if not seen_items:
+            raise ValueError('No valid items found; the previous catalogue was kept')
+        if skipped:
+            raise ValueError('Some item rows are invalid; the previous catalogue was kept')
+        if not own_stock and _key(vendor) != 'stock':
+            # Soft archive only this supplier's imported rows. Historical lines
+            # and IDs stay intact. Never hide stock balances or manual entries.
+            for item in existing_items:
+                if (_key(item.vendor) != _key(vendor) or id(item) in seen_items
+                        or not item.is_active or not (item.vendor_code or item.vendor_list_no)):
+                    continue
+                if item.qty:
+                    stock_kept += 1
+                    continue
+                item.is_active = False
+                archived += 1
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Import failed: {str(e)}'}), 500
 
     return jsonify({'added': added, 'updated': updated, 'skipped': skipped,
-                    'alongside_global': alongside_global, 'own_stock': own_stock})
+                    'alongside_global': alongside_global, 'own_stock': own_stock,
+                    'archived': archived, 'stock_kept': stock_kept})
 
 
 # ── Customers API ─────────────────────────────────────────────────────────────
