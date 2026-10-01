@@ -280,7 +280,7 @@ input[type=number]{-moz-appearance:textfield}
 <div class="overlay" id="importModal" onclick="closeImportOnBg(event)">
   <div class="modal" style="max-width:460px">
     <h2>⬆ Import Items from File</h2>
-    <p style="font-size:.85em;color:var(--sub);margin-bottom:{% if is_guest %}10{% else %}18{% endif %}px">Supports offer list / stock list HTM files. Items with matching names will have their TP, retail, tax &amp; discount updated. New items will be added to your catalogue.</p>
+    <p style="font-size:.85em;color:var(--sub);margin-bottom:{% if is_guest %}10{% else %}18{% endif %}px">A supplier list replaces that supplier’s previous list: matching item codes are updated, new items added, and missing items archived. Items with stock balances stay available. Saved invoices and purchases are preserved. Own-stock imports remain separate.</p>
     {% if is_guest %}<div id="guestQuotaNote" style="font-size:.8em;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#92400e;font-weight:600"></div>{% endif %}
     <div id="importDropZone" style="border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--inp)" onclick="document.getElementById('importFileInput').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
       <div style="font-size:2.5em;margin-bottom:8px">📂</div>
@@ -291,8 +291,8 @@ input[type=number]{-moz-appearance:textfield}
     <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
       <label>Vendor for these items</label>
-      <input id="importVendor" placeholder="e.g. dosani" maxlength="50">
-      <div style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename — edit if needed. Stamped on every item from this file.</div>
+      <input id="importVendor" list="supplierList" placeholder="e.g. dosani" maxlength="50">
+      <div style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
     </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
     <div class="modal-footer" style="margin-top:16px">
@@ -880,7 +880,8 @@ async function doImport(){
     const res = await r.json();
     if(r.ok){
       const globalNote = res.alongside_global > 0 ? ` · ${res.alongside_global} kept alongside global` : '';
-      _showImportResult(true, `${res.own_stock?'Own stock imported':'Done'}! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${globalNote}`);
+      const replaceNote = res.own_stock ? '' : ` · Archived: ${res.archived || 0}${res.stock_kept ? ' · Kept with stock balance: ' + res.stock_kept : ''}`;
+      _showImportResult(true, `${res.own_stock?'Own stock imported':'Done'}! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${replaceNote}${globalNote}`);
       if(window.ShareStore) ShareStore.clearPendingSharedFile();
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);
