@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from html import escape
 from sqlalchemy import func
 from models import (db, User, Settings, Item, Customer, Supplier, Invoice, Purchase,
-                    CustomerPayment, SupplierPayment, WhatsAppConversation, WhatsAppDraft)
+                    CustomerPayment, SupplierPayment, WhatsAppConversation, WhatsAppDraft, WhatsAppPartyNumber)
 
 HOME = 'https://billmate-med.vercel.app'
 LABELS = ['Demand Search', 'Check own stock', 'Compare supplier offers', 'Prepare supplier orders',
@@ -24,7 +24,7 @@ PERMISSIONS = {1:['perm_items'],2:['perm_items'],3:['perm_items'],4:['perm_items
 
 
 def ensure():
-    for model in (WhatsAppConversation, WhatsAppDraft):
+    for model in (WhatsAppConversation, WhatsAppDraft, WhatsAppPartyNumber):
         model.__table__.create(db.engine, checkfirst=True)
 
 
@@ -122,17 +122,33 @@ class Chat:
 
     def party_list(self,query='',page=0):
         mode=self.state['mode'];supplier=mode in (7,10);model=Supplier if supplier else Customer
-        q=model.query.filter_by(user_id=self.uid,is_active=True)
-        if query: q=q.filter(model.name.contains(query,autoescape=True))
-        total=q.count();page=max(0,min(page,max(0,(total-1)//15)))
-        rows=q.order_by(model.name,model.id).offset(page*15).limit(15).all()
-        self.state.update(phase='party',choices=[p.id for p in rows],page=page,query=query)
+        accounts=model.query.filter_by(user_id=self.uid,is_active=True).order_by(model.name,model.id).with_entities(model.id,model.name,model.code).all()
+        # Permanent per-account numbers: new names append rather than renumbering
+        # remembered customers/suppliers. Deleted or inactive numbers aren't reused.
+        kind='supplier' if supplier else 'customer'
+        assigned=WhatsAppPartyNumber.query.filter_by(user_id=self.uid,kind=kind).order_by(WhatsAppPartyNumber.number).all()
+        if {p.id for p in accounts}-{n.entity_id for n in assigned}:
+            User.query.filter_by(id=self.uid).with_for_update().first()
+            assigned=WhatsAppPartyNumber.query.filter_by(user_id=self.uid,kind=kind).order_by(WhatsAppPartyNumber.number).all()
+            known={n.entity_id for n in assigned};last=assigned[-1].number if assigned else 0
+            for p in accounts:
+                if p.id not in known:
+                    last+=1;n=WhatsAppPartyNumber(user_id=self.uid,kind=kind,number=last,entity_id=p.id)
+                    db.session.add(n);assigned.append(n);known.add(p.id)
+            db.session.flush()
+        self.state['party_numbers']=[n.entity_id for n in assigned]
+        by_id={p.id:p for p in accounts}
+        matches=[(n,by_id[iid]) for n,iid in enumerate(self.state['party_numbers'],1)
+                 if iid in by_id and query.casefold() in by_id[iid].name.casefold()]
+        total=len(matches);page=max(0,min(page,max(0,(total-1)//15)))
+        rows=matches[page*15:page*15+15]
+        self.state.update(phase='party',choices=[p.id for n,p in rows],page=page,query=query,numbering_version=3)
         title='Select supplier' if supplier else 'Select customer'
         lines=[title+f' — page {page+1}/{max(1,math.ceil(total/15))}']
         if mode==9: lines.append('0. Walk-in customer')
-        lines += [f'{i}. {p.name} [{p.code or p.id}]' for i,p in enumerate(rows,1)]
+        lines += [f'{n}. {p.name} [{p.code or p.id}]' for n,p in rows]
         if not rows: lines.append('No names found. Try another name.')
-        lines.append('Reply with a number, or type a name to search. next / previous / back / menu')
+        lines.append('Enter any customer/supplier number directly, even from another page, or an account code (e.g. CUST-0017). Type a name to search. next / previous / back / menu')
         return '\n'.join(lines)
 
     def party_options(self):
@@ -263,14 +279,18 @@ class Chat:
         if phase=='party':
             if rows is not None: raise ValueError('Select an account number first.')
             if command in ('next','previous'): return self.done(self.party_list(self.state['query'],self.state['page']+(1 if command=='next' else -1)))
-            choices=self.state['choices'];number=int(text) if text.isdigit() else -1
+            if self.state.get('numbering_version')!=3:
+                return self.done('Numbering has been updated. Use the refreshed list below.\n'+self.party_list(self.state.get('query',''),self.state.get('page',0)))
+            numbers=self.state['party_numbers'];number=int(text) if text.isdigit() else -1
+            model=Supplier if mode in (7,10) else Customer
             if mode==9 and number==0: p=None
-            elif 1<=number<=len(choices):
-                model=Supplier if mode in (7,10) else Customer
-                p=model.query.filter_by(user_id=self.uid,id=choices[number-1],is_active=True).first()
+            elif 1<=number<=len(numbers):
+                p=model.query.filter_by(user_id=self.uid,id=numbers[number-1],is_active=True).first()
                 if not p: raise ValueError('Selected name no longer available.')
-            elif number>=0: raise ValueError('Choose a number from the displayed list.')
-            else: return self.done(self.party_list(text))
+            elif number>=0: raise ValueError('Choose a number from 1 to '+str(len(numbers))+', or search by name/account code.')
+            else:
+                p=model.query.filter(model.user_id==self.uid,model.is_active.is_(True),func.lower(model.code)==text.lower()).first()
+                if not p: return self.done(self.party_list(text))
             self.set(dict(self.state,party_id=p.id if p else None,party_name=p.name if p else 'Walk-in',phase='input'))
             if mode in (6,7): return self.done(self.party_options())
             return self.done('Selected '+self.state['party_name']+'. Send items with quantities, e.g. PANADOL TAB (10).\nback / cancel')

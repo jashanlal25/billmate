@@ -68,6 +68,15 @@ class WhatsAppConversation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
+class WhatsAppPartyNumber(db.Model):
+    __tablename__ = 'whatsapp_party_numbers'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    kind = db.Column(db.String(10), primary_key=True)
+    number = db.Column(db.Integer, primary_key=True)
+    entity_id = db.Column(db.Integer, nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id','kind','entity_id',name='uq_whatsapp_party_number'),)
+
+
 class WhatsAppDraft(db.Model):
     __tablename__ = 'whatsapp_drafts'
     id = db.Column(db.Integer, primary_key=True)

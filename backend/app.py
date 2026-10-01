@@ -83,7 +83,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'max_overflow': 2,
     'connect_args': {'connect_timeout': 10},
 }
-from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft
+from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft, WhatsAppPartyNumber
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -873,6 +873,7 @@ def superadmin_delete_user(uid):
     WhatsAppAgent.__table__.create(db.engine, checkfirst=True)
     WhatsAppConversation.query.filter_by(user_id=uid).delete()
     WhatsAppDraft.query.filter_by(user_id=uid).delete()
+    WhatsAppPartyNumber.query.filter_by(user_id=uid).delete()
     WhatsAppAgent.query.filter_by(user_id=uid).delete()
     CustomerPayment.query.filter_by(user_id=uid).delete()
     SupplierPayment.query.filter_by(user_id=uid).delete()

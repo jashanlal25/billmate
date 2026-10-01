@@ -75,9 +75,36 @@ class ChatTest(unittest.TestCase):
         db.session.add_all(Customer(user_id=1,name=f'Zed {i:02d}') for i in range(20));db.session.commit()
         self.send('6');self.assertIn('page 2/2',self.send('next'))
         self.assertIn('page 1/2',self.send('previous'))
-        self.assertIn('1. Zed 19',self.send('Zed 19'))
-        db.session.expire_all();self.assertIn('Zed 19',self.send('1'))
+        self.assertIn('21. Zed 19',self.send('Zed 19'))
+        db.session.expire_all();self.assertIn('Zed 19',self.send('21'))
         self.assertIn('Select customer',self.send('back'))
+
+    def test_continuous_numbers_and_direct_selection_from_any_page(self):
+        db.session.add_all(Customer(user_id=1,name=f'Zed {i:02d}') for i in range(39));db.session.commit()
+        self.send('6');page=self.send('next');self.assertIn('16. Zed 14',page);self.assertNotIn('\n1. ',page)
+        page=self.send('next');self.assertIn('31. Zed 29',page)
+        self.send('menu');self.send('6');self.assertIn('Zed 29',self.send('31'))
+        self.send('back');self.assertIn('Select customer',self.send('previous'))
+        self.assertIn('Ali',self.send('C-1'))
+
+    def test_supplier_numbers_do_not_restart_and_selection_is_owner_scoped(self):
+        db.session.add_all(Supplier(user_id=1,name=f'Zed {i:02d}',code=f'S-{i+2}') for i in range(20));db.session.commit()
+        self.send('7');self.assertIn('16. Zed 14',self.send('next'))
+        self.send('previous');self.assertIn('Zed 14',self.send('16'))
+        self.send('back');self.assertIn('Choose a number from 1 to 21',self.send('22'))
+
+    def test_number_selection_does_not_shift_if_a_customer_is_added(self):
+        self.send('6')
+        db.session.add(Customer(user_id=1,name='Aaron',code='C-NEW'));db.session.commit()
+        self.assertIn('Ali',self.send('1'))
+        self.send('menu');page=self.send('6')
+        self.assertIn('1. Ali',page);self.assertIn('2. Aaron',page)
+        self.assertIn('Ali',self.send('1'))
+
+    def test_old_page_local_numbers_require_refreshed_list(self):
+        self.send('6');state=self.state();state.pop('numbering_version');state.pop('party_numbers')
+        db.session.get(WhatsAppConversation,(1,'user:owner')).state=json.dumps(state);db.session.commit()
+        answer=self.send('1');self.assertIn('Numbering has been updated',answer);self.assertNotIn('Receivable:',answer)
 
     def test_invoice_pdf_uses_existing_renderer(self):
         self.send('5');self.assertNotIn('SECRET',self.send('1'))

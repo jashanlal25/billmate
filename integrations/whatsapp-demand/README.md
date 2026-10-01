@@ -10,7 +10,13 @@ Supplier inventory imports are reserved for a separate future agent.
 
 Receivables/payables display paginated numbered names; choose a name to see
 its balance, invoices/purchases, payments and statement. `next`, `previous`
-and a name search navigate the list. `back` returns to the previous step,
+and a name search navigate the list. Numbers continue across pages (1–15,
+16–30, 31–45) and can be entered directly from any page. Search results retain
+the full list's numbers. The database keeps permanent per-account customer
+and supplier numbers across conversations/restarts. New accounts append;
+renaming, deactivation or deletion does not reassign an existing number.
+An account code such as `CUST-0017` also selects the named account directly.
+`back` returns to the previous step,
 `menu` returns home and `cancel` discards the current task. Conversations
 persist in the database across runner restarts and expire after 24 hours.
 
