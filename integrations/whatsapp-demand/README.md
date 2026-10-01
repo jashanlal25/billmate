@@ -1,4 +1,49 @@
-# WhatsApp Demand Search pilot
+# WhatsApp BillMate Assistant
+
+## Guided chat menu
+
+Send `menu`, `hi` or `help`, then choose 1–10: Demand Search, own stock,
+supplier comparison, supplier orders, invoice/PDF, customer receivables,
+supplier payables, reports, invoice preparation, purchase preparation.
+An item list sent from the main menu still performs Demand Search directly.
+Supplier inventory imports are reserved for a separate future agent.
+
+Receivables/payables display paginated numbered names; choose a name to see
+its balance, invoices/purchases, payments and statement. `next`, `previous`
+and a name search navigate the list. `back` returns to the previous step,
+`menu` returns home and `cancel` discards the current task. Conversations
+persist in the database across runner restarts and expire after 24 hours.
+
+Orders/drafts require explicit unit quantities and one selected offer per
+demand item. Review candidates require the user's verification. Supplier
+orders/purchases use supplier discounts, never a customer's billing discount;
+missing supplier terms prevent generation. Orders are returned to the agent's
+creator to forward; this integration never contacts suppliers directly.
+
+Saving a preparation requires the preview's unique `confirm CODE` within
+30 minutes. Saved preparations open in the existing Billing/Purchase editors.
+They do not change stock, payments or balances, or post invoices. The user
+reviews and saves the actual bill in the editor. These preparation records
+are separate from invoices/purchases and aren't included in business backups.
+Owner permissions are rechecked on each step and when a draft is opened.
+Invoice PDFs reuse BillMate's existing server renderer.
+
+The private runner credential now grants access to the account's permitted
+assistant features, including financial records and confirmed preparations.
+Keep it private; revoke it by regenerating the configuration or removing
+the agent connection. It cannot import inventory, post bills or make payments.
+
+## Run on your office laptop
+
+Install Node.js 22 or newer. Save `stored-key-runner.cjs` and a private `.env`
+file containing the two generated `BILLMATE_POLL_*` settings in one folder.
+From that folder, run `node --env-file=.env stored-key-runner.cjs`.
+No npm packages, BillMate password or WhatsApp key are needed for this runner.
+Keep the laptop awake and connected, and leave the terminal running. You can
+then chat from your phone away from the office; BillMate's browser need not
+remain open. Stop the trial listener once the laptop runner is active. Restart
+the runner after a laptop restart. A sleeping, shut-down or offline laptop
+cannot process messages. Hosting is not provisioned automatically.
 
 ## Save the key in BillMate
 
@@ -16,8 +61,8 @@ not an always-on hosting service.
 For background replies, generate a private runner configuration on that page,
 set `BILLMATE_POLL_URL` and `BILLMATE_POLL_TOKEN` on a persistent Node 22+ host,
 and run `node stored-key-runner.cjs` (or `npm run start:stored` with `.env`).
-This runner holds only a revocable Demand Search polling credential; the
-WhatsApp key and matching stay server-side in BillMate. Rotate its token or
+This runner holds a revocable Assistant polling credential; the
+WhatsApp key and processing stay server-side in BillMate. Rotate its token or
 remove the connection in BillMate to revoke access. The host must be provided
 separately; saving the key does not provision it.
 
@@ -25,7 +70,9 @@ The Flask server uses QuickJS to run the same matching and text parsing modules
 as the web page. Poll offsets, recent handled message IDs and a database lease
 are saved per account. Failed processing/replies leave the offset unchanged.
 Crashing after a successful delivery but before recording it can still repeat
-a reply; no stock or invoice writes are possible through this integration.
+a reply; business records remain unchanged. A failed delivery rolls back the
+conversation step and any preparation save so retrying cannot leave a hidden
+saved draft.
 
 The connection table is created on first use. `SECRET_KEY` must remain stable;
 changing it requires saving the WhatsApp key again. Stop the trial listener

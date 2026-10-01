@@ -83,7 +83,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'max_overflow': 2,
     'connect_args': {'connect_timeout': 10},
 }
-from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent
+from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -868,6 +868,12 @@ def superadmin_delete_user(uid):
     if not user or user.is_superadmin:
         return jsonify({'error': 'User not found'}), 404
     # Delete all cascading data
+    from whatsapp_chat import ensure as ensure_agent_chat
+    ensure_agent_chat()
+    WhatsAppAgent.__table__.create(db.engine, checkfirst=True)
+    WhatsAppConversation.query.filter_by(user_id=uid).delete()
+    WhatsAppDraft.query.filter_by(user_id=uid).delete()
+    WhatsAppAgent.query.filter_by(user_id=uid).delete()
     CustomerPayment.query.filter_by(user_id=uid).delete()
     SupplierPayment.query.filter_by(user_id=uid).delete()
     for inv in Invoice.query.filter_by(user_id=uid).all():

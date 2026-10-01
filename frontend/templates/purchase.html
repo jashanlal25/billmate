@@ -329,6 +329,19 @@ function toast(msg,err=false){
 function _checkLocked(d){if(d&&d.locked){document.getElementById('_lockedOverlay').style.display='flex';return true;}return false;}
 
 let lines=[], supplier=null, currentViewPurchase=null, purShopSettings={}, editingPurchaseId=null;
+window.addEventListener('load',async()=>{
+  const id=new URLSearchParams(location.search).get('agent_draft');if(!id)return;
+  try{
+    const r=await fetch('/api/whatsapp-agent/drafts/'+encodeURIComponent(id),{cache:'no-store'});
+    if(!r.ok)throw Error('WhatsApp draft unavailable for this account');
+    const d=await r.json();if(d.kind!=='purchase')throw Error('This is an invoice draft');
+    if(lines.length&&!confirm('Replace the current unsaved items with this WhatsApp draft?'))return;
+    selectSupplier(d.payload.party_id,d.payload.party_name,'');
+    editingPurchaseId=null;sourceInvoiceId=null;sourceInvoiceNumber='';activeInvoiceGroup=-1;
+    lines=d.payload.lines.map(l=>({...l,name:l.item_name,qty:+l.qty,tp:+l.tp,retail:+l.retail,disc:+l.discount_pct,tax:+l.tax_pct,currentQty:+l.current_stock||0}));
+    renderLines();toast('WhatsApp purchase draft loaded — verify before saving');
+  }catch(e){toast(e.message,true);}
+});
 let invoiceGroups=[], activeInvoiceGroup=-1, purchaseSaving=false, sourceInvoiceId=null, sourceInvoiceNumber='';
 let invoiceSourceGroups=new Map();
 function isSupplierLine(l){

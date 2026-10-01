@@ -1,4 +1,4 @@
-"""Private agent configuration and bounded, read-only Demand Search processing."""
+"""Private agent configuration and bounded, account-scoped Assistant processing."""
 import base64
 import hashlib
 import io
@@ -12,9 +12,10 @@ from urllib.error import HTTPError
 from urllib.parse import urlparse, quote
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-from flask import jsonify, render_template, request, session
+from flask import jsonify, render_template, request, session, abort
 from cryptography.fernet import Fernet
-from models import db, User, WhatsAppAgent
+from models import db, User, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft
+import whatsapp_chat
 
 API = 'https://api.whatsapp.com/agent/v1'
 MAX_BYTES = 8 * 1024 * 1024
@@ -160,22 +161,67 @@ def reply(token, recipient, text):
     if not isinstance(recipient, str) or not recipient.startswith('user:'):
         raise ValueError('Invalid agent recipient.')
     message = {'messaging_product': 'whatsapp', 'to': recipient}
-    if len(text) <= 4000:
+    attachment = text if isinstance(text, dict) else None
+    if attachment:
+        text = attachment['text']
+    if not attachment and len(text) <= 4000:
         message.update(type='text', text={'body': text})
     else:
         boundary = secrets.token_hex(16)
-        fields = [('messaging_product', 'whatsapp'), ('type', 'text/plain')]
+        mime = attachment['mime'] if attachment else 'text/plain'
+        filename = attachment['filename'] if attachment else 'BillMate-results.txt'
+        content = attachment['file'] if attachment else text.encode()
+        if len(content) > MAX_BYTES:
+            raise ValueError('Result attachment exceeds 8 MB. Use BillMate to download it.')
+        fields = [('messaging_product', 'whatsapp'), ('type', mime)]
         body = b''.join(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode() for name, value in fields)
-        body += f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="BillMate-demand-results.txt"\r\nContent-Type: text/plain\r\n\r\n'.encode()
-        body += text.encode() + f'\r\n--{boundary}--\r\n'.encode()
+        body += f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode()
+        body += content + f'\r\n--{boundary}--\r\n'.encode()
         media = remote(token, '/media', (body, 'multipart/form-data; boundary=' + boundary))
-        message.update(type='document', document={'id': media['id'], 'filename': 'BillMate-demand-results.txt', 'caption': '\n'.join(text.splitlines()[:3])[:1024]})
+        message.update(type='document', document={'id': media['id'], 'filename': filename, 'caption': '\n'.join(text.splitlines()[:3])[:1024]})
     remote(token, '/messages', message)
 
 
 def install(app, frontend, inventory, parse_pdf_table):
     def ensure():
         WhatsAppAgent.__table__.create(db.engine, checkfirst=True)
+        whatsapp_chat.ensure()
+
+    def draft_access(did):
+        ensure()
+        uid = session.get('user_id')
+        user = db.session.get(User, uid) if uid and not session.get('is_guest') else None
+        if not user or user.is_suspended:
+            abort(403)
+        draft = WhatsAppDraft.query.filter_by(id=did, user_id=uid).first_or_404()
+        if not whatsapp_chat.permitted(user, 9 if draft.kind == 'invoice' else 10):
+            abort(403)
+        try:
+            whatsapp_chat.validate_draft(uid,json.loads(draft.payload),draft.kind)
+        except ValueError as error:
+            abort(409,description=str(error))
+        return draft
+
+    @app.route('/whatsapp-drafts/<int:did>')
+    def agent_draft_page(did):
+        draft = draft_access(did)
+        payload = json.loads(draft.payload)
+        response = app.make_response(render_template('whatsapp_draft.html', draft=draft, payload=payload,
+                               summary=whatsapp_chat.draft_summary(payload,draft.kind)))
+        response.headers['Cache-Control']='no-store'
+        return response
+
+    @app.route('/api/whatsapp-agent/drafts/<int:did>')
+    def agent_draft_data(did):
+        draft = draft_access(did)
+        payload=json.loads(draft.payload)
+        from models import Item
+        owned={i.id:float(i.qty or 0) for i in Item.query.filter(Item.user_id==draft.user_id,Item.id.in_([l['item_id'] for l in payload['lines']])).all()}
+        for line in payload['lines']:
+            line['current_stock']=owned.get(line['item_id'],0)
+        response = jsonify(id=draft.id,kind=draft.kind,payload=payload)
+        response.headers['Cache-Control']='no-store'
+        return response
 
     def admin():
         if not session.get('user_id') or session.get('is_guest') or not session.get('is_admin'):
@@ -213,6 +259,7 @@ def install(app, frontend, inventory, parse_pdf_table):
             return jsonify(error='Agent is processing a message. Retry shortly.'), 409
         if request.method == 'DELETE':
             if row:
+                WhatsAppConversation.query.filter_by(user_id=uid).delete()
                 db.session.delete(row); db.session.commit()
             return jsonify(configured=False)
         data = request.get_json(silent=True) or {}
@@ -237,6 +284,7 @@ def install(app, frontend, inventory, parse_pdf_table):
         row.runner_hash = None; row.last_poll = None
         row.ignore_shelf = data.get('ignore_shelf') is True
         row.last_result = 'Key verified. Listener has not started.'
+        WhatsAppConversation.query.filter_by(user_id=uid).delete()
         db.session.commit()
         return jsonify(state(row))
 
@@ -276,26 +324,20 @@ def install(app, frontend, inventory, parse_pdf_table):
                         if message.get('id') in handled:
                             continue
                         try:
+                            chat = whatsapp_chat.Chat(app,frontend,inventory,__import__(__name__),uid,message.get('from'))
+                            chat.agent_row = row
                             if message.get('type') == 'text':
                                 text = message.get('text', {}).get('body', '')
-                                if text.strip().lower() in ('hi', 'hello', 'help', '/help', 'start'):
-                                    answer = 'BillMate Demand is connected. Send your demand as TXT, PDF, HTM/HTML or one item per line with quantity like PANADOL TAB (2). I search supplier lists already saved in your account.'
-                                    rows = None
-                                else:
-                                    rows = parse_text(text, frontend)
+                                answer = chat.process(text)
                             elif message.get('type') == 'document':
                                 rows = document_rows(message, token, frontend, parse_pdf_table)
+                                answer = chat.process(rows=rows)
                             else:
-                                raise ValueError('Send a demand document or paste an item list as text.')
-                            if rows is not None:
-                                if not 1 <= len(rows) <= 2000:
-                                    raise ValueError('Send between 1 and 2,000 demand items.')
-                                results = match_rows(rows, inventory(uid), row.ignore_shelf, frontend)
-                                answer = report(results)
+                                raise ValueError('Send menu, an item list, or a TXT/PDF/HTM demand document.')
                         except ValueError as error:
                             answer = str(error)
                         reply(token, message.get('from'), answer)
-                        row.last_result = answer.splitlines()[0][:200]
+                        row.last_result = (answer['text'] if isinstance(answer,dict) else answer).splitlines()[0][:200]
                         handled.append(message['id']); row.handled = json.dumps(handled[-500:]); db.session.commit()
             if isinstance(update.get('next_offset'), int) and update['next_offset'] >= row.offset:
                 row.offset = update['next_offset']

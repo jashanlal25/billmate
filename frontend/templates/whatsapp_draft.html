@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}WhatsApp Preparation Draft{% endblock %}
+{% block content %}
+<section style="max-width:850px;margin:24px auto;padding:20px;background:var(--card);border-radius:14px">
+  <h2>WhatsApp {{ draft.kind|capitalize }} Draft #{{ draft.id }}</h2>
+  <p>Saved for review. Stock and balances have not changed. Review quantities, supplier, prices and tax before saving in the editor.</p>
+  <pre style="white-space:pre-wrap;font:inherit;line-height:1.8">{{ summary }}</pre>
+  <a class="btn btn-primary" href="{{ '/billing' if draft.kind == 'invoice' else '/purchase' }}?agent_draft={{ draft.id }}">Open in {{ 'Billing' if draft.kind == 'invoice' else 'Purchase' }}</a>
+  <p>This preparation remains available for reference. Opening it again creates another unsaved preparation; check existing bills before saving twice.</p>
+</section>
+{% endblock %}

@@ -1,4 +1,4 @@
-// Keeps server-side Demand Search processing active without copying the agent key.
+// Keeps the account's permitted BillMate Assistant workflows active.
 'use strict';
 const endpoint=process.env.BILLMATE_POLL_URL;
 const token=process.env.BILLMATE_POLL_TOKEN;
@@ -6,7 +6,7 @@ if(!endpoint||!token)throw Error('Set BILLMATE_POLL_URL and BILLMATE_POLL_TOKEN 
 const url=new URL(endpoint);
 if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||!/^\/api\/whatsapp-agent\/runner\/\d+$/.test(url.pathname))throw Error('Invalid BillMate runner URL.');
 (async()=>{
-  console.log('BillMate Demand runner started.');
+  console.log('BillMate Assistant runner started.');
   while(true){
     let delay=6000;
     try{

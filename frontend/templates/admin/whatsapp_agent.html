@@ -3,8 +3,8 @@
 {% block btn_whatsapp_agent %}active{% endblock %}
 {% block content_main %}
 <section style="max-width:660px;margin:0 auto;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:16px">
-  <h2 style="margin:0 0 10px">WhatsApp Demand Agent</h2>
-  <p style="color:var(--sub);line-height:1.6">Connect the agent you created in normal WhatsApp. Send a demand file or item list to search the supplier lists already saved in this BillMate account.</p>
+  <h2 style="margin:0 0 10px">WhatsApp BillMate Assistant</h2>
+  <p style="color:var(--sub);line-height:1.6">Connect your normal WhatsApp agent. Send <strong>menu</strong> for Demand Search, stock lookup, supplier offers and orders, invoice PDFs, customer receivables, supplier payables, reports and preparation drafts. Inventory imports will use a separate agent.</p>
   <label for="agentKey">WhatsApp agent API key</label>
   <input id="agentKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste API key from WhatsApp" style="box-sizing:border-box;width:100%;padding:13px;margin:8px 0;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:10px">
   <p style="font-size:.85em;color:var(--sub)">Saved encrypted for your account. The saved key is never displayed again.</p>
@@ -15,13 +15,13 @@
   </div>
   <p id="agentStatus" role="status" aria-live="polite" style="line-height:1.6">Loading connection…</p>
   <hr style="border:0;border-top:1px solid var(--border);margin:20px 0">
-  <h3>Try Demand Search</h3>
+  <h3>Try the Assistant</h3>
   <p style="color:var(--sub);line-height:1.6">Start the trial listener, then send <strong>help</strong> or a small TXT/PDF demand file in WhatsApp. Keep this page open for the trial. Closing or suspending it stops reliable listening.</p>
   <button id="listenAgent" class="btn btn-primary">Start Trial Listener</button>
   <p id="listenerStatus" role="status" aria-live="polite"></p>
   <details style="margin-top:22px">
     <summary style="cursor:pointer">Replies when BillMate is closed</summary>
-    <p style="color:var(--sub);line-height:1.6">An always-on runner must be hosted to keep processing messages after you leave this page. Saving the key does not activate background hosting. The runner connection below can only process this account’s Demand Search; it does not reveal the WhatsApp key.</p>
+    <p style="color:var(--sub);line-height:1.6">Run the listener on your awake, internet-connected laptop to keep replies working while you are away. Saving the key does not start a runner. This private runner can access this account’s permitted assistant features, including balances and invoice PDFs, and save confirmed preparation drafts. It cannot post bills, record payments or import inventory, and does not reveal the WhatsApp key.</p>
     <button id="runnerConfig" class="btn">Generate Runner Configuration</button>
     <div id="runnerBox" hidden>
       <p>Paste this private configuration into the hosted runner’s environment settings. Generating it again disables the previous runner token.</p>
@@ -56,7 +56,7 @@
   function stop(){listening=false;clearTimeout(timer);$('listenAgent').textContent='Start Trial Listener';$('listenerStatus').textContent='Trial listener stopped. A hosted runner is needed for background replies.';}
   async function poll(){
     if(!listening)return;
-    try{show(await api('/poll','POST',{}));$('listenerStatus').textContent='Trial listener running. Send a demand to your WhatsApp agent.';}
+    try{show(await api('/poll','POST',{}));$('listenerStatus').textContent='Trial listener running. Send menu to your WhatsApp agent.';}
     catch(error){$('listenerStatus').textContent=error.message;if(error.code===403){stop();return;}}
     if(listening)timer=setTimeout(poll,6000);
   }

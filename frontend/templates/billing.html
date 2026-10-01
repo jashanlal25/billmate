@@ -826,6 +826,7 @@ let addOnTop = true;  // true = new items at top, false = new items at bottom
 let showBonus = false; // false = hide bonus text in cart rows, true = show + editable
 // Auto-draft: persist an in-progress bill to the server so a refresh never loses it
 let _autoDraftId = null;       // server id of the draft we keep updating
+let _agentPreparation = false; // chat preparations stay read-only until explicit Save
 let _autoDraftTimer = null;    // debounce timer
 let _autoDraftSaving = false;  // guard against overlapping auto-saves
 let _billFinalised = false;    // true once user clicks Save/Draft → stop auto-drafting
@@ -1017,13 +1018,29 @@ if(preselEdit){
   // No specific invoice/customer requested → restore an unsaved auto-draft if any.
   // Deferred so the const declarations further down have initialised (avoids TDZ).
   window.addEventListener('load', async()=>{
-    try{await restoreAutoDraft();}catch(e){}
+    try{if(urlParams.get('agent_draft'))await importAgentDraft(urlParams.get('agent_draft'));else await restoreAutoDraft();}catch(e){toast(e.message||'Could not load WhatsApp draft',true);}
     if(urlParams.get('demand_selection')==='1')await importDemandSelection();
   });
 }
 
 function toTitleCase(str){
   return str.replace(/(\b\w)/g, c => c.toUpperCase());
+}
+
+async function importAgentDraft(id){
+  const r=await fetch('/api/whatsapp-agent/drafts/'+encodeURIComponent(id),{cache:'no-store'});
+  if(!r.ok)throw Error('WhatsApp draft unavailable for this account');
+  const d=await r.json();if(d.kind!=='invoice')throw Error('This is a purchase draft');
+  if(lines.length&&!confirm('Replace the current unsaved items with this WhatsApp draft?'))return;
+  const p=d.payload;
+  customer=p.party_id?{id:p.party_id,name:p.party_name}:null;
+  document.getElementById('custSearch').value=p.party_name==='Walk-in'?'':p.party_name;
+  document.getElementById('discountInp').value='0.00';
+  clearTimeout(_autoDraftTimer);_agentPreparation=true;
+  savedInvoiceId=null;_autoDraftId=null;
+  lines=p.lines.map(l=>({...l,qty:+l.qty,tp:+l.tp,retail:+l.retail,disc:+l.discount_pct,tax:+l.tax_pct,bonus:l.bonus_text||'',lineNet:0}));
+  document.getElementById('savedInvInfo').textContent='WhatsApp preparation #'+d.id+' — review before saving';
+  renderLines();recalc();toast('WhatsApp draft loaded for review');
 }
 
 // Item cache (localStorage, keyed by user + date for midnight auto-expiry)
@@ -1673,7 +1690,7 @@ function _autoDraftPayload(){
 }
 // Schedule a debounced auto-save (called from renderLines on every cart change)
 function scheduleAutoDraft(){
-  if(IS_GUEST || _billFinalised) return;
+  if(IS_GUEST || _billFinalised || _agentPreparation) return;
   // Only auto-draft a brand-new bill in progress, not one already saved/loaded for edit
   if(savedInvoiceId) return;
   clearTimeout(_autoDraftTimer);
@@ -1682,7 +1699,7 @@ function scheduleAutoDraft(){
 const _AUTODRAFT_KEY = 'billing_autodraft_id_{{ session.username or "guest" }}';
 function _rememberAutoDraft(id){ try{ id?localStorage.setItem(_AUTODRAFT_KEY,String(id)):localStorage.removeItem(_AUTODRAFT_KEY); }catch(e){} }
 async function _autoDraftSave(){
-  if(IS_GUEST || _billFinalised || savedInvoiceId) return;
+  if(IS_GUEST || _billFinalised || savedInvoiceId || _agentPreparation) return;
   if(!lines.length || _autoDraftSaving || _billSaving) return;
   _autoDraftSaving = true;
   try{
@@ -1808,7 +1825,7 @@ function _consumeAutoDraft(){
 }
 // Flush on tab close/refresh as a best-effort safety net (keepalive lets it complete)
 window.addEventListener('beforeunload', function(){
-  if(IS_GUEST || _billFinalised || savedInvoiceId || !lines.length) return;
+  if(IS_GUEST || _billFinalised || savedInvoiceId || !lines.length || _agentPreparation) return;
   try{
     const url = _autoDraftId ? `/api/invoices/${_autoDraftId}` : '/api/invoices';
     fetch(url,{method:_autoDraftId?'PUT':'POST',headers:{'Content-Type':'application/json'},
@@ -2102,6 +2119,7 @@ function sendAllVendorMessages(){
 function printBill(){window.print();}
 
 function newBill(){
+  _agentPreparation=false;
   clearTimeout(_autoDraftTimer);
   _autoDraftId=null; _autoDraftSaving=false; _billFinalised=false;
   _rememberAutoDraft(null);
@@ -2815,7 +2833,7 @@ document.addEventListener('focusout',e=>{
       _logoutPending = true;
       document.getElementById('idleModal').classList.remove('open');
       // Auto-save draft if invoice is in progress
-      if(lines.length > 0){
+      if(lines.length > 0 && !_agentPreparation){
         if(IS_GUEST){
           _guestSave(true);
         } else {
@@ -2838,7 +2856,7 @@ document.addEventListener('focusout',e=>{
     } else if(idle >= WARN_AT){
       const secs = Math.ceil((IDLE_LIMIT - idle) / 1000);
       document.getElementById('idleCountdown').textContent = secs;
-      document.getElementById('idleDraftNote').style.display = lines.length ? 'block' : 'none';
+      document.getElementById('idleDraftNote').style.display = lines.length && !_agentPreparation ? 'block' : 'none';
       document.getElementById('idleModal').classList.add('open');
     }
   }, 5000);

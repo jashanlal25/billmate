@@ -60,6 +60,24 @@ class WhatsAppAgent(db.Model):
     lease_until = db.Column(db.DateTime, nullable=True)
 
 
+class WhatsAppConversation(db.Model):
+    __tablename__ = 'whatsapp_conversations'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    recipient = db.Column(db.String(200), primary_key=True)
+    state = db.Column(db.Text, default='{}', nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WhatsAppDraft(db.Model):
+    __tablename__ = 'whatsapp_drafts'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    confirmation_id = db.Column(db.String(64), unique=True, nullable=False)
+    kind = db.Column(db.String(20), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 class GuestLimit(db.Model):
     __tablename__ = 'guest_limits'
 
