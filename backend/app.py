@@ -3557,6 +3557,15 @@ def customer_balance(cust_id, uid=None):
     paid = float(paid_q.scalar() or 0)
     return round(opening + net - paid, 2)
 
+def balance_before_invoice(inv):
+    """Current customer balance without this invoice's own unpaid amount."""
+    if not inv.customer_id:
+        return 0.0
+    balance = customer_balance(inv.customer_id, inv.user_id)
+    if inv.status in ('posted', 'finalised'):
+        balance -= float(inv.total or 0) - float(inv.amount_paid or 0)
+    return round(balance, 2)
+
 def supplier_balance(sup_id, uid=None):
     """Unified supplier balance: opening_balance + purchases - payments."""
     s = Supplier.query.get(sup_id)
@@ -3697,6 +3706,7 @@ def get_invoice(inv_id):
     if not uid or inv.user_id != uid:
         return jsonify({'error': 'Access denied'}), 403
     d = inv.to_dict()
+    d['edit_previous_balance'] = balance_before_invoice(inv)
     # Phone: prefer the number saved at billing time, fall back to customer record
     if inv.customer_phone_snap:
         d['customer_phone'] = inv.customer_phone_snap
@@ -3793,6 +3803,11 @@ def update_invoice(inv_id):
             if c:
                 net_due = round(float(inv.total) - inv.amount_paid, 2)
                 c.balance = round(float(c.balance or 0) + net_due, 2)
+
+    # A draft may have been created before the customer was picked. Refresh the
+    # snapshot on explicit save, excluding this invoice when editing a posted one.
+    if not is_auto_draft:
+        inv.previous_balance = balance_before_invoice(inv)
 
     db.session.commit()
     return jsonify(inv.to_dict())
@@ -3897,6 +3912,7 @@ def post_invoice(inv_id):
     if inv.status in ('posted', 'finalised', 'cancelled'):
         return jsonify({'error': 'Invoice is already saved or finalised'}), 400
     data = request.get_json(silent=True) or {}
+    inv.previous_balance = balance_before_invoice(inv)
     amount_paid = round(float(data.get('amount_paid', 0) or 0), 2)
     inv.amount_paid = amount_paid
     inv.status = 'posted'

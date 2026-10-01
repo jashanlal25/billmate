@@ -1756,6 +1756,10 @@ async function restoreAutoDraft(){
     if(inv.status !== 'draft' || !inv.lines || !inv.lines.length){ _rememberAutoDraft(null); return; }
     _autoDraftId = inv.id;            // keep it as a LIVE auto-draft (not savedInvoiceId)
     customer = inv.customer_id ? {id:inv.customer_id, name:inv.customer_name} : null;
+    currentOutstanding=customer ? Number(inv.edit_previous_balance ?? inv.previous_balance ?? 0) : 0;
+    if(!Number.isFinite(currentOutstanding))currentOutstanding=0;
+    document.getElementById('pbShowChk').checked=true;
+    document.getElementById('pbIncludeChk').checked=(currentOutstanding!==0);
     document.getElementById('custSearch').value = inv.customer_name==='Walk-in' ? '' : inv.customer_name;
     document.getElementById('discountInp').value = (+inv.discount_amount).toFixed(2);
     lines = inv.lines.map(l=>({item_id:l.item_id,item_name:l.item_name,item_code:l.item_code||'',
@@ -2015,9 +2019,10 @@ function shareWhatsApp(){
   if(showTaxBreakdown())msg += `\nSubtotal: Rs.${sub.toFixed(2)}\nTax: Rs.${tax.toFixed(2)}`;
   if(disc>0) msg += `\nDiscount: -Rs.${disc.toFixed(2)}`;
   msg += `\n*Total Bill (incl. tax): Rs.${total.toFixed(2)}*`;
-  if(_psShowBalance() && currentOutstanding>0){
-    msg += `\nPrev Balance: Rs.${currentOutstanding.toFixed(2)}`;
-    msg += `\n*Grand Total: Rs.${(currentOutstanding+total).toFixed(2)}*`;
+  const savedBalance=Number(inv.previous_balance)||0;
+  if(_psShowBalance() && savedBalance>0){
+    msg += `\nPrev Balance: Rs.${savedBalance.toFixed(2)}`;
+    msg += `\n*Grand Total: Rs.${(savedBalance+total).toFixed(2)}*`;
   }
   if(settings.phone) msg += `\n\n${settings.shop_name||''} · ${settings.phone}`;
   const cphone = (document.getElementById('custPhone').value.trim()||(customer?(customer.whatsapp||customer.phone||''):'')).replace(/[^\d]/g,'');
@@ -2151,6 +2156,8 @@ function newBill(){
   _autoDraftId=null; _autoDraftSaving=false; _billFinalised=false;
   _rememberAutoDraft(null);
   lines=[];customer=null;savedInvoiceId=null;currentOutstanding=0;showingCustInv=false;
+  document.getElementById('pbShowChk').checked=true;
+  document.getElementById('pbIncludeChk').checked=true;
   document.getElementById('billLineSearch').value='';
   document.getElementById('custSearch').value='';
   document.getElementById('custPhone').value='';
@@ -2711,6 +2718,13 @@ function loadIntoBuilder(id){
   closeInvModal();
   // Load customer
   customer = inv.customer_id ? {id: inv.customer_id, name: inv.customer_name, phone: inv.customer_phone||'', whatsapp: inv.customer_whatsapp||''} : null;
+  currentOutstanding = customer ? Number(inv.edit_previous_balance ?? inv.previous_balance ?? 0) : 0;
+  if(!Number.isFinite(currentOutstanding)) currentOutstanding=0;
+  document.getElementById('pbShowChk').checked=true;
+  document.getElementById('pbIncludeChk').checked=(currentOutstanding!==0);
+  document.getElementById('pbEditChk').checked=false;
+  document.getElementById('pbEditRow').style.display='none';
+  document.getElementById('custInvBtn').style.display=customer?'block':'none';
   document.getElementById('custSearch').value = inv.customer_name === 'Walk-in' ? '' : inv.customer_name;
   const editPhone = (inv.customer_phone_snap||inv.customer_whatsapp||inv.customer_phone||'');
   document.getElementById('custPhone').value = editPhone;
