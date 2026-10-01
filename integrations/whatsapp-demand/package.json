@@ -1,0 +1,8 @@
+{
+  "name": "billmate-whatsapp-demand-pilot",
+  "private": true,
+  "version": "0.1.0",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node --env-file=.env worker.cjs", "test": "node --test tests.cjs" },
+  "dependencies": { "jsdom": "26.1.0" }
+}
