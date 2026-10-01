@@ -1062,24 +1062,31 @@ if(!_cacheGet()){
 
 // Item search
 let itemTimer, lastQuery='';
+// Stock belongs to this shop even when its original vendor name is retained.
+// Keep the existing name order within both groups.
+function _stockFirst(items){
+  const available=[], other=[];
+  for(const item of items) (Number(item.qty)>0 ? available : other).push(item);
+  return available.concat(other);
+}
 // Instant local filter over the cached catalog (no network).
 function _searchCache(q){
   const all = _cacheGet();
   if(!all || !all.length) return null;     // no cache yet → caller falls back to server
   const ql = q.toLowerCase();
-  const hits = all.filter(i => ((i.name||'')+' '+(i.code||'')).toLowerCase().includes(ql)).slice(0, 50);
+  const hits = _stockFirst(all.filter(i => ((i.name||'')+' '+(i.code||'')).toLowerCase().includes(ql))).slice(0, 50);
   if(IS_GUEST){
     const localItems = GuestStore.searchItems(q);
-    return [...localItems, ...hits.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
+    return _stockFirst([...localItems, ...hits.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))]);
   }
   return hits;
 }
 async function _fetchItems(q){
   // Fetch from server (authoritative for stock qty)
   const serverItems = await fetch('/api/items?q='+encodeURIComponent(q)).then(r=>r.json());
-  if(!IS_GUEST) return serverItems;
+  if(!IS_GUEST) return _stockFirst(serverItems);
   const localItems=GuestStore.searchItems(q);
-  return [...localItems,...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
+  return _stockFirst([...localItems,...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))]);
 }
 
 function _renderItemDropdown(items, q){
