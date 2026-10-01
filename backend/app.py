@@ -83,7 +83,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'max_overflow': 2,
     'connect_args': {'connect_timeout': 10},
 }
-from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment
+from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -434,6 +434,9 @@ def get_or_create_user_settings(user_id=None):
 def check_auth():
     session.permanent = True
     path = request.path
+    if path.startswith('/api/whatsapp-agent/runner/'):
+        # The narrowly scoped runner route verifies its own per-account token.
+        return
     # Always allow auth routes, static, and public API
     if path.startswith('/auth') or path.startswith('/static') or path == '/':
         return
@@ -2000,8 +2003,13 @@ def delete_category(cid):
 def get_items():
     q = request.args.get('q', '').strip()
     uid = session.get('user_id')
+    if session.get('is_superadmin') or session.get('is_guest'):
+        uid = None
+    return jsonify(agent_inventory(uid, q))
+
+def agent_inventory(uid, q=''):
     # Superadmin + guests see only global items; regular users see own + global
-    if session.get('is_superadmin') or session.get('is_guest') or not uid:
+    if not uid:
         query = Item.query.filter_by(is_active=True, is_global=True)
     else:
         query = Item.query.filter_by(is_active=True).filter(
@@ -2030,7 +2038,7 @@ def get_items():
                 if ov.tax_pct is not None:      d['tax_pct']      = float(ov.tax_pct)
                 if ov.bonus_text is not None:   d['bonus_text']   = ov.bonus_text
         result.append(d)
-    return jsonify(result)
+    return result
 
 @app.route('/api/items', methods=['POST'])
 def add_item():
@@ -4496,6 +4504,9 @@ def create_superadmin_cmd():
     db.session.commit()
     click.echo('Superadmin created: username=Admin  password=2525')
 
+
+from whatsapp_agent import install as install_whatsapp_agent
+install_whatsapp_agent(app, _frontend, agent_inventory, _parse_demand_pdf_table)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)

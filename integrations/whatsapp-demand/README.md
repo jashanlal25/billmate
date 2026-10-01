@@ -1,5 +1,41 @@
 # WhatsApp Demand Search pilot
 
+## Save the key in BillMate
+
+Open **Admin → WhatsApp Agent**, paste the key into the password field and press
+**Save & Verify Key**. BillMate verifies it with WhatsApp, encrypts it using the
+stable server `SECRET_KEY`, and stores it for the signed-in account. No account
+password is needed for this mode, and no plaintext agent key is returned by the
+setup/status APIs or included in data backups.
+
+For a live trial, click **Start Trial Listener** and keep the page open while
+you send a demand in WhatsApp. The page checks for messages every six seconds.
+Suspending the page on mobile can suspend processing. The listener is a trial,
+not an always-on hosting service.
+
+For background replies, generate a private runner configuration on that page,
+set `BILLMATE_POLL_URL` and `BILLMATE_POLL_TOKEN` on a persistent Node 22+ host,
+and run `node stored-key-runner.cjs` (or `npm run start:stored` with `.env`).
+This runner holds only a revocable Demand Search polling credential; the
+WhatsApp key and matching stay server-side in BillMate. Rotate its token or
+remove the connection in BillMate to revoke access. The host must be provided
+separately; saving the key does not provision it.
+
+The Flask server uses QuickJS to run the same matching and text parsing modules
+as the web page. Poll offsets, recent handled message IDs and a database lease
+are saved per account. Failed processing/replies leave the offset unchanged.
+Crashing after a successful delivery but before recording it can still repeat
+a reply; no stock or invoice writes are possible through this integration.
+
+The connection table is created on first use. `SECRET_KEY` must remain stable;
+changing it requires saving the WhatsApp key again. Stop the trial listener
+before rotating or removing a key. A database lease prevents overlapping
+listeners from processing one connection simultaneously.
+
+Route tests: `python -m unittest discover -s tests -p test_whatsapp_agent.py`.
+
+## Original direct worker
+
 Uses the consumer WhatsApp **Settings → Agents** feature, not WhatsApp Business.
 Send a demand document or paste a demand list; the worker searches inventory
 already visible to the configured BillMate account using the existing web matcher.

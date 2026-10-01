@@ -47,6 +47,19 @@ class SystemConfig(db.Model):
     value = db.Column(db.String(200), nullable=False)
 
 
+class WhatsAppAgent(db.Model):
+    __tablename__ = 'whatsapp_agents'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    encrypted_key = db.Column(db.Text, nullable=False)
+    offset = db.Column(db.BigInteger, default=0, nullable=False)
+    handled = db.Column(db.Text, default='[]', nullable=False)
+    runner_hash = db.Column(db.String(64), nullable=True)
+    ignore_shelf = db.Column(db.Boolean, default=False)
+    last_poll = db.Column(db.DateTime, nullable=True)
+    last_result = db.Column(db.String(200), nullable=True)
+    lease_until = db.Column(db.DateTime, nullable=True)
+
+
 class GuestLimit(db.Model):
     __tablename__ = 'guest_limits'
 

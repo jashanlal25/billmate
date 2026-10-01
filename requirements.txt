@@ -11,3 +11,5 @@ google-genai>=1.0.0
 Pillow>=10.0.0
 
 reportlab>=4.0.0
+cryptography>=44.0.0
+quickjs==1.19.4

@@ -5,3 +5,5 @@ flask-sqlalchemy>=3.0.0
 flask-migrate>=4.0.5
 psycopg2-binary>=2.9.0
 python-dotenv>=1.0.0
+cryptography>=44.0.0
+quickjs==1.19.4
