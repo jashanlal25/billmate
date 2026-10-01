@@ -1083,10 +1083,19 @@ function _searchCache(q){
 }
 async function _fetchItems(q){
   // Fetch from server (authoritative for stock qty)
-  const serverItems = await fetch('/api/items?q='+encodeURIComponent(q)).then(r=>r.json());
-  if(!IS_GUEST) return _stockFirst(serverItems);
+  const [serverItems, billedItems] = await Promise.all([
+    fetch('/api/items?q='+encodeURIComponent(q)).then(r=>r.json()),
+    IS_GUEST ? Promise.resolve([]) : fetch('/api/items/history?q='+encodeURIComponent(q))
+      .then(r=>r.ok?r.json():[]).catch(()=>[])
+  ]);
+  const keys=new Set(serverItems.map(i=>[i.name,i.code,i.vendor].map(v=>String(v||'').trim().toLowerCase()).join('|')));
+  const catalogAndHistory=serverItems.concat(billedItems.filter(i=>{
+    const key=[i.name,i.code,i.vendor].map(v=>String(v||'').trim().toLowerCase()).join('|');
+    return !keys.has(key);
+  }));
+  if(!IS_GUEST) return _stockFirst(catalogAndHistory);
   const localItems=GuestStore.searchItems(q);
-  return _stockFirst([...localItems,...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))]);
+  return _stockFirst([...localItems,...catalogAndHistory.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))]);
 }
 
 function _renderItemDropdown(items, q){
@@ -1100,10 +1109,10 @@ function _renderItemDropdown(items, q){
   dd.innerHTML=items.map(i=>{
     const qty=+(i.qty||0);
     const qtyColor=qty<=0?'color:#ef4444;font-weight:700':qty<=5?'color:#f59e0b;font-weight:600':'color:#10b981;font-weight:600';
-    const qtyStr=qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
+    const qtyStr=i.historical?'Stock unknown':qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
     return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
-      <div class="dd-meta">TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Supplier bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${qtyColor}">Stock: ${qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}${i.vendor_list_no?' · List '+esc(i.vendor_list_no):''}</span>`:''}</div>
+      <div class="dd-meta">${i.historical?`<strong>Previous bill ${esc(i.previous_invoice||'')}</strong> &nbsp;|&nbsp; `:''}TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Supplier bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${i.historical?'color:var(--sub)':qtyColor}">${i.historical?qtyStr:'Stock: '+qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}${i.vendor_list_no?' · List '+esc(i.vendor_list_no):''}</span>`:''}</div>
     </div>`;
   }).join('')+addRow;
   dd.classList.add('open');
@@ -1124,7 +1133,7 @@ async function searchItem(q){
       const items=await _fetchItems(q);
       if(q===lastQuery){
         _renderItemDropdown(items,q);
-        if(items.length && !IS_GUEST) _cacheSet(_mergeCache(items));
+        if(items.length && !IS_GUEST) _cacheSet(_mergeCache(items.filter(i=>!i.historical)));
       }
     }catch(e){ /* offline — cached results already shown */ }
   },300);
@@ -1239,7 +1248,8 @@ function addLine(item){
   document.getElementById('itemDropdown').classList.remove('open');
   document.getElementById('itemSearch').value='';
   // If already in list, just bump qty
-  const existingIdx=lines.findIndex(l=>l.item_id===item.id);
+  const existingIdx=lines.findIndex(l=>item.id!=null ? l.item_id===item.id :
+    item.historical && l.historical && l.item_name.toLowerCase()===item.name.toLowerCase() && l.vendor===item.vendor);
   if(existingIdx!==-1){
     lines[existingIdx].qty++;
     calcLine(lines[existingIdx]);
@@ -1251,7 +1261,7 @@ function addLine(item){
     disc:+item.discount_pct, bonus:'', supplierBonus:item.bonus_text||'', tax:+item.tax_pct,
     rate_source:item.rate_source||'',
     vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
-    is_global:!!item.is_global,
+    is_global:!!item.is_global, historical:!!item.historical,
     lineNet:0
   };
   calcLine(line);

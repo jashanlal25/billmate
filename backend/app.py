@@ -2014,6 +2014,49 @@ def get_items():
         uid = None
     return jsonify(agent_inventory(uid, q))
 
+@app.route('/api/items/history', methods=['GET'])
+def get_billed_items():
+    """Suggest previously billed items missing from today's supplier catalog."""
+    uid = session.get('user_id')
+    q = request.args.get('q', '').strip()[:100]
+    if not uid or len(q) < 2:
+        return jsonify([])
+    rows = (db.session.query(InvoiceLine, Invoice.invoice_number)
+            .join(Invoice, Invoice.id == InvoiceLine.invoice_id)
+            .filter(Invoice.user_id == uid,
+                    Invoice.status.notin_(['deleted', 'cancelled']),
+                    ~Invoice.invoice_number.like('DRAFT-%'),
+                    sa.or_(InvoiceLine.item_name.ilike(f'%{q}%'),
+                           InvoiceLine.item_code.ilike(f'%{q}%')))
+            .order_by(Invoice.id.desc(), InvoiceLine.id.desc())
+            .limit(200).all())
+    result, seen = [], set()
+    for line, invoice_number in rows:
+        name = (line.item_name or '').strip()
+        if not name:
+            continue
+        key = (name.casefold(), (line.item_code or '').casefold(),
+               (line.vendor or '').casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append({
+            'id': None, 'name': name, 'code': line.item_code or '',
+            'tp': float(line.tp or 0), 'retail_price': 0,
+            'discount_pct': float(line.discount_pct or 0),
+            'tax_pct': float(line.tax_pct or 0), 'bonus_text': '',
+            'qty': 0, 'historical': True, 'previous_invoice': invoice_number,
+            'rate_source': line.rate_source or '', 'vendor': line.vendor or '',
+            'vendor_code': line.vendor_code or '',
+            'vendor_name': line.vendor_name or '',
+            'vendor_list_no': line.vendor_list_no or '',
+            'vendor_discount_pct': (float(line.vendor_discount_pct)
+                                    if line.vendor_discount_pct is not None else None),
+        })
+        if len(result) >= 20:
+            break
+    return jsonify(result)
+
 def agent_inventory(uid, q=''):
     # Superadmin + guests see only global items; regular users see own + global
     if not uid:
