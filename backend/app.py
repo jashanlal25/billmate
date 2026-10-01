@@ -64,7 +64,7 @@ app.secret_key = _secret
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
-app.config['PERMANENT_SESSION_LIFETIME'] = 600  # 10 minutes (frontend enforces 5-min idle logout)
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 60 minutes; explicit logout clears the session immediately
 
 # Database — must be set via DATABASE_URL environment variable
 _db_url = os.environ.get('DATABASE_URL', '')

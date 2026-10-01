@@ -2791,8 +2791,8 @@ document.addEventListener('focusout',e=>{
 
 // ── Idle session timeout ──────────────────────────────────────────────────
 (function(){
-  const IDLE_LIMIT = 5 * 60 * 1000;  // 5 min until logout
-  const WARN_AT    = IDLE_LIMIT - 60 * 1000;  // warn at 4 min (60s before)
+  const IDLE_LIMIT = 60 * 60 * 1000;  // 60 min until logout
+  const WARN_AT    = IDLE_LIMIT - 60 * 1000;  // warn at 59 min (60s before)
   let _last = Date.now();
   let _logoutPending = false;
 
