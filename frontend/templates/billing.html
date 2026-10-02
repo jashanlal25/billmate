@@ -223,6 +223,20 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu>.user-name{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:10px 14px;border:0;border-radius:12px;background:rgba(102,126,234,.18);color:#a5b4fc;font:inherit;font-weight:700;cursor:pointer}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
+
+/* Modern confirmation dialog — stays inside the BillMate UI/WebView. */
+#bmConfirmOverlay{display:none;position:fixed;inset:0;z-index:10050;background:rgba(4,8,20,.68);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:20px}
+#bmConfirmOverlay.open{display:flex}
+#bmConfirmCard{width:min(92vw,430px);background:var(--card,#1e1e2e);color:var(--text,#e0e0e0);border:1px solid rgba(255,255,255,.10);border-radius:22px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.48);animation:bmConfirmIn .16s ease-out}
+#bmConfirmIcon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,.14);color:#f59e0b;font-size:22px;margin-bottom:14px}
+#bmConfirmTitle{font-size:1.12rem;font-weight:750;margin-bottom:8px;color:var(--text,#e0e0e0)}
+#bmConfirmMessage{font-size:.92rem;line-height:1.55;color:var(--sub,#aaa);white-space:pre-line}
+#bmConfirmActions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.bm-confirm-btn{min-width:92px;padding:11px 18px;border-radius:11px;border:1px solid var(--border,#333);font:inherit;font-weight:700;cursor:pointer}
+.bm-confirm-cancel{background:transparent;color:var(--text,#e0e0e0)}
+.bm-confirm-ok{border-color:#667eea;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+@keyframes bmConfirmIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:480px){#bmConfirmCard{padding:20px;border-radius:19px}.bm-confirm-btn{flex:1}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
@@ -1037,7 +1051,7 @@ async function importAgentDraft(id){
   const r=await fetch('/api/whatsapp-agent/drafts/'+encodeURIComponent(id),{cache:'no-store'});
   if(!r.ok)throw Error('WhatsApp draft unavailable for this account');
   const d=await r.json();if(d.kind!=='invoice')throw Error('This is a purchase draft');
-  if(lines.length&&!confirm('Replace the current unsaved items with this WhatsApp draft?'))return;
+  if(lines.length&&!(await BMConfirm('Replace the current unsaved items with this WhatsApp draft?','Replace unsaved bill?')))return;
   const p=d.payload;
   customer=p.party_id?{id:p.party_id,name:p.party_name}:null;
   document.getElementById('custSearch').value=p.party_name==='Walk-in'?'':p.party_name;
@@ -2300,7 +2314,7 @@ function _guestLoadIntoBuilder(id){
 }
 
 async function _guestDeleteInvoice(id){
-  if(!confirm('Delete this invoice?')) return;
+  if(!(await BMConfirm('Delete this invoice?','Delete invoice?'))) return;
   GuestStore.deleteInvoice(id);
   toast('Deleted');
   loadHistory();
@@ -2691,7 +2705,7 @@ async function postInvoice(id){
 }
 
 async function finaliseInvoice(id){
-  if(!confirm('Mark as Finalised? This locks editing (admin only after this).')) return;
+  if(!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   const res = await r.json();
   if(r.ok){ toast('Invoice Finalised!'); closeInvModal(); loadHistory(); }
@@ -2776,14 +2790,14 @@ async function quickDelete(id){
 }
 
 async function quickPost(id){
-  if(!confirm('Mark this invoice as Finalised?')) return;
+  if(!(await BMConfirm('Mark this invoice as Finalised?','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/post`,{method:'POST'});
   if(r.ok){toast('Invoice marked as Invoiced!');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error',true);}
 }
 
 async function deleteDraft(id){
-  if(!confirm('Delete this draft? This cannot be undone.')) return;
+  if(!(await BMConfirm('Delete this draft? This cannot be undone.','Delete draft?'))) return;
   const r = await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   if(r.ok){toast('Draft deleted');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error deleting',true);}
