@@ -1229,7 +1229,7 @@ function ciTpChange(){
 
 function addCustomItem(){
   const name=document.getElementById('ci_name').value.trim();
-  if(!name){BMAlert('Item name required');return;}
+  if(!name){alert('Item name required');return;}
   const retail=parseFloat(document.getElementById('ci_retail').value)||0;
   const tp=parseFloat(document.getElementById('ci_tp').value)||0;
   const disc=parseFloat(document.getElementById('ci_disc').value)||0;
@@ -2174,9 +2174,9 @@ function newBill(){
   loadHistory();
 }
 
-async function cancelBill(){
+function cancelBill(){
   if(!lines.length && !customer) return;
-  if (!(await BMConfirm('Cancel this invoice? All items will be cleared.'))) return;
+  if(!confirm('Cancel this invoice? All items will be cleared.'))) return;
   // Delete auto-draft from server if one was created
   if(_autoDraftId){
     fetch(`/api/invoices/${_autoDraftId}`,{method:'DELETE'}).catch(()=>{});
@@ -2295,7 +2295,7 @@ function _guestLoadIntoBuilder(id){
 }
 
 async function _guestDeleteInvoice(id){
-  if (!(await BMConfirm('Delete this invoice?'))) return;
+  if(!confirm('Delete this invoice?'))) return;
   GuestStore.deleteInvoice(id);
   toast('Deleted');
   loadHistory();
@@ -2685,8 +2685,8 @@ async function postInvoice(id){
   else{if(!_checkLocked(res))toast(res.error||'Error',true);}
 }
 
-async async function finaliseInvoice(id){
-  if (!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).'))) return;
+async function finaliseInvoice(id){
+  if(!confirm('Mark as Finalised? This locks editing (admin only after this).'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   const res = await r.json();
   if(r.ok){ toast('Invoice Finalised!'); closeInvModal(); loadHistory(); }
@@ -2694,14 +2694,14 @@ async async function finaliseInvoice(id){
 }
 
 async function quickFinalise(id){
-  if (!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).'))) return;
+  if(!confirm('Mark as Finalised? This locks editing (admin only after this).'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   if(r.ok){ toast('Invoice Finalised!'); loadHistory(); }
   else{ const e=await r.json(); toast(e.error||'Error',true); }
 }
 
 async function deleteInvoice(id){
-  if (!(await BMConfirm('Delete this invoice?'))) return;
+  if(!confirm('Delete this invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}`, {method:'DELETE'});
   if(r.ok){ toast('Deleted'); closeInvModal(); loadHistory(); }
   else { const e=await r.json(); toast(e.error||'Error',true); }
@@ -2764,21 +2764,21 @@ async function loadIntoBuilderById(id){
 }
 
 async function quickDelete(id){
-  if (!(await BMConfirm('Delete this invoice?'))) return;
+  if(!confirm('Delete this invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   if(r.ok){toast('Deleted');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error',true);}
 }
 
 async function quickPost(id){
-  if (!(await BMConfirm('Mark this invoice as Finalised?'))) return;
+  if(!confirm('Mark this invoice as Finalised?'))) return;
   const r = await fetch(`/api/invoices/${id}/post`,{method:'POST'});
   if(r.ok){toast('Invoice marked as Invoiced!');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error',true);}
 }
 
 async function deleteDraft(id){
-  if (!(await BMConfirm('Delete this draft? This cannot be undone.'))) return;
+  if(!confirm('Delete this draft? This cannot be undone.'))) return;
   const r = await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   if(r.ok){toast('Draft deleted');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error deleting',true);}
