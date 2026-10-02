@@ -2294,7 +2294,7 @@ function _guestLoadIntoBuilder(id){
   toast('Invoice loaded — make changes then save');
 }
 
-function _guestDeleteInvoice(id){
+async function _guestDeleteInvoice(id){
   if (!(await BMConfirm('Delete this invoice?'))) return;
   GuestStore.deleteInvoice(id);
   toast('Deleted');
