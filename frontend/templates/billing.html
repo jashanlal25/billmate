@@ -265,6 +265,7 @@ function setTaxBreakdown(enabled){
 }
 </script>
 <link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
+<script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </head>
 <body>
 <nav class="nav">
@@ -920,6 +921,8 @@ async function loadSettings(){
   settings=await r.json();
   setupCompleted=!!settings.setup_completed;
   document.getElementById('shopName').textContent=settings.shop_name||'Your Shop';
+  const logoName=document.getElementById('shopLogoName');
+  if(logoName && settings.shop_name) logoName.textContent=settings.shop_name;
   const meta=[settings.address,settings.phone].filter(Boolean).join(' | ');
   document.getElementById('shopMeta').textContent=meta;
   // Show setup banner if not completed (guests have no setup)
