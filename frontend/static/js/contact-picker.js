@@ -103,6 +103,10 @@
       activeFields = fields;
       // Native BillMate APK: open the actual Android phone Contacts picker.
       // The website continues to use the browser Contact Picker when available.
+      if (window.BillMateNativeContacts && typeof window.BillMateNativeContacts.postMessage === 'function') {
+        window.BillMateNativeContacts.postMessage('pick');
+        return;
+      }
       if (window.BillMateNative && typeof window.BillMateNative.pickContact === 'function') {
         window.BillMateNative.pickContact();
         return;
