@@ -125,6 +125,7 @@ input[type=number]{-moz-appearance:textfield}
   .mob-lbl{display:inline-block;width:105px;font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase}
 }
 </style>
+<link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
 </head>
 <body>
 <nav class="nav">
@@ -909,7 +910,8 @@ function buildPurchasePrintHtml(p, forPdf){
   </div>
   <div class="footer">${s.shop_name||''} ${s.phone?'· '+s.phone:''} · Purchase Record</div>
   ${forPdf?'<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>':''}
-  </body></html>`;
+  <script src="/static/js/account-dialog.js?v=20261003-account"></script>
+</body></html>`;
 }
 
 function viewPurchaseBill(){
