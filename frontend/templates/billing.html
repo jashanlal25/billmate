@@ -20,10 +20,37 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 .nav-right{display:flex;align-items:center;gap:8px}
 .theme-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
 .user-menu{position:relative;cursor:pointer;padding:7px 14px;border-radius:10px;background:rgba(102,126,234,.15);color:#a5b4fc;font-size:.82em;font-weight:600;user-select:none}
-.user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);overflow:hidden;min-width:120px;z-index:1000}
+.user-dropdown{
+  display:none;
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  width:max-content;
+  min-width:180px;
+  max-width:min(240px,calc(100vw - 24px));
+  background:var(--card);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:0 12px 32px rgba(0,0,0,.28);
+  overflow:hidden;
+  z-index:1000;
+}
 .user-menu.open .user-dropdown{display:block}
-.user-dropdown-item{display:block;padding:10px 16px;color:#ef4444;font-size:.9em;font-weight:600;text-decoration:none;transition:background .15s}
-.user-dropdown-item:hover{background:#fef2f2}
+.user-dropdown-item{
+  display:flex;
+  align-items:center;
+  min-height:48px;
+  padding:12px 16px;
+  color:var(--red);
+  background:transparent;
+  font-size:.95rem;
+  font-weight:700;
+  text-decoration:none;
+  white-space:nowrap;
+  transition:background .15s;
+}
+.user-dropdown-item:hover{background:var(--row-hover)}
 .layout{display:grid;grid-template-columns:1fr 360px;gap:16px;max-width:1300px;margin:0 auto}
 /* Left - bill builder */
 .panel{background:var(--card);border-radius:20px;padding:24px;box-shadow:var(--shadow)}
