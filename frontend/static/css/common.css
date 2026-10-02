@@ -82,3 +82,17 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu>.user-name{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:10px 14px;border:0;border-radius:12px;background:rgba(102,126,234,.18);color:#a5b4fc;font:inherit;font-weight:700;cursor:pointer}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
+
+
+/* Modern confirmation / alert dialog */
+.bm-dialog-overlay{position:fixed;inset:0;z-index:100000;background:rgba(8,15,30,.58);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.bm-dialog{width:min(420px,100%);background:var(--card,#fff);color:var(--text,#172033);border:1px solid rgba(100,116,139,.22);border-radius:22px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.28);animation:bmDialogIn .16s ease-out}
+.bm-dialog-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(99,102,241,.12);font-size:22px;margin-bottom:14px}
+.bm-dialog-title{font-size:19px;font-weight:800;margin-bottom:9px}
+.bm-dialog-text{font-size:15px;line-height:1.55;white-space:pre-line;color:inherit;opacity:.84}
+.bm-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+.bm-dialog-btn{border:0;border-radius:12px;padding:11px 18px;font-size:14px;font-weight:750;cursor:pointer;min-width:88px}
+.bm-dialog-btn.primary{background:#4f46e5;color:#fff}
+.bm-dialog-btn.secondary{background:rgba(100,116,139,.12);color:inherit}
+.bm-dialog-btn:focus-visible{outline:3px solid rgba(79,70,229,.35);outline-offset:2px}
+@keyframes bmDialogIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
