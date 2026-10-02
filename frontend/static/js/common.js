@@ -105,24 +105,15 @@ document.addEventListener('click', e => {
     if (!m.contains(e.target)) m.classList.remove('open');
   });
 });
-// === Shop Logo from Settings ===
+// === Header branding ===
 (function(){
-  const cached = localStorage.getItem('_shopName');
-  if (cached) {
-    const el = document.getElementById('shopLogo');
-    if (el) el.textContent = cached;
-  }
+  // Keep the SSD MEDICOS reference branding intact. Shop settings are still
+  // available through window._shopSettings but never replace the header markup.
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(s => { window._shopSettings = s; })
+    .catch(()=>{});
 })();
-fetch('/api/settings')
-  .then(r => r.json())
-  .then(s => {
-    if (s.shop_name) {
-      const el = document.getElementById('shopLogo');
-      if (el) el.textContent = s.shop_name;
-      localStorage.setItem('_shopName', s.shop_name);
-    }
-    window._shopSettings = s;
-  });
 
 
 // === Number Input: clear on focus, restore on blur, format 2 decimals ===
