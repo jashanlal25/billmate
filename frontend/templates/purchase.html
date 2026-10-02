@@ -375,7 +375,7 @@ function storeInvoicePreparation(){
   try{sessionStorage.setItem('billmate-supplier-prep-'+sourceInvoiceId,JSON.stringify({invoiceNumber:sourceInvoiceNumber,groups:invoiceGroups}));}catch(e){}
 }
 async function reloadInvoicePreparation(){
-  if(!confirm('Load all supplier items from the customer invoice again? Purchases already saved will not be reversed.'))) return;
+  if(!confirm('Load all supplier items from the customer invoice again? Purchases already saved will not be reversed.')) return;
   try{sessionStorage.removeItem('billmate-supplier-prep-'+sourceInvoiceId);}catch(e){}
   location.reload();
 }
@@ -767,7 +767,7 @@ async function editCurrentPurchase(){
 
 async function deleteCurrentPurchase(){
   const p=currentViewPurchase;if(!p)return;
-  if(!confirm('Delete '+p.purchase_number+'? Purchased stock and supplier balance will be reversed.'))) return;
+  if(!confirm('Delete '+p.purchase_number+'? Purchased stock and supplier balance will be reversed.')) return;
   const r=await fetch('/api/purchases/'+p.id,{method:'DELETE'}),res=await r.json();
   if(!r.ok){toast(res.error||'Could not delete purchase',true);return;}
   for(const k of Object.keys(localStorage)){if(k.startsWith('items_cache_'))localStorage.removeItem(k);}
