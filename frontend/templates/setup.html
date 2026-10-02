@@ -49,6 +49,7 @@ textarea{resize:vertical;min-height:80px}
 @media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
 @media(max-width:500px){.card{padding:20px 16px}.form-row{grid-template-columns:1fr}body{padding:80px 12px 40px}.phone-code{width:48px}}
 </style>
+<link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
 </head>
 <body>
 <nav class="nav">
@@ -64,6 +65,9 @@ textarea{resize:vertical;min-height:80px}
   </div>
   <div class="nav-right">
     <button class="theme-btn" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu">
+      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false">{{ session.username or 'Guest' }} ▾</button>
+    </div>
     <button class="nav-hamburger" onclick="toggleNav()">☰</button>
   </div>
 </nav>
@@ -284,5 +288,6 @@ async function restoreBackup(){
 load();
 fetch('/api/settings').then(r=>r.json()).then(s=>{if(s.shop_name)document.getElementById('shopLogo').textContent=s.shop_name;});
 </script>
+<script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body>
 </html>
