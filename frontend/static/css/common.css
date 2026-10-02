@@ -66,16 +66,92 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 .nav-mobile-menu.open{display:flex}
 .nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
 @media(max-width:640px){
-  body{padding-top:88px}
-  .nav{top:7px;left:10px;right:10px;height:70px;padding:0 9px 0 14px;border-radius:20px}
-  .nav-logo{font-size:1.05em}
+  /* Compact premium mobile header — keep proportions close to the reference */
+  body{padding-top:92px}
+
+  .nav{
+    top:8px;left:10px;right:10px;height:76px;
+    padding:0 10px 0 14px;
+    border-radius:18px;
+    background:linear-gradient(105deg,rgba(30,24,76,.97),rgba(18,28,61,.98) 58%,rgba(25,29,64,.98));
+    border:1px solid rgba(112,104,255,.28);
+    box-shadow:0 8px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.055);
+  }
+
   .nav-links{display:none}
-  .nav-right{gap:7px}
-  .theme-btn{width:46px;height:46px;border-radius:14px;font-size:22px}
-  .user-menu>.user-name{min-width:92px;min-height:46px;padding:8px 10px;border-radius:14px;gap:6px;font-size:.92rem}
-  .user-menu>.user-name::before{font-size:20px}
-  .nav-hamburger{display:flex;width:46px;height:46px;border-radius:14px;font-size:22px}
-  .nav-mobile-menu{top:85px;left:10px;right:10px}
+  .nav-right{gap:7px;flex-shrink:0}
+  .billmate-install-link{display:none}
+
+  /* Brand: icon + shop name, with a small pharmacy-management subtitle */
+  .nav-logo{
+    min-width:0;max-width:calc(100% - 160px);
+    display:grid;grid-template-columns:40px minmax(0,1fr);
+    grid-template-rows:1fr auto;
+    column-gap:9px;align-items:center;
+    font-size:1.02rem;line-height:1.05;
+    letter-spacing:-.25px;
+    background:none;
+    -webkit-text-fill-color:#f4f5ff;
+    color:#f4f5ff;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  .nav-logo::before{
+    content:'';
+    grid-row:1 / span 2;
+    width:40px;height:40px;
+    border-radius:50%;
+    background:url('/static/icon-192.png') center/cover no-repeat;
+    box-shadow:0 0 0 1px rgba(255,255,255,.18),0 3px 10px rgba(70,70,220,.22);
+  }
+  .nav-logo::after{
+    content:'PHARMACY MANAGEMENT';
+    grid-column:2;
+    grid-row:2;
+    color:rgba(205,211,241,.72);
+    -webkit-text-fill-color:rgba(205,211,241,.72);
+    font-size:.43rem;
+    font-weight:600;
+    letter-spacing:1.8px;
+    line-height:1;
+    margin-top:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .theme-btn{
+    width:44px;height:44px;min-width:44px;
+    border-radius:13px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(135,140,220,.25);
+    font-size:21px;
+    box-shadow:0 3px 10px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.045);
+  }
+
+  .user-menu>.user-name{
+    min-width:72px;height:44px;min-height:44px;
+    padding:7px 9px;
+    border-radius:13px;
+    gap:5px;
+    background:linear-gradient(135deg,#5143d8,#6849d5);
+    border:1px solid rgba(155,148,255,.42);
+    box-shadow:0 4px 12px rgba(73,60,210,.20),inset 0 1px rgba(255,255,255,.10);
+    font-size:.82rem;
+    font-weight:700;
+  }
+  .user-menu>.user-name::before{font-size:18px}
+  .nav-hamburger{
+    display:flex;width:44px;height:44px;min-width:44px;
+    border-radius:13px;font-size:21px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(135,140,220,.25);
+    box-shadow:0 3px 10px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.045);
+  }
+
+  .nav-mobile-menu{
+    top:92px;left:10px;right:10px;
+    border-radius:15px;
+  }
 }
 /* === Toast === */
 .toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
