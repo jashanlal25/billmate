@@ -167,7 +167,7 @@ async function saveSupplier(){
 }
 
 async function deleteSupplier(id,name){
-  if(!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  if (!(await BMConfirm(`Delete "${name}"? This cannot be undone.`))) return;
   const r=await fetch(`/api/suppliers/${id}`,{method:'DELETE'});
   if(r.ok){toast('Supplier deleted');loadSuppliers();}
   else toast('Error deleting',true);
