@@ -69,6 +69,7 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
   body{padding-top:108px}
   .nav{top:8px;left:12px;right:12px;height:88px;padding:0 12px 0 20px;border-radius:22px}
   .nav-logo{font-size:1.2em}
+  .nav-links{display:none}
   .nav-right{gap:10px}
   .theme-btn{width:58px;height:58px}
   .user-menu>.user-name{min-width:118px;min-height:58px;padding:10px 14px}
