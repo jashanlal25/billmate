@@ -226,6 +226,8 @@ input[type=number]{-moz-appearance:textfield}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
+<link rel="stylesheet" href="/static/css/confirm-dialog.css?v=20261003">
+<script src="/static/js/confirm-dialog.js?v=20261003"></script>
 <script>
 let _taxBreakdown = false;
 function showTaxBreakdown(){ return _taxBreakdown; }
@@ -1037,7 +1039,7 @@ async function importAgentDraft(id){
   const r=await fetch('/api/whatsapp-agent/drafts/'+encodeURIComponent(id),{cache:'no-store'});
   if(!r.ok)throw Error('WhatsApp draft unavailable for this account');
   const d=await r.json();if(d.kind!=='invoice')throw Error('This is a purchase draft');
-  if(lines.length&&!confirm('Replace the current unsaved items with this WhatsApp draft?'))return;
+  if(lines.length&&!(await BMConfirm('Replace the current unsaved items with this WhatsApp draft?','Replace unsaved bill?')))return;
   const p=d.payload;
   customer=p.party_id?{id:p.party_id,name:p.party_name}:null;
   document.getElementById('custSearch').value=p.party_name==='Walk-in'?'':p.party_name;
@@ -2179,9 +2181,9 @@ function newBill(){
   loadHistory();
 }
 
-function cancelBill(){
+async function cancelBill(){
   if(!lines.length && !customer) return;
-  if(!confirm('Cancel this invoice? All items will be cleared.')) return;
+  if(!(await BMConfirm('Cancel this invoice? All items will be cleared.','Cancel invoice?'))) return;
   // Delete auto-draft from server if one was created
   if(_autoDraftId){
     fetch(`/api/invoices/${_autoDraftId}`,{method:'DELETE'}).catch(()=>{});
@@ -2300,7 +2302,7 @@ function _guestLoadIntoBuilder(id){
 }
 
 async function _guestDeleteInvoice(id){
-  if(!confirm('Delete this invoice?')) return;
+  if(!(await BMConfirm('Delete this invoice?','Delete invoice?'))) return;
   GuestStore.deleteInvoice(id);
   toast('Deleted');
   loadHistory();
@@ -2691,7 +2693,7 @@ async function postInvoice(id){
 }
 
 async function finaliseInvoice(id){
-  if(!confirm('Mark as Finalised? This locks editing (admin only after this).')) return;
+  if(!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   const res = await r.json();
   if(r.ok){ toast('Invoice Finalised!'); closeInvModal(); loadHistory(); }
@@ -2776,14 +2778,14 @@ async function quickDelete(id){
 }
 
 async function quickPost(id){
-  if(!confirm('Mark this invoice as Finalised?')) return;
+  if(!(await BMConfirm('Mark this invoice as Finalised?','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/post`,{method:'POST'});
   if(r.ok){toast('Invoice marked as Invoiced!');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error',true);}
 }
 
 async function deleteDraft(id){
-  if(!confirm('Delete this draft? This cannot be undone.')) return;
+  if(!(await BMConfirm('Delete this draft? This cannot be undone.','Delete draft?'))) return;
   const r = await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   if(r.ok){toast('Draft deleted');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error deleting',true);}
