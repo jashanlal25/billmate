@@ -264,6 +264,7 @@ function setTaxBreakdown(enabled){
   document.querySelectorAll('[data-tax-breakdown-toggle]').forEach(input=>input.checked=_taxBreakdown);
 }
 </script>
+<link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
 </head>
 <body>
 <nav class="nav">
@@ -2558,7 +2559,8 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
       ${forPdf?'document.getElementById(\'_printBar\').style.display=\'block\';':'setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},500);'}
     }
   <\/script>
-  </body></html>`;
+  <script src="/static/js/account-dialog.js?v=20261003-account"></script>
+</body></html>`;
 }
 
 function _showRateSourcePref(){
