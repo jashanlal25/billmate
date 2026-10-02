@@ -740,7 +740,25 @@ function toggleNav(force){
   if(!menu)return;
   const shouldOpen=typeof force==='boolean'?force:!menu.classList.contains('open');
   menu.classList.toggle('open',shouldOpen);
+  const btn=document.querySelector('.nav-hamburger');
+  if(btn) btn.setAttribute('aria-expanded',String(shouldOpen));
 }
+
+/* Always close the mobile menu when a destination is chosen or the user taps away.
+   Capture phase keeps this reliable even when another page script handles the click. */
+document.addEventListener('click',function(e){
+  const menu=document.getElementById('navMenu');
+  const btn=document.querySelector('.nav-hamburger');
+  if(!menu || !menu.classList.contains('open')) return;
+  if(e.target.closest('#navMenu a, #navMenu button') || !e.target.closest('#navMenu') && !(btn&&btn.contains(e.target))){
+    toggleNav(false);
+  }
+},true);
+
+window.addEventListener('pagehide',function(){
+  const menu=document.getElementById('navMenu');
+  if(menu) menu.classList.remove('open');
+});
 function toggleMobActions(e){
   if(e) e.stopPropagation();
   var row=document.getElementById('mobActionsRow');
