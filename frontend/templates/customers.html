@@ -124,11 +124,8 @@ textarea{resize:vertical;min-height:70px}
   </div>
   <div class="nav-right">
     <button class="theme-btn" onclick="toggleTheme()">🌙</button>
-    <div class="user-menu" onclick="this.classList.toggle('open')">
-      <span class="user-name">{{ session.username or 'Guest' }}</span>
-      <div class="user-dropdown">
-        <a href="/auth/logout" class="user-dropdown-item">Logout</a>
-      </div>
+    <div class="user-menu">
+      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false">{{ session.username or 'Guest' }} ▾</button>
     </div>
     <button class="nav-hamburger" onclick="toggleNav()">☰</button>
   </div>
