@@ -6,7 +6,7 @@
   <title>{% block title %}BillMate{% endblock %}</title>
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/static/icon-192.png">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') + '?v=20261002' }}">
   <style>{% block page_styles %}{% endblock %}</style>
 </head>
 <body>
@@ -65,7 +65,7 @@ fetch('/api/android/latest').then(r=>r.json()).then(m=>{
   document.querySelectorAll('.billmate-install-link, a[href="/download/android"]').forEach(el=>el.style.display='none');
 })();
 </script>
-<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/common.js') + '?v=20261002' }}"></script>
 <script src="{{ url_for('static', filename='js/contact-picker.js') }}?v=1"></script>
 {% block scripts %}{% endblock %}
 <script>
