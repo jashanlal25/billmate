@@ -88,8 +88,8 @@ db.init_app(app)
 migrate = Migrate(app, db)
 
 # Public APK metadata + download proxy. Keeps GitHub/repository URLs out of the browser.
-ANDROID_APK_VERSION = '1.11'
-ANDROID_APK_VERSION_CODE = 12
+ANDROID_APK_VERSION = '1.12'
+ANDROID_APK_VERSION_CODE = 13
 
 @app.route('/api/android/latest')
 def android_latest():
