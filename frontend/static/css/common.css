@@ -66,15 +66,16 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 .nav-mobile-menu.open{display:flex}
 .nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
 @media(max-width:640px){
-  body{padding-top:108px}
-  .nav{top:8px;left:12px;right:12px;height:88px;padding:0 12px 0 20px;border-radius:22px}
-  .nav-logo{font-size:1.2em}
+  body{padding-top:88px}
+  .nav{top:7px;left:10px;right:10px;height:70px;padding:0 9px 0 14px;border-radius:20px}
+  .nav-logo{font-size:1.05em}
   .nav-links{display:none}
-  .nav-right{gap:10px}
-  .theme-btn{width:58px;height:58px}
-  .user-menu>.user-name{min-width:118px;min-height:58px;padding:10px 14px}
-  .nav-hamburger{display:flex;width:58px;height:58px}
-  .nav-mobile-menu{top:106px;left:12px;right:12px}
+  .nav-right{gap:7px}
+  .theme-btn{width:46px;height:46px;border-radius:14px;font-size:22px}
+  .user-menu>.user-name{min-width:92px;min-height:46px;padding:8px 10px;border-radius:14px;gap:6px;font-size:.92rem}
+  .user-menu>.user-name::before{font-size:20px}
+  .nav-hamburger{display:flex;width:46px;height:46px;border-radius:14px;font-size:22px}
+  .nav-mobile-menu{top:85px;left:10px;right:10px}
 }
 /* === Toast === */
 .toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
