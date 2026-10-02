@@ -207,7 +207,7 @@ async function savePurEdit(){
 }
 
 async function deletePurchase(id, num){
-  if(!confirm(`Delete ${num}? Stock quantities will be reversed.`)) return;
+  if (!(await BMConfirm(`Delete ${num}? Stock quantities will be reversed.`))) return;
   const r=await fetch(`/api/purchases/${id}`,{method:'DELETE'});
   if(r.ok){toast('Purchase deleted');loadPurchases();}
   else toast('Error deleting',true);
