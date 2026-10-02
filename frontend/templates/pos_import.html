@@ -82,7 +82,7 @@ async function previewSupplierCleanup(){
 }
 async function cleanupSuppliers(){
  if(supplierCleanupBusy||!supplierCleanupToken)return;
- if(!confirm('Remove '+supplierCleanupCount+' eligible extra supplier accounts from your supplier list? Accounts with contacts, balances or linked records will be kept.'))return;
+ if (!(await BMConfirm('Remove '+supplierCleanupCount+' eligible extra supplier accounts from your supplier list? Accounts with contacts, balances or linked records will be kept.'))) return;
  const btn=document.getElementById('supplierCleanupBtn'),out=document.getElementById('supplierCleanupPreview');
  supplierCleanupBusy=true;btn.disabled=true;
  try{
