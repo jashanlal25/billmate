@@ -248,7 +248,7 @@ async function inspectBackup(){
 
 async function restoreBackup(){
   if(backupOperationInProgress){toast('Restore already in progress — please wait',true);return;}
-  if(!confirm('Restore this backup? Existing data will remain and restored records may be added.')) return;
+  if (!(await BMConfirm('Restore this backup? Existing data will remain and restored records may be added.'))) return;
   backupOperationInProgress=true;
   const file=document.getElementById('backupFile').files[0];
   if(!file){toast('Choose a backup file first',true);return;}
@@ -269,7 +269,7 @@ async function restoreBackup(){
     if(!r.ok){setProgress(0,res.error||'Restore failed');toast(res.error||'Restore failed',true);return;}
     const total=Object.values(res.created||{}).reduce((sum,count)=>sum+count,0);
     setProgress(100,'Restore completed successfully');
-    alert(`Backup restored successfully — ${total} records added.`);
+    BMAlert(`Backup restored successfully — ${total} records added.`);
     toast(`Backup restored successfully — ${total} records added.`);
     document.getElementById('backupInfo').textContent=`Restore complete: ${total} records added successfully.`;
     btn.style.display='none';
