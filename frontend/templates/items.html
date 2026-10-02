@@ -653,7 +653,7 @@ async function deleteItem(id, name){
   else toast('Error deleting',true);
 }
 
-function _guestClearItems(){
+async function _guestClearItems(){
   if (!(await BMConfirm('Delete all your local items? This cannot be undone.'))) return;
   localStorage.removeItem(G_ITEMS_KEY);
   toast('All local items cleared');
