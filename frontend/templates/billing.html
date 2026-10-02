@@ -2193,9 +2193,9 @@ function newBill(){
   loadHistory();
 }
 
-function cancelBill(){
+async function cancelBill(){
   if(!lines.length && !customer) return;
-  if(!confirm('Cancel this invoice? All items will be cleared.')) return;
+  if(!(await BMConfirm('Cancel this invoice? All items will be cleared.','Cancel invoice?'))) return;
   // Delete auto-draft from server if one was created
   if(_autoDraftId){
     fetch(`/api/invoices/${_autoDraftId}`,{method:'DELETE'}).catch(()=>{});
@@ -2713,14 +2713,14 @@ async function finaliseInvoice(id){
 }
 
 async function quickFinalise(id){
-  if(!confirm('Mark as Finalised? This locks editing (admin only after this).')) return;
+  if(!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   if(r.ok){ toast('Invoice Finalised!'); loadHistory(); }
   else{ const e=await r.json(); toast(e.error||'Error',true); }
 }
 
 async function deleteInvoice(id){
-  if(!confirm('Delete this invoice?')) return;
+  if(!(await BMConfirm('Delete this invoice?','Delete invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}`, {method:'DELETE'});
   if(r.ok){ toast('Deleted'); closeInvModal(); loadHistory(); }
   else { const e=await r.json(); toast(e.error||'Error',true); }
