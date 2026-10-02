@@ -33,18 +33,16 @@ function toggleNav(force) {
 }
 
 // Close the mobile navigation after choosing a page or tapping outside it.
+// Capture phase makes this run before page-specific click handlers.
 document.addEventListener('click', e => {
   const menu = document.getElementById('navMenu');
   const button = document.querySelector('.nav-hamburger');
   if (!menu || !menu.classList.contains('open')) return;
-  if (e.target.closest('#navMenu a')) {
-    toggleNav(false);
-    return;
-  }
-  if (!menu.contains(e.target) && !(button && button.contains(e.target))) {
+  if (e.target.closest('#navMenu a, #navMenu button') ||
+      (!menu.contains(e.target) && !(button && button.contains(e.target)))) {
     toggleNav(false);
   }
-});
+}, true);
 
 // === HTML Escape (prevents XSS when inserting user data into innerHTML) ===
 function esc(s){
