@@ -1,0 +1,93 @@
+/* BillMate in-app confirmation dialog — theme-aware and page-safe. */
+#bmConfirmOverlay{
+  position:fixed;
+  inset:0;
+  z-index:10050;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.58);
+  -webkit-backdrop-filter:blur(5px);
+  backdrop-filter:blur(5px);
+}
+#bmConfirmOverlay.open{display:flex}
+#bmConfirmCard{
+  width:min(92vw,430px);
+  background:var(--card,#fff);
+  color:var(--text,#1a1a2e);
+  border:1px solid var(--border,#e0e0e0);
+  border-radius:20px;
+  padding:22px;
+  box-shadow:0 24px 70px rgba(0,0,0,.42);
+  transform:translateY(8px) scale(.98);
+  opacity:0;
+  transition:transform .16s ease,opacity .16s ease;
+}
+#bmConfirmOverlay.open #bmConfirmCard{
+  transform:none;
+  opacity:1;
+}
+#bmConfirmIcon{
+  width:44px;
+  height:44px;
+  border-radius:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:14px;
+  background:color-mix(in srgb,var(--accent,#667eea) 14%,transparent);
+  color:var(--accent,#667eea);
+  font-size:22px;
+  font-weight:800;
+}
+#bmConfirmTitle{
+  margin:0 0 8px;
+  color:var(--text,#1a1a2e);
+  font-size:1.08rem;
+  font-weight:750;
+  line-height:1.35;
+}
+#bmConfirmMessage{
+  color:var(--sub,#555);
+  font-size:.92rem;
+  line-height:1.55;
+  white-space:pre-line;
+}
+#bmConfirmActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:22px;
+}
+.bm-confirm-btn{
+  min-width:92px;
+  min-height:42px;
+  padding:10px 17px;
+  border-radius:11px;
+  border:1px solid var(--border,#e0e0e0);
+  background:var(--inp,#f8f9fa);
+  color:var(--text,#1a1a2e);
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.bm-confirm-btn:focus-visible{
+  outline:2px solid var(--accent,#667eea);
+  outline-offset:2px;
+}
+.bm-confirm-cancel{background:transparent}
+.bm-confirm-ok{
+  border-color:var(--accent,#667eea);
+  background:var(--accent,#667eea);
+  color:#fff;
+}
+@media(max-width:480px){
+  #bmConfirmCard{padding:20px;border-radius:18px}
+  #bmConfirmActions{gap:8px}
+  .bm-confirm-btn{flex:1}
+}
+@media(prefers-reduced-motion:reduce){
+  #bmConfirmCard{transition:none}
+}
