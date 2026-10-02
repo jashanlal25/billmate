@@ -83,3 +83,41 @@ document.addEventListener('focusout', e => {
     }
   }
 });
+
+
+// === Modern site dialogs ===
+function _billmateDialog(text, mode='confirm') {
+  return new Promise(resolve => {
+    const old=document.getElementById('billmateDialog');
+    if(old) old.remove();
+    const overlay=document.createElement('div');
+    overlay.id='billmateDialog';
+    overlay.className='bm-dialog-overlay';
+    const box=document.createElement('div');
+    box.className='bm-dialog';
+    box.setAttribute('role', mode==='confirm' ? 'dialog' : 'alertdialog');
+    box.setAttribute('aria-modal','true');
+    box.innerHTML='<div class="bm-dialog-icon">'+(mode==='confirm'?'❓':'ℹ️')+'</div>'+
+      '<div class="bm-dialog-title">'+(mode==='confirm'?'Please confirm':'BillMate')+'</div>'+
+      '<div class="bm-dialog-text"></div>'+
+      '<div class="bm-dialog-actions"></div>';
+    box.querySelector('.bm-dialog-text').textContent=String(text);
+    const actions=box.querySelector('.bm-dialog-actions');
+    const finish=value=>{overlay.remove();resolve(value);};
+    if(mode==='confirm'){
+      const cancel=document.createElement('button'); cancel.className='bm-dialog-btn secondary'; cancel.textContent='Cancel';
+      const ok=document.createElement('button'); ok.className='bm-dialog-btn primary'; ok.textContent='Confirm';
+      cancel.onclick=()=>finish(false); ok.onclick=()=>finish(true);
+      actions.append(cancel,ok);
+      overlay.addEventListener('click',e=>{if(e.target===overlay)finish(false);});
+      box.addEventListener('keydown',e=>{if(e.key==='Escape')finish(false);});
+      setTimeout(()=>ok.focus(),0);
+    }else{
+      const ok=document.createElement('button'); ok.className='bm-dialog-btn primary'; ok.textContent='OK';
+      ok.onclick=()=>finish(true); actions.append(ok); setTimeout(()=>ok.focus(),0);
+    }
+    overlay.appendChild(box); document.body.appendChild(overlay);
+  });
+}
+function BMConfirm(text){ return _billmateDialog(text,'confirm'); }
+function BMAlert(text){ return _billmateDialog(text,'alert'); }
