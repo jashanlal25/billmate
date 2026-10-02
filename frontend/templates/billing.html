@@ -2701,14 +2701,14 @@ async function finaliseInvoice(id){
 }
 
 async function quickFinalise(id){
-  if(!confirm('Mark as Finalised? This locks editing (admin only after this).')) return;
+  if(!(await BMConfirm('Mark as Finalised? This locks editing (admin only after this).','Finalise invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   if(r.ok){ toast('Invoice Finalised!'); loadHistory(); }
   else{ const e=await r.json(); toast(e.error||'Error',true); }
 }
 
 async function deleteInvoice(id){
-  if(!confirm('Delete this invoice?')) return;
+  if(!(await BMConfirm('Delete this invoice?','Delete invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}`, {method:'DELETE'});
   if(r.ok){ toast('Deleted'); closeInvModal(); loadHistory(); }
   else { const e=await r.json(); toast(e.error||'Error',true); }
@@ -2771,7 +2771,7 @@ async function loadIntoBuilderById(id){
 }
 
 async function quickDelete(id){
-  if(!confirm('Delete this invoice?')) return;
+  if(!(await BMConfirm('Delete this invoice?','Delete invoice?'))) return;
   const r = await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   if(r.ok){toast('Deleted');loadHistory();}
   else{const e=await r.json();toast(e.error||'Error',true);}
