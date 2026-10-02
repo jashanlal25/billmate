@@ -31,7 +31,7 @@ import java.util.concurrent.*;
 import org.json.*;
 
 public final class MainActivity extends FragmentActivity {
-    private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12, PICK_CONTACT = 13;
+    private static final int PICK_FILE = 10, SAVE_FILE = 11, UPDATE_PERMISSION = 12, PICK_CONTACT = 13, CONTACT_PERMISSION = 14;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private WebView web;
     private TextView status;
@@ -109,6 +109,11 @@ public final class MainActivity extends FragmentActivity {
                 .setPositiveButton("OK", null).show();
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "BillMateNativeContacts",
+                Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
+                    if (!mainFrame || !ShareUpload.isTrusted(origin.toString())) return;
+                    if ("pick".equals(message.getData())) requestContactPicker();
+                });
             WebViewCompat.addWebMessageListener(web, "BillMateNativeAuth",
                 Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
                     if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) || message.getData() == null) return;
@@ -777,12 +782,34 @@ public final class MainActivity extends FragmentActivity {
     private final class NativeContactsBridge {
         @android.webkit.JavascriptInterface
         public void pickContact() {
-            runOnUiThread(() -> {
-                if (!ShareUpload.isTrusted(web.getUrl())) return;
-                Intent pick = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
-                try { startActivityForResult(pick, PICK_CONTACT); }
-                catch (ActivityNotFoundException e) { toast("No phone contact picker is available."); }
-            });
+            runOnUiThread(() -> requestContactPicker());
+        }
+    }
+
+    private void requestContactPicker() {
+        if (!ShareUpload.isTrusted(web.getUrl())) return;
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, CONTACT_PERMISSION);
+            return;
+        }
+        Intent pick = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivityForResult(pick, PICK_CONTACT);
+        } catch (ActivityNotFoundException e) {
+            toast("No phone contact picker is available.");
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CONTACT_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestContactPicker();
+            } else {
+                toast("Contact permission is required to choose a phone contact.");
+            }
         }
     }
 
