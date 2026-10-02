@@ -36,7 +36,7 @@
   align-items:center;
   justify-content:center;
   margin-bottom:14px;
-  background:color-mix(in srgb,var(--accent,#667eea) 14%,transparent);
+  background:var(--inp,#f8f9fa);
   color:var(--accent,#667eea);
   font-size:22px;
   font-weight:800;
