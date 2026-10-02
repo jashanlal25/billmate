@@ -143,6 +143,7 @@ tr:last-child td{border-bottom:none}
 .all-pay-title{color:#fff;font-size:1em;font-weight:700}
 .all-pay-total{color:#a5b4fc;font-size:.88em;font-weight:600}
 </style>
+<link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
 </head>
 <body>
 <nav class="nav">
@@ -821,5 +822,6 @@ function renderAllSuppPayments(){
   el.innerHTML=`<table><thead><tr><th>Supplier</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 </script>
+<script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body>
 </html>
