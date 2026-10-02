@@ -129,8 +129,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
   }
 
   .user-menu>.user-name{
-    min-width:72px;height:44px;min-height:44px;
-    padding:7px 9px;
+    min-width:86px;height:44px;min-height:44px;
+    padding:7px 10px;
     border-radius:13px;
     gap:5px;
     background:linear-gradient(135deg,#5143d8,#6849d5);
