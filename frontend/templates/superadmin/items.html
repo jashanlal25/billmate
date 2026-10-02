@@ -346,7 +346,7 @@ async function saveItem(){
 }
 
 async function delItem(id,name){
-  if (!(await BMConfirm('Delete global item "'+name+'"?\nThis will remove it from all users\' catalogues.'))) return;
+  if(!confirm('Delete global item "'+name+'"?\nThis will remove it from all users\' catalogues.'))) return;
   const r=await fetch('/api/items/'+id,{method:'DELETE'}).catch(()=>null);
   if(r&&r.ok){ toast('Deleted'); loadItems(); }
   else toast('Failed to delete','error');
@@ -359,7 +359,7 @@ function closeBulkDeleteModal(){ document.getElementById('bulkDelOverlay').class
 async function doBulkDelete(scope){
   closeBulkDeleteModal();
   const label = scope === 'recent' ? 'global items added in the last 24 hours' : 'ALL global items';
-  if (!(await BMConfirm(`Delete ${label}?\nThis cannot be undone and affects every user.`))) return;
+  if(!confirm(`Delete ${label}?\nThis cannot be undone and affects every user.`))) return;
   const r = await fetch('/api/superadmin/items/bulk-delete', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
