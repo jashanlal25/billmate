@@ -374,7 +374,7 @@ function storeInvoicePreparation(){
   if(activeInvoiceGroup>=0 && invoiceGroups[activeInvoiceGroup])invoiceGroups[activeInvoiceGroup].lines=lines;
   try{sessionStorage.setItem('billmate-supplier-prep-'+sourceInvoiceId,JSON.stringify({invoiceNumber:sourceInvoiceNumber,groups:invoiceGroups}));}catch(e){}
 }
-function reloadInvoicePreparation(){
+async function reloadInvoicePreparation(){
   if (!(await BMConfirm('Load all supplier items from the customer invoice again? Purchases already saved will not be reversed.'))) return;
   try{sessionStorage.removeItem('billmate-supplier-prep-'+sourceInvoiceId);}catch(e){}
   location.reload();
