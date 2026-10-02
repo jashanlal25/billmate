@@ -2690,7 +2690,7 @@ async function postInvoice(id){
   else{if(!_checkLocked(res))toast(res.error||'Error',true);}
 }
 
-function finaliseInvoice(id){
+async function finaliseInvoice(id){
   if(!confirm('Mark as Finalised? This locks editing (admin only after this).')) return;
   const r = await fetch(`/api/invoices/${id}/finalise`, {method:'POST'});
   const res = await r.json();
