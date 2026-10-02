@@ -150,7 +150,7 @@ async function saveCustEdit(){
 }
 
 async function deleteCustomer(id,name){
-  if(!confirm(`Delete "${name}"? This cannot be undone.`))) return;
+  if(!confirm(`Delete "${name}"? This cannot be undone.`)) return;
   const r=await fetch(`/api/customers/${id}`,{method:'DELETE'});
   if(r.ok){toast('Customer deleted');loadCustomers();}
   else toast('Error deleting',true);
