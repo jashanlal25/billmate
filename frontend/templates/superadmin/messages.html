@@ -188,7 +188,7 @@ async function doResolve(){
 }
 
 async function doDismiss(id){
-  if(!confirm('Dismiss this request?'))) return;
+  if(!confirm('Dismiss this request?')) return;
   const r=await fetch('/api/superadmin/messages/'+id+'/dismiss',{method:'POST'}).catch(()=>null);
   const d=r?await r.json().catch(()=>({})): {};
   if(d.success){toast('Request dismissed');loadRequests();}
