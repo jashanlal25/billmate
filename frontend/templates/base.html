@@ -28,10 +28,7 @@
     {% block nav_right_extra %}
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
     <div class="user-menu">
-      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false" onclick="const open=this.parentElement.classList.toggle('open');this.setAttribute('aria-expanded',String(open))">{{ session.username or 'Guest' }} ▾</button>
-      <div class="user-dropdown">
-        <a href="/auth/logout" class="user-dropdown-item">↪ Log out</a>
-      </div>
+      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false">{{ session.username or 'Guest' }} ▾</button>
     </div>
     {% endblock %}
     <button class="nav-hamburger" onclick="toggleNav()">☰</button>
