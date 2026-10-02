@@ -211,7 +211,7 @@ function viewBill(){
 }
 
 async function doPost(id){
-  if(!confirm('Mark as Invoiced?'))) return;
+  if(!confirm('Mark as Invoiced?')) return;
   const r=await fetch(`/api/invoices/${id}/post`,{method:'POST'});
   const res=await r.json();
   if(r.ok){ toast('Marked as Invoiced'); closeModal(); await load(); }
@@ -219,7 +219,7 @@ async function doPost(id){
 }
 
 async function doFinalise(id){
-  if(!confirm('Finalise this invoice? Editing will require admin unlock.'))) return;
+  if(!confirm('Finalise this invoice? Editing will require admin unlock.')) return;
   const r=await fetch(`/api/invoices/${id}/finalise`,{method:'POST'});
   const res=await r.json();
   if(r.ok){ toast('Invoice Finalised'); closeModal(); await load(); }
@@ -227,7 +227,7 @@ async function doFinalise(id){
 }
 
 async function doUnlock(id){
-  if(!confirm('Unlock this invoice for editing?'))) return;
+  if(!confirm('Unlock this invoice for editing?')) return;
   const r=await fetch(`/api/invoices/${id}/unpost`,{method:'POST'});
   const res=await r.json();
   if(r.ok){ toast('Invoice unlocked'); closeModal(); await load(); }
@@ -235,7 +235,7 @@ async function doUnlock(id){
 }
 
 async function doCancel(id){
-  if(!confirm('Cancel this invoice? This cannot be undone.'))) return;
+  if(!confirm('Cancel this invoice? This cannot be undone.')) return;
   const r=await fetch(`/api/invoices/${id}/cancel`,{method:'POST'});
   const res=await r.json();
   if(r.ok){ toast('Invoice cancelled'); closeModal(); await load(); }
@@ -243,7 +243,7 @@ async function doCancel(id){
 }
 
 async function doDelete(id){
-  if(!confirm('Delete this invoice?\nThe invoice number will be permanently retired and never reused.'))) return;
+  if(!confirm('Delete this invoice?\nThe invoice number will be permanently retired and never reused.')) return;
   const r=await fetch(`/api/invoices/${id}`,{method:'DELETE'});
   const res=await r.json();
   if(r.ok){ toast('Invoice deleted'); closeModal(); await load(); }
