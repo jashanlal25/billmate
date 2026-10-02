@@ -2174,7 +2174,7 @@ function newBill(){
   loadHistory();
 }
 
-function cancelBill(){
+async function cancelBill(){
   if(!lines.length && !customer) return;
   if (!(await BMConfirm('Cancel this invoice? All items will be cleared.'))) return;
   // Delete auto-draft from server if one was created
