@@ -67,7 +67,7 @@
     catch(error){status(error.message);}finally{busy=false;$('saveAgent').disabled=false;}
   };
   $('removeAgent').onclick=async()=>{
-    if(!confirm('Remove the saved connection and disable its runner?'))) return;
+    if(!confirm('Remove the saved connection and disable its runner?')) return;
     stop();try{show(await api('','DELETE',{}));$('runnerEnv').value='';$('runnerBox').hidden=true;}catch(error){status(error.message);}
   };
   $('runnerConfig').onclick=async()=>{
