@@ -102,7 +102,7 @@
       finally { button.disabled = false; }
     },
     async forget() {
-      if (!(await BMConfirm('Remove fingerprint access for this account on this phone?'))) return;
+      if(!confirm('Remove fingerprint access for this account on this phone?'))) return;
       await call('forget', context); await this.init(context.kind, context.username);
     }
   };
