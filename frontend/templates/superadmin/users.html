@@ -513,7 +513,7 @@ async function toggleSuspend(uid, suspend, uname){
   const confirmMsg = suspend
     ? `Suspend "${uname}"?\nThey will see a locked message and cannot use the app.`
     : `Unlock "${uname}"?\nThey will regain full access.`;
-  if(!confirm(confirmMsg)) return;
+  if (!(await BMConfirm(confirmMsg))) return;
   const r=await fetch('/api/superadmin/users/'+uid+'/'+action,{method:'POST'}).catch(()=>null);
   const d=r?await r.json().catch(()=>({})): {};
   if(d.success){
