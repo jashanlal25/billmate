@@ -643,7 +643,7 @@ async function saveItem(){
 }
 
 async function deleteItem(id, name){
-  if(!confirm(`Delete "${name}"?`)) return;
+  if (!(await BMConfirm(`Delete "${name}"?`))) return;
   if(String(id).startsWith('li_')){
     _guestSaveItems(_guestItems().filter(x=>String(x.id)!==String(id)));
     toast('Deleted'); loadItems(document.getElementById('searchBox').value); return;
@@ -654,7 +654,7 @@ async function deleteItem(id, name){
 }
 
 function _guestClearItems(){
-  if(!confirm('Delete all your local items? This cannot be undone.')) return;
+  if (!(await BMConfirm('Delete all your local items? This cannot be undone.'))) return;
   localStorage.removeItem(G_ITEMS_KEY);
   toast('All local items cleared');
   loadItems(document.getElementById('searchBox').value);
@@ -714,7 +714,7 @@ async function doBulkDelete(scope){
   if(scope === 'recent')      label = 'items from the last 24 hours';
   else if(scope === 'vendor') label = `ALL items from vendor '${vendor}' (items from other vendors will not be affected)`;
   else                        label = 'ALL your private items';
-  if(!confirm(`Are you sure you want to delete ${label}? This action cannot be undone.`)) return;
+  if (!(await BMConfirm(`Are you sure you want to delete ${label}? This action cannot be undone.`))) return;
   _bulkDeleting = true;
   toast('Deleting… please wait');
   try{
