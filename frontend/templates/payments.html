@@ -495,7 +495,7 @@ async function saveCustPayment(){
 }
 
 async function delPayment(pid,type){
-  if(!confirm('Delete this payment? The balance will be reversed.'))) return;
+  if(!confirm('Delete this payment? The balance will be reversed.')) return;
   const url='/api/payments/'+(type==='cust'?'customer':'supplier')+'/'+pid;
   const r=await fetch(url,{method:'DELETE'});
   if(r.ok){
@@ -565,7 +565,7 @@ function renderAllCustPayments(){
 }
 
 async function delPaymentFromAll(pid,type){
-  if(!confirm('Delete this payment? Balance will be reversed.'))) return;
+  if(!confirm('Delete this payment? Balance will be reversed.')) return;
   const pmt=type==='cust'?allCustPayments.find(p=>p.id===pid):allSuppPayments.find(p=>p.id===pid);
   const url='/api/payments/'+(type==='cust'?'customer':'supplier')+'/'+pid;
   const r=await fetch(url,{method:'DELETE'});
