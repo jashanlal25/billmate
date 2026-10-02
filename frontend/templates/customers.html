@@ -323,7 +323,7 @@ async function saveCustomer(){
 }
 
 async function deleteCustomer(id,name){
-  if(!confirm(`Delete "${name}"?`))) return;
+  if(!confirm(`Delete "${name}"?`)) return;
   const r=await fetch(`/api/customers/${id}`,{method:'DELETE'});
   if(r.ok){toast('Deleted');loadCustomers(document.getElementById('searchBox').value);}
   else toast('Error',true);
