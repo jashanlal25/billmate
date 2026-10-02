@@ -281,7 +281,7 @@ async function inspectBackup(){
 
 async function restoreBackup(){
   if(backupOperationInProgress){toast('Restore already in progress — please wait',true);return;}
-  if(!confirm('Restore this backup? Existing data will remain and restored records may be added.'))) return;
+  if(!confirm('Restore this backup? Existing data will remain and restored records may be added.')) return;
   backupOperationInProgress=true;
   const file=document.getElementById('backupFile').files[0];
   if(!file){toast('Choose a backup file first',true);return;}
@@ -361,7 +361,7 @@ async function saveGeminiKey(){
   else toast(d.error||'Error saving key',true);
 }
 async function clearGeminiKey(){
-  if(!confirm('Remove saved Gemini API key?'))) return;
+  if(!confirm('Remove saved Gemini API key?')) return;
   const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gemini_api_key:''})});
   const d=await r.json();
   if(d.success){toast('Gemini key removed');loadKeyStatuses();}
@@ -377,7 +377,7 @@ async function saveGroqKey(){
   else toast(d.error||'Error saving key',true);
 }
 async function clearGroqKey(){
-  if(!confirm('Remove saved Groq API key?'))) return;
+  if(!confirm('Remove saved Groq API key?')) return;
   const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groq_api_key:''})});
   const d=await r.json();
   if(d.success){toast('Groq key removed');loadKeyStatuses();}
