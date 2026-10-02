@@ -2183,18 +2183,24 @@ function sendVendorMessage(vendor){
 
 function sendAllVendorMessages(){
   if(!_vendorInv()) return;
-  const groups = _vendorGroups();
-  const vendors = Object.keys(groups);
-  let urls;
-  try { urls = vendors.map(v=>_vendorReorderUrl(v, groups[v])); }
-  catch(e){ toast(e.message,true); return; }
-  let opened = 0;
-  // Open synchronously inside the click gesture for the best chance vs pop-up blockers
-  urls.forEach(url=>{ if(window.open(url,'_blank')) opened++; });
-  if(opened < vendors.length){
-    toast(`Opened ${opened}/${vendors.length}. Allow pop-ups, or tap each supplier below.`,true);
-  } else {
-    toast(`Opened ${vendors.length} supplier chats — tap send in each`);
+  const groups=_vendorGroups();
+  const vendors=Object.keys(groups);
+  const urls=[];
+  const failed=[];
+  vendors.forEach(v=>{
+    try{ urls.push({vendor:v,url:_vendorReorderUrl(v,groups[v])}); }
+    catch(e){ failed.push({vendor:(groups[v][0]&&groups[v][0].vendor)||v,error:e.message}); }
+  });
+  let opened=0;
+  urls.forEach(x=>{if(window.open(x.url,'_blank')) opened++;});
+  if(failed.length){
+    const names=failed.slice(0,3).map(x=>x.vendor).join(', ');
+    const more=failed.length>3 ? ' +'+(failed.length-3)+' more' : '';
+    toast('Opened '+opened+'/'+vendors.length+'. Needs repair: '+names+more,true);
+  }else if(opened<vendors.length){
+    toast('Opened '+opened+'/'+vendors.length+'. Allow pop-ups, or tap each supplier below.',true);
+  }else{
+    toast('Opened '+vendors.length+' supplier chats — tap send in each');
     closeVendorMessage();
   }
 }

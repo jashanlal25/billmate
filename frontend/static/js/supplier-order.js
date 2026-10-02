@@ -14,11 +14,19 @@
       });
       return msg + `*Items* : ${items.length}\n====================`;
     }
-    if(items.some(l=>!l.vendor_code || !l.vendor_name || !l.vendor_list_no)){
-      throw new Error('Supplier details are missing. Re-import the vendor list and add its items to a new bill.');
-    }
-    if(items.some(l=>l.vendor_discount_pct == null || !Number.isFinite(Number(l.vendor_discount_pct)))){
-      throw new Error('Supplier discount is missing. Reload the saved invoice or re-import the vendor list.');
+    const missing=[];
+    items.forEach(l=>{
+      const fields=[];
+      if(!l.vendor_code) fields.push('code');
+      if(!l.vendor_name) fields.push('name');
+      if(!l.vendor_list_no) fields.push('list no');
+      if(l.vendor_discount_pct == null || !Number.isFinite(Number(l.vendor_discount_pct))) fields.push('discount');
+      if(fields.length) missing.push((l.item_name||l.item_code||'Unknown item')+' ('+fields.join(', ')+')');
+    });
+    if(missing.length){
+      const shown=missing.slice(0,3).join('; ');
+      const more=missing.length>3 ? '; +'+(missing.length-3)+' more' : '';
+      throw new Error('Supplier details are missing for: '+shown+more+'. Open/edit/save the invoice after importing the vendor item data.');
     }
     if(items.some(l=>l.vendor!==first.vendor || l.vendor_list_no!==first.vendor_list_no)){
       throw new Error('Choose one supplier list per message.');

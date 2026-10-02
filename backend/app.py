@@ -3669,10 +3669,13 @@ def create_invoice():
             tax_pct=float(line_data.get('tax_pct', item.tax_pct if item else 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
             vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
-            vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
-            vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
-            vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
-            vendor_discount_pct=(line_data.get('vendor_discount_pct') if line_data.get('vendor_discount_pct') is not None
+            # Do not let empty browser/legacy values erase valid supplier metadata
+            # stored on the selected Inventory Item. This also repairs old invoices on save.
+            vendor_code=(line_data.get('vendor_code') or (item.vendor_code if item else '') or ''),
+            vendor_name=(line_data.get('vendor_name') or (item.vendor_name if item else '') or ''),
+            vendor_list_no=(line_data.get('vendor_list_no') or (item.vendor_list_no if item else '') or ''),
+            vendor_discount_pct=(line_data.get('vendor_discount_pct')
+                                 if line_data.get('vendor_discount_pct') not in (None, '')
                                  else item.vendor_discount_pct if item else None),
         )
         line.calculate_line_net()
@@ -3773,10 +3776,13 @@ def update_invoice(inv_id):
             tax_pct=float(line_data.get('tax_pct', 0) or 0),
             rate_source=(line_data.get('rate_source') or (item.rate_source if item else '') or '').strip()[:50] or None,
             vendor=(line_data.get('vendor') or (item.vendor if item else '') or '').strip()[:50] or None,
-            vendor_code=line_data.get('vendor_code', item.vendor_code if item else '') or '',
-            vendor_name=line_data.get('vendor_name', item.vendor_name if item else '') or '',
-            vendor_list_no=line_data.get('vendor_list_no', item.vendor_list_no if item else '') or '',
-            vendor_discount_pct=(line_data.get('vendor_discount_pct') if line_data.get('vendor_discount_pct') is not None
+            # Do not let empty browser/legacy values erase valid supplier metadata
+            # stored on the selected Inventory Item. This also repairs old invoices on save.
+            vendor_code=(line_data.get('vendor_code') or (item.vendor_code if item else '') or ''),
+            vendor_name=(line_data.get('vendor_name') or (item.vendor_name if item else '') or ''),
+            vendor_list_no=(line_data.get('vendor_list_no') or (item.vendor_list_no if item else '') or ''),
+            vendor_discount_pct=(line_data.get('vendor_discount_pct')
+                                 if line_data.get('vendor_discount_pct') not in (None, '')
                                  else item.vendor_discount_pct if item else None),
         )
         line.calculate_line_net()

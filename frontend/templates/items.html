@@ -130,6 +130,7 @@ input[type=number]{-moz-appearance:textfield}
 }
 </style>
 <link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
+<link rel="stylesheet" href="/static/css/confirm-dialog.css?v=20261003">
 </head>
 <body>
 <nav class="nav">
@@ -408,14 +409,18 @@ function _cacheClear(){
     localStorage.removeItem(_CK);
   }catch{}
 }
-const theme = localStorage.getItem('theme') || 'light';
-if(theme === 'dark') document.documentElement.setAttribute('data-theme','dark');
-function toggleTheme(){
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
+const _themes = ['light','dim','dark'];
+const _themeIcons = {light:'☀️',dim:'🌤️',dark:'🌙'};
+let _theme = localStorage.getItem('theme') || 'light';
+function _applyItemsTheme(t){
+  document.documentElement.setAttribute('data-theme', t === 'light' ? '' : t);
+  const btn=document.querySelector('.theme-btn');
+  if(btn) btn.textContent=_themeIcons[t] || '☀️';
+  localStorage.setItem('theme',t);
+  _theme=t;
 }
+_applyItemsTheme(_theme);
+function toggleTheme(){ _applyItemsTheme(_themes[(_themes.indexOf(_theme)+1)%_themes.length]); }
 
 let allItems = [];
 let categories = [];
@@ -464,25 +469,28 @@ async function loadCategories(){
   });
 }
 
-async function loadItems(q=''){
-  // Always fetch fresh so qty changes from purchases are immediately visible
-  const r = await fetch('/api/items');
-  const serverItems = await r.json();
-  _cacheSet(serverItems); // keep cache updated for billing pre-warm
-  // prune stale date-keys from previous days
-  try{
-    const prefix=_CK.slice(0,_CK.lastIndexOf('_')+1);
-    Object.keys(localStorage).filter(k=>k.startsWith(prefix)&&k!==_CK).forEach(k=>localStorage.removeItem(k));
-  }catch{}
+function _applyLoadedItems(serverItems){
   if(IS_GUEST){
-    const localItems = _guestItems();
-    // local items first, then server globals not already in local (by name)
-    allItems = [...localItems, ...serverItems.filter(s=>!localItems.find(l=>l.name.toLowerCase()===s.name.toLowerCase()))];
-  } else {
-    allItems = serverItems;
+    const localItems=_guestItems();
+    allItems=[...localItems,...serverItems.filter(s=>!localItems.find(l=>(l.name||'').toLowerCase()===(s.name||'').toLowerCase()))];
+  }else{
+    allItems=serverItems;
   }
   populateVendorFilter();
   applyFilters();
+}
+async function loadItems(q=''){
+  const cached=_cacheGet();
+  if(Array.isArray(cached) && cached.length) _applyLoadedItems(cached);
+  try{
+    const r=await fetch('/api/items');
+    if(!r.ok) throw new Error('Items request failed');
+    const serverItems=await r.json();
+    _cacheSet(serverItems);
+    _applyLoadedItems(serverItems);
+  }catch(e){
+    if(!Array.isArray(cached)) toast('Could not load items',true);
+  }
 }
 
 function render(items){
@@ -526,7 +534,8 @@ function render(items){
 
 let selectedVendors = new Set();  // empty = show all vendors
 
-function search(){ applyFilters(); }
+let _searchTimer=0;
+function search(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(applyFilters,90); }
 
 // Combined filter: item name search AND any of the ticked vendors
 function applyFilters(){
@@ -681,13 +690,24 @@ async function deleteItem(id, name){
 }
 
 async function _guestClearItems(){
-  if(!confirm('Delete all your local items? This cannot be undone.')) return;
+  if(!(await BMConfirm('Delete all your local items? This cannot be undone.','Clear local items?'))) return;
   localStorage.removeItem(G_ITEMS_KEY);
   toast('All local items cleared');
   loadItems(document.getElementById('searchBox').value);
 }
 
-function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+function toggleNav(force){
+  const menu=document.getElementById('navMenu');
+  if(!menu) return;
+  const shouldOpen=typeof force==='boolean' ? force : !menu.classList.contains('open');
+  menu.classList.toggle('open',shouldOpen);
+}
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('navMenu');
+  const button=document.querySelector('.nav-hamburger');
+  if(!menu || !menu.classList.contains('open')) return;
+  if(e.target.closest('#navMenu a,#navMenu button') || (!menu.contains(e.target) && !(button && button.contains(e.target)))) toggleNav(false);
+},true);
 
 // ── Bulk Delete ──────────────────────────────────────────────────────────────
 function openBulkDeleteModal(){
@@ -741,7 +761,7 @@ async function doBulkDelete(scope){
   if(scope === 'recent')      label = 'items from the last 24 hours';
   else if(scope === 'vendor') label = `ALL items from vendor '${vendor}' (items from other vendors will not be affected)`;
   else                        label = 'ALL your private items';
-  if(!confirm(`Are you sure you want to delete ${label}? This action cannot be undone.`)) return;
+  if(!(await BMConfirm(`Are you sure you want to delete ${label}? This action cannot be undone.`,'Clear items?'))) return;
   _bulkDeleting = true;
   toast('Deleting… please wait');
   try{
@@ -1001,6 +1021,7 @@ document.addEventListener('focusout',e=>{
   }
 });
 </script>
+<script src="/static/js/confirm-dialog.js?v=20261003"></script>
 <script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body>
 </html>
