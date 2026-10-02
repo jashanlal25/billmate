@@ -25,9 +25,26 @@ function toast(msg, err = false) {
 }
 
 // === Mobile Nav Toggle ===
-function toggleNav() {
-  document.getElementById('navMenu').classList.toggle('open');
+function toggleNav(force) {
+  const menu = document.getElementById('navMenu');
+  if (!menu) return;
+  const shouldOpen = typeof force === 'boolean' ? force : !menu.classList.contains('open');
+  menu.classList.toggle('open', shouldOpen);
 }
+
+// Close the mobile navigation after choosing a page or tapping outside it.
+document.addEventListener('click', e => {
+  const menu = document.getElementById('navMenu');
+  const button = document.querySelector('.nav-hamburger');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (e.target.closest('#navMenu a')) {
+    toggleNav(false);
+    return;
+  }
+  if (!menu.contains(e.target) && !(button && button.contains(e.target))) {
+    toggleNav(false);
+  }
+});
 
 // === HTML Escape (prevents XSS when inserting user data into innerHTML) ===
 function esc(s){
