@@ -733,7 +733,12 @@ function toggleTheme(){
   const next=themes[(themes.indexOf(_theme)+1)%themes.length];
   applyTheme(next);
 }
-function toggleNav(){document.getElementById('navMenu').classList.toggle('open');}
+function toggleNav(force){
+  const menu=document.getElementById('navMenu');
+  if(!menu)return;
+  const shouldOpen=typeof force==='boolean'?force:!menu.classList.contains('open');
+  menu.classList.toggle('open',shouldOpen);
+}
 function toggleMobActions(e){
   if(e) e.stopPropagation();
   var row=document.getElementById('mobActionsRow');
