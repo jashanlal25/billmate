@@ -241,6 +241,27 @@ input[type=number]{-moz-appearance:textfield}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
 <script>
+/* In-app confirmation dialog. Keeps confirmations inside the BillMate UI/WebView. */
+function BMConfirm(message, title='Please confirm'){
+  return new Promise(resolve=>{
+    let overlay=document.getElementById('bmConfirmOverlay');
+    if(!overlay){
+      overlay=document.createElement('div');
+      overlay.id='bmConfirmOverlay';
+      overlay.setAttribute('role','dialog');
+      overlay.setAttribute('aria-modal','true');
+      overlay.innerHTML='<div id="bmConfirmCard"><div id="bmConfirmIcon">?</div><div id="bmConfirmTitle"></div><div id="bmConfirmMessage"></div><div id="bmConfirmActions"><button type="button" class="bm-confirm-btn bm-confirm-cancel">Cancel</button><button type="button" class="bm-confirm-btn bm-confirm-ok">OK</button></div></div>';
+      document.body.appendChild(overlay);
+    }
+    overlay.querySelector('#bmConfirmTitle').textContent=title;
+    overlay.querySelector('#bmConfirmMessage').textContent=message;
+    overlay.classList.add('open');
+    const finish=value=>{overlay.classList.remove('open');resolve(value);};
+    overlay.querySelector('.bm-confirm-cancel').onclick=()=>finish(false);
+    overlay.querySelector('.bm-confirm-ok').onclick=()=>finish(true);
+    overlay.onclick=e=>{if(e.target===overlay)finish(false);};
+  });
+}
 let _taxBreakdown = false;
 function showTaxBreakdown(){ return _taxBreakdown; }
 function setTaxBreakdown(enabled){
