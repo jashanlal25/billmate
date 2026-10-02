@@ -88,7 +88,7 @@ function toggleEye(){
 }
 async function forgotAdmin(e){
   e.preventDefault();
-  if(!confirm('This will reset admin password to your login password after 24 hours. Continue?'))) return;
+  if(!confirm('This will reset admin password to your login password after 24 hours. Continue?')) return;
   const r=await fetch('/admin/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'}});
   const d=await r.json();
   const msg=document.getElementById('forgotMsg');
