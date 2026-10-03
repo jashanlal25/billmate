@@ -2191,49 +2191,50 @@ async function openVendorMessage(inv){
   if(!target) return;
 
   // Invoice lines are historical snapshots. Supplier imports can replace or
-  // archive catalog rows, so an old line's item_id/vendor fields may no longer
-  // contain the current supplier metadata. Resolve each line against the
-  // current active catalog using several stable identities, in priority order.
-  if(!IS_GUEST && Array.isArray(target.lines) && target.lines.some(l=>l.item_id!=null)){
+  // archive catalog rows, so an old line may have incomplete supplier metadata.
+  // Always resolve every supplier line against the current catalog, even when
+  // item_id is missing. This keeps old invoices and future vendor imports
+  // usable for WhatsApp reorder messages without forcing edit/save first.
+  if(!IS_GUEST && Array.isArray(target.lines) && target.lines.length){
     try{
       const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
-      const byId = new Map(catalog.map(i=>[String(i.id),i]));
-      const norm = v => String(v||'').trim().replace(/\\s+/g,' ').toLowerCase();
-      const candidates = (line) => {
-        const vendor = norm(line.vendor);
-        const lineVendorCode = norm(line.vendor_code);
-        const lineItemCode = norm(line.item_code);
-        const lineName = norm(line.vendor_name || line.item_name);
-        return catalog.map(item=>{
-          const iv = norm(item.vendor);
-          if(vendor && iv !== vendor) return null;
-          let score = 0;
-          if(String(item.id) === String(line.item_id)) score += 1000;
-          if(lineVendorCode && norm(item.vendor_code) === lineVendorCode) score += 900;
-          if(lineVendorCode && norm(item.code) === lineVendorCode) score += 850;
-          if(lineItemCode && norm(item.code) === lineItemCode) score += 800;
-          if(lineName && norm(item.vendor_name || item.name) === lineName) score += 700;
-          if(lineName && norm(item.name) === lineName) score += 650;
-          if(line.vendor_list_no && norm(item.vendor_list_no) === norm(line.vendor_list_no)) score += 100;
-          return score ? {item,score} : null;
-        }).filter(Boolean).sort((a,b)=>b.score-a.score);
+      const norm = v => String(v??'').trim().replace(/\\s+/g,' ').toLowerCase();
+      const scoreCandidate = (line,item) => {
+        const lv=norm(line.vendor), iv=norm(item.vendor);
+        const ll=norm(line.vendor_list_no), il=norm(item.vendor_list_no);
+        const lc=norm(line.vendor_code || line.item_code), ic=norm(item.vendor_code || item.code);
+        const ln=norm(line.vendor_name || line.item_name), inn=norm(item.vendor_name || item.name);
+        const lname=norm(line.item_name), iname=norm(item.name);
+        if(lv && iv && lv!==iv) return -1;
+        if(ll && il && ll!==il) return -1;
+        let score=0;
+        if(String(item.id)===String(line.item_id)) score+=1000;
+        if(lv && iv && lv===iv) score+=250;
+        if(ll && il && ll===il) score+=220;
+        if(lc && ic && lc===ic) score+=500;
+        if(ln && inn && ln===inn) score+=450;
+        if(lname && iname && lname===iname) score+=400;
+        if(lc && norm(item.code)===lc) score+=380;
+        if(ln && norm(item.name)===ln) score+=350;
+        if(!score) return -1;
+        return score;
       };
 
       target.lines.forEach(line=>{
-        let item = byId.get(String(line.item_id));
-        // If item_id points to an archived/old row, fall back to the current
-        // supplier catalog. This is what makes old invoices work after future
-        // vendor imports too, without requiring edit/save of every invoice.
-        if(!item || !item.vendor_code || !item.vendor_list_no || !item.vendor_name){
-          const best = candidates(line)[0];
-          if(best) item = best.item;
-        }
-        if(!item) return;
-        if(item.vendor) line.vendor = item.vendor;
-        if(item.vendor_code) line.vendor_code = item.vendor_code;
-        if(item.vendor_name) line.vendor_name = item.vendor_name;
-        if(item.vendor_list_no) line.vendor_list_no = item.vendor_list_no;
-        if(item.vendor_discount_pct != null) line.vendor_discount_pct = item.vendor_discount_pct;
+        const matches=catalog
+          .map(item=>({item,score:scoreCandidate(line,item)}))
+          .filter(x=>x.score>=0)
+          .sort((a,b)=>b.score-a.score);
+        const best=matches[0];
+        if(!best) return;
+        const item=best.item;
+
+        if(item.vendor) line.vendor=item.vendor;
+        if(item.vendor_code || item.code) line.vendor_code=item.vendor_code || item.code;
+        if(item.vendor_name || item.name) line.vendor_name=item.vendor_name || item.name;
+        if(item.vendor_list_no) line.vendor_list_no=item.vendor_list_no;
+        if(item.vendor_discount_pct != null) line.vendor_discount_pct=item.vendor_discount_pct;
+        if(!line.bonus_text && item.bonus_text) line.bonus_text=item.bonus_text;
       });
     }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
   }
