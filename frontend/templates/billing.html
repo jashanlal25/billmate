@@ -255,145 +255,37 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
 
-/* Reference mobile billing UI — compact item rows + bottom detail sheet */
+/* Mobile billing UI — fast rows + billing validation sheet */
 .mobile-item-info,.mobile-item-detail-overlay,.mobile-item-detail-sheet{display:none}
 @media(max-width:900px){
-  body.mobile-detail-open{overflow:hidden}
-  #linesTable tbody tr{
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr) auto auto 24px;
-    grid-template-areas:"info qty amount dots";
-    gap:8px;
-    align-items:center;
-    margin-bottom:8px;
-    padding:10px 8px!important;
-    min-height:92px;
-    border:1px solid #e3e7ef!important;
-    border-radius:14px!important;
-    background:var(--card)!important;
-    box-shadow:0 2px 8px rgba(0,0,0,.04)!important;
-  }
-  #linesTable tbody tr:nth-child(even){background:#fbfcff!important}
-  #linesTable tbody td{border:none!important;background:transparent!important;min-width:0}
-  #linesTable tbody td:nth-child(1),
-  #linesTable tbody td:nth-child(4),
-  #linesTable tbody td:nth-child(5),
-  #linesTable tbody td:nth-child(6),
-  #linesTable tbody td:nth-child(7){display:none!important}
-  #linesTable tbody td:nth-child(2){
-    grid-area:info;
-    display:block!important;
-    padding:0!important;
-    width:auto!important;
-    min-width:0!important;
-  }
-  #linesTable tbody td:nth-child(3){
-    grid-area:qty;
-    display:block!important;
-    padding:0!important;
-    width:auto!important;
-    min-width:0!important;
-  }
-  #linesTable tbody td:nth-child(8){
-    grid-area:amount;
-    display:block!important;
-    padding:0 0 0 4px!important;
-    width:auto!important;
-    text-align:right!important;
-    font-size:1em!important;
-    white-space:nowrap;
-    border:0!important;
-    margin:0!important;
-    color:var(--text)!important;
-  }
-  #linesTable tbody td:nth-child(9){
-    grid-area:dots;
-    position:static!important;
-    display:flex!important;
-    padding:0!important;
-    width:24px!important;
-    align-items:center;
-    justify-content:center;
-  }
-  #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
-  .mobile-item-info{display:flex!important;align-items:center;gap:10px;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .mob-item-icon{
-    width:54px;height:54px;min-width:54px;border-radius:12px;
-    display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(135deg,#eef4ff,#e9f7ff);
-    font-size:27px;border:1px solid #e1e8f4;
-  }
-  .mob-item-copy{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
-  .mob-item-name{font-size:.92rem;font-weight:800;color:#101a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  [data-theme=dark] .mob-item-name{color:var(--text)}
-  .mob-item-meta{font-size:.69rem;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .mob-item-meta span{padding:0 3px}
-  .mob-badges{display:flex;gap:5px;margin-top:4px}
-  .mob-badge{font-size:.62rem;font-weight:800;padding:3px 6px;border-radius:7px;white-space:nowrap}
-  .mob-badge-disc{background:#dff7e8;color:#12804a}
-  .mob-badge-tax{background:#e8f0ff;color:#4969a8}
-  .mob-item-price{font-size:.86rem;font-weight:800;color:#123aa5;margin-top:4px}
-  .mob-lbl{display:none!important}
-  #linesTable .qty-stepper{gap:0;border:1px solid #dce3ee;border-radius:10px;overflow:hidden;background:#fff}
-  #linesTable .qty-stepper button{
-    width:34px!important;height:38px!important;border-radius:0!important;
-    background:#f7f9fc!important;color:#1759d1!important;border:0!important;
-    font-size:1.25rem!important;font-weight:700!important;
-  }
-  #linesTable .qty-stepper .qty-inp{
-    width:34px!important;height:38px!important;min-width:34px!important;
-    border:0!important;border-left:1px solid #e2e6ee!important;border-right:1px solid #e2e6ee!important;
-    border-radius:0!important;background:#fff!important;color:#17203b!important;
-    font-size:.92rem!important;font-weight:800!important;padding:0!important;
-  }
-  #linesTable .dots-btn{font-size:1.35rem!important;padding:2px!important;color:#46516c!important}
-  #linesTable .remove-btn{display:none!important}
-  .line-menu{right:0;top:32px;min-width:150px}
-  .mobile-item-detail-overlay{
-    display:block;position:fixed;inset:0;background:rgba(9,18,40,.48);
-    z-index:1199;opacity:0;pointer-events:none;transition:opacity .22s ease;
-  }
-  .mobile-item-detail-overlay.open{opacity:1;pointer-events:auto}
-  .mobile-item-detail-sheet{
-    display:block;position:fixed;left:0;right:0;bottom:0;
-    max-height:82vh;overflow:auto;overscroll-behavior:contain;
-    background:var(--card);border-radius:24px 24px 0 0;
-    z-index:1200;transform:translateY(105%);
-    transition:transform .28s cubic-bezier(.4,0,.2,1);
-    box-shadow:0 -12px 40px rgba(0,0,0,.25);
-    padding:10px 14px calc(18px + env(safe-area-inset-bottom));
-  }
-  .mobile-item-detail-sheet.open{transform:translateY(0)}
-  .mid-grabber{width:42px;height:5px;border-radius:99px;background:#b9c0cb;margin:2px auto 12px}
-  .mid-sheet-head{display:flex;align-items:center;gap:10px;padding:2px 2px 14px}
-  .mid-item-icon{width:58px;height:58px;border-radius:13px;background:#eef4ff;display:flex;align-items:center;justify-content:center;font-size:29px;flex-shrink:0}
-  .mid-head-copy{min-width:0;flex:1}
-  .mid-title{font-size:1.08rem;font-weight:850;color:#111a39;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  [data-theme=dark] .mid-title{color:var(--text)}
-  .mid-sub{font-size:.76rem;color:#71809d;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .mid-sub span{padding:0 5px}
-  .mid-close{width:40px;height:40px;border:0;border-radius:50%;background:#f0f2f6;color:#526078;font-size:1.7rem;line-height:1;flex-shrink:0}
-  .mid-section{background:#f4f7fc;border-radius:15px;padding:12px;margin-bottom:9px}
-  [data-theme=dark] .mid-section{background:#252a3b}
-  .mid-section-title{font-size:.82rem;font-weight:850;color:#142044;margin-bottom:8px}
-  [data-theme=dark] .mid-section-title{color:var(--text)}
-  .mid-grid{display:grid;grid-template-columns:1fr 1fr;background:#fff;border-radius:11px;overflow:hidden}
-  [data-theme=dark] .mid-grid{background:#1e2230}
-  .mid-grid>div{padding:9px 10px;border-right:1px solid #e6eaf1;border-bottom:1px solid #e6eaf1;min-width:0}
-  .mid-grid>div:nth-child(2n){border-right:0}
-  .mid-grid>div:nth-last-child(-n+2){border-bottom:0}
-  .mid-grid span{display:block;font-size:.68rem;color:#71809d;margin-bottom:3px}
-  .mid-grid strong{display:block;font-size:.82rem;color:#17203b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  [data-theme=dark] .mid-grid strong{color:var(--text)}
-  .mid-highlight{margin-top:7px;padding:10px 12px;border-radius:10px;background:#e8f8ee;color:#137b4a;display:flex;justify-content:space-between;align-items:center;font-weight:800}
-  .mid-highlight strong{font-size:1rem}
-  .mid-green{color:#0d9255!important}
-  .mid-actions{display:flex;gap:9px;margin-top:5px}
-  .mid-btn{flex:1;padding:12px;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer}
-  .mid-btn-close{background:#f2f3f6;color:#1f2a43;border:1px solid #cdd3de}
-  .mid-btn-edit{background:#2467ee;color:#fff;border:1px solid #2467ee}
+ body.mobile-detail-open{overflow:hidden}
+ #linesTable tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto 22px;grid-template-areas:"info qty amount dots";gap:7px;align-items:center;margin-bottom:7px;padding:10px 8px!important;min-height:82px;border:1px solid #e0e5ef!important;border-radius:14px!important;background:var(--card)!important;box-shadow:0 2px 8px rgba(0,0,0,.04)!important}
+ #linesTable tbody td{border:none!important;background:transparent!important;min-width:0}
+ #linesTable tbody td:nth-child(1),#linesTable tbody td:nth-child(4),#linesTable tbody td:nth-child(5),#linesTable tbody td:nth-child(6),#linesTable tbody td:nth-child(7){display:none!important}
+ #linesTable tbody td:nth-child(2){grid-area:info;display:block!important;padding:0!important;width:auto!important;min-width:0!important}
+ #linesTable tbody td:nth-child(3){grid-area:qty;display:block!important;padding:0!important;width:auto!important}
+ #linesTable tbody td:nth-child(8){grid-area:amount;display:block!important;padding:0 0 0 3px!important;width:auto!important;text-align:right!important;white-space:nowrap;color:var(--text)!important}
+ #linesTable tbody td:nth-child(9){grid-area:dots;display:flex!important;padding:0!important;width:22px!important;align-items:center;justify-content:center}
+ #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
+ .mobile-item-info{display:block!important;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+ .mob-item-copy{min-width:0}.mob-item-top{display:flex;align-items:center;gap:6px;min-width:0}.mob-item-name{font-size:.9rem;font-weight:800;color:#101a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+ [data-theme=dark] .mob-item-name{color:var(--text)}
+ .mob-badge{font-size:.61rem;font-weight:800;padding:3px 6px;border-radius:7px;white-space:nowrap;flex-shrink:0}.mob-badge-disc{background:#dff7e8;color:#12804a}
+ .mob-item-meta{font-size:.68rem;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mob-item-meta span{padding:0 3px}
+ .mob-item-bottom{display:flex;align-items:center;gap:8px;margin-top:4px}.mob-item-price{font-size:.84rem;font-weight:800;color:#123aa5}.mob-tax-state{font-size:.62rem;font-weight:700;color:#667085;background:#f1f4f9;padding:3px 6px;border-radius:7px}
+ #linesTable .qty-stepper{gap:0;border:1px solid #dce3ee;border-radius:10px;overflow:hidden;background:#fff}
+ #linesTable .qty-stepper button{width:30px!important;height:36px!important;border-radius:0!important;background:#f7f9fc!important;color:#1759d1!important;border:0!important;font-size:1.15rem!important;font-weight:700!important}
+ #linesTable .qty-stepper .qty-inp{width:30px!important;height:36px!important;min-width:30px!important;border:0!important;border-left:1px solid #e2e6ee!important;border-right:1px solid #e2e6ee!important;border-radius:0!important;background:#fff!important;color:#17203b!important;font-size:.88rem!important;font-weight:800!important;padding:0!important}
+ #linesTable .dots-btn{font-size:1.25rem!important;padding:1px!important;color:#46516c!important}#linesTable .remove-btn{display:none!important}.line-menu{right:0;top:30px;min-width:150px}
+ .mobile-item-detail-overlay{display:block;position:fixed;inset:0;background:rgba(9,18,40,.48);z-index:1199;opacity:0;pointer-events:none;transition:opacity .2s ease}.mobile-item-detail-overlay.open{opacity:1;pointer-events:auto}
+ .mobile-item-detail-sheet{display:block;position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:var(--card);border-radius:24px 24px 0 0;z-index:1200;transform:translateY(105%);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 -12px 40px rgba(0,0,0,.25);padding:10px 14px calc(18px + env(safe-area-inset-bottom))}
+ .mobile-item-detail-sheet.open{transform:translateY(0)}.mid-grabber{width:42px;height:5px;border-radius:99px;background:#b9c0cb;margin:2px auto 12px}.mid-sheet-head{display:flex;align-items:center;gap:10px;padding:2px 2px 12px}.mid-head-copy{min-width:0;flex:1}.mid-title{font-size:1.08rem;font-weight:850;color:#111a39;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}[data-theme=dark] .mid-title{color:var(--text)}.mid-sub{font-size:.75rem;color:#71809d;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid-sub span{padding:0 5px}.mid-close{width:40px;height:40px;border:0;border-radius:50%;background:#f0f2f6;color:#526078;font-size:1.7rem;line-height:1;flex-shrink:0}
+ .mid-section{background:#f4f7fc;border-radius:15px;padding:12px;margin-bottom:9px}[data-theme=dark] .mid-section{background:#252a3b}.mid-section-title,.mid-tax-title{font-size:.82rem;font-weight:850;color:#142044;margin-bottom:8px}[data-theme=dark] .mid-section-title,[data-theme=dark] .mid-tax-title{color:var(--text)}
+ .mid-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mid-fields label,.mid-tax-value{display:block}.mid-fields span,.mid-tax-value span{display:block;font-size:.68rem;color:#71809d;margin-bottom:4px}.mid-fields input,.mid-tax-value input{width:100%;height:40px;padding:7px 9px;border:1px solid #dce3ee;border-radius:9px;background:#fff;color:#17203b;font-weight:700}[data-theme=dark] .mid-fields input,[data-theme=dark] .mid-tax-value input{background:#1e2230;color:var(--text);border-color:#3b4255}
+ .mid-tax-title{margin-top:11px}.mid-tax-choice{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}.mid-tax-choice button{height:40px;border:1px solid #dce3ee;border-radius:10px;background:#fff;color:#44516b;font-weight:800}.mid-tax-choice button.active{border-color:#2467ee;background:#eaf1ff;color:#1557cf}.mid-tax-value{margin-bottom:9px}.mid-highlight{margin-top:7px;padding:10px 12px;border-radius:10px;background:#e8f8ee;color:#137b4a;display:flex;justify-content:space-between;align-items:center;font-weight:800}.mid-highlight strong{font-size:1rem}
+ .mid-grid{display:grid;grid-template-columns:1fr 1fr;background:#fff;border-radius:11px;overflow:hidden}[data-theme=dark] .mid-grid{background:#1e2230}.mid-grid>div{padding:9px 10px;border-right:1px solid #e6eaf1;border-bottom:1px solid #e6eaf1;min-width:0}.mid-grid>div:nth-child(2n){border-right:0}.mid-grid>div:nth-last-child(-n+2){border-bottom:0}.mid-grid span{display:block;font-size:.68rem;color:#71809d;margin-bottom:3px}.mid-grid strong{display:block;font-size:.8rem;color:#17203b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}[data-theme=dark] .mid-grid strong{color:var(--text)}.mid-green{color:#0d9255!important}
+ .mid-actions{display:flex;gap:9px;margin-top:5px}.mid-btn{flex:1;padding:12px;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer}.mid-btn-close{background:#f2f3f6;color:#1f2a43;border:1px solid #cdd3de}.mid-btn-apply{background:#10b981;color:#fff;border:1px solid #10b981}
 }
-
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
@@ -1467,76 +1359,91 @@ function clearBillLineSearch(){
   input.value='';filterBillLines();input.focus();
 }
 
-function _itemEmoji(name){
-  const n=String(name||'').toLowerCase();
-  if(/syrup|suspension|solution/.test(n)) return '🧴';
-  if(/cream|ointment|gel/.test(n)) return '🧴';
-  if(/tablet|tab|caps|cap|pill|mg/.test(n)) return '💊';
-  if(/powder|ors|sachet/.test(n)) return '🧃';
-  if(/drop/.test(n)) return '💧';
-  return '💊';
-}
+function _mobileTaxMode(l){ return l._taxExempt ? 'without' : 'with'; }
 
 function openMobileItemDetails(i,e){
   if(window.innerWidth>900) return;
   if(e && e.target && e.target.closest('button,input,select,a,.line-menu')) return;
-  const l=lines[i];
-  if(!l) return;
-  const stock=l.stock!=null ? Number(l.stock) : null;
-  const netUnit=l.qty ? (l.lineNet/Math.max(1,l.qty)) : l.lineNet;
-  const supplierOffer=l.vendor_discount_pct!=null && Number.isFinite(Number(l.vendor_discount_pct))
-    ? Number(l.vendor_discount_pct)+'%' : '—';
-  const bonus=l.bonus||l.supplierBonus||'—';
-  const vendor=l.vendor||l.vendor_name||'—';
-  const code=l.item_code||'—';
+  const l=lines[i]; if(!l) return;
+  const taxMode=_mobileTaxMode(l);
+  const taxValue=Number(l.tax||0);
   document.getElementById('mobileItemDetailContent').innerHTML=`
     <div class="mid-sheet-head">
-      <div class="mid-item-icon">${_itemEmoji(l.item_name)}</div>
       <div class="mid-head-copy">
         <div class="mid-title">${esc(l.item_name)}</div>
-        <div class="mid-sub">Code: ${esc(code)} <span>•</span> ${esc(vendor)}</div>
+        <div class="mid-sub">${l.item_code?'Code: '+esc(l.item_code):'Item'} ${l.vendor?'<span>•</span> '+esc(l.vendor):''}</div>
       </div>
       <button type="button" class="mid-close" onclick="closeMobileItemDetails()">×</button>
     </div>
-
     <section class="mid-section">
-      <div class="mid-section-title">🏷️ Pricing Details</div>
-      <div class="mid-grid">
-        <div><span>Retail Price</span><strong>Rs. ${Number(l.retail||0).toFixed(2)}</strong></div>
-        <div><span>TP Price</span><strong>Rs. ${Number(l.tp||0).toFixed(2)}</strong></div>
-        <div><span>Discount</span><strong>${Number(l.disc||0).toFixed(2).replace(/\\.00$/,'')}% (Rs. ${(Number(l.qty||0)*Number(l.tp||0)*Number(l.disc||0)/100).toFixed(2)})</strong></div>
-        <div><span>Tax</span><strong>${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}% (Rs. ${(Number(l.qty||0)*Number(l.tax||0)).toFixed(2)})</strong></div>
+      <div class="mid-section-title">Billing validation</div>
+      <div class="mid-fields">
+        <label><span>Retail Price</span><input id="midRetail" type="number" min="0" step="0.01" value="${Number(l.retail||0).toFixed(2)}"></label>
+        <label><span>TP Price</span><input id="midTp" type="number" min="0" step="0.01" value="${Number(l.tp||0).toFixed(2)}"></label>
+        <label><span>Discount %</span><input id="midDisc" type="number" min="-100" max="100" step="0.01" value="${Number(l.disc||0)}"></label>
+        <label><span>Quantity</span><input id="midQty" type="number" min="1" step="1" value="${Number(l.qty||1)}"></label>
       </div>
-      <div class="mid-highlight"><span>Net Unit Price</span><strong>Rs. ${Number(netUnit).toFixed(2)}</strong></div>
-    </section>
-
-    <section class="mid-section">
-      <div class="mid-section-title">🔢 Quantity &amp; Amount</div>
-      <div class="mid-grid">
-        <div><span>Quantity</span><strong>${Number(l.qty||0)}</strong></div>
-        <div><span>Total Amount</span><strong>Rs. ${(Number(l.lineNet||0)+Number(l.qty||0)*Number(l.tax||0)).toFixed(2)}</strong></div>
+      <div class="mid-tax-title">Tax mode</div>
+      <div class="mid-tax-choice">
+        <button type="button" class="${taxMode==='with'?'active':''}" onclick="setMobileTaxMode('with',${i})">✓ With Tax</button>
+        <button type="button" class="${taxMode==='without'?'active':''}" onclick="setMobileTaxMode('without',${i})">✓ Without Tax</button>
       </div>
+      <label class="mid-tax-value"><span>Tax (Rs. per unit)</span><input id="midTax" type="number" min="0" step="0.01" value="${taxMode==='without'?'0':taxValue.toFixed(2)}" ${taxMode==='without'?'disabled':''}></label>
+      <div class="mid-highlight"><span>Current item total</span><strong id="midPreviewTotal">Rs. ${((Number(l.lineNet||0)+Number(l.qty||0)*taxValue)).toFixed(2)}</strong></div>
     </section>
-
     <section class="mid-section">
-      <div class="mid-section-title">ℹ️ Other Information</div>
+      <div class="mid-section-title">Item information</div>
       <div class="mid-grid">
-        <div><span>Supplier</span><strong>${esc(vendor)}</strong></div>
-        <div><span>Supplier Offer</span><strong class="mid-green">${esc(supplierOffer)}</strong></div>
-        <div><span>Stock</span><strong>${stock==null?'—':Number(stock).toLocaleString()}</strong></div>
-        <div><span>Bonus</span><strong>${esc(bonus)}</strong></div>
+        <div><span>Supplier</span><strong>${esc(l.vendor||'—')}</strong></div>
+        <div><span>Supplier Offer</span><strong class="mid-green">${l.vendor_discount_pct!=null?esc(String(l.vendor_discount_pct))+'%':'—'}</strong></div>
+        <div><span>Stock</span><strong>${l.stock!=null?Number(l.stock).toLocaleString():'—'}</strong></div>
+        <div><span>Bonus</span><strong>${esc(l.bonus||l.supplierBonus||'—')}</strong></div>
         <div><span>Rate Source</span><strong>${esc(l.rate_source||'—')}</strong></div>
-        <div><span>Tax Rate</span><strong>${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}%</strong></div>
+        <div><span>Code</span><strong>${esc(l.item_code||'—')}</strong></div>
       </div>
     </section>
-
     <div class="mid-actions">
-      <button type="button" class="mid-btn mid-btn-close" onclick="closeMobileItemDetails()">Close</button>
-      <button type="button" class="mid-btn mid-btn-edit" onclick="closeMobileItemDetails();openItemEdit(${i})">✎ Edit Item</button>
+      <button type="button" class="mid-btn mid-btn-close" onclick="closeMobileItemDetails()">Cancel</button>
+      <button type="button" class="mid-btn mid-btn-apply" onclick="applyMobileItemDetails(${i})">✓ Apply</button>
     </div>`;
   document.getElementById('mobileItemDetailOverlay').classList.add('open');
   document.getElementById('mobileItemDetailSheet').classList.add('open');
   document.body.classList.add('mobile-detail-open');
+  ['midRetail','midTp','midDisc','midQty','midTax'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input',()=>updateMobileItemPreview(i));
+  });
+}
+
+function setMobileTaxMode(mode,i){
+  const l=lines[i]; if(!l) return;
+  l._taxExempt=mode==='without';
+  if(l._taxExempt){ l._taxBeforeExempt=Number(l.tax||0); l.tax=0; }
+  else if(Number(l.tax||0)===0 && l._taxBeforeExempt!=null){ l.tax=Number(l._taxBeforeExempt)||0; }
+  openMobileItemDetails(i);
+}
+
+function updateMobileItemPreview(i){
+  const tp=Number(document.getElementById('midTp')?.value)||0;
+  const disc=Number(document.getElementById('midDisc')?.value)||0;
+  const qty=Math.max(1,Number(document.getElementById('midQty')?.value)||1);
+  const tax=Number(document.getElementById('midTax')?.value)||0;
+  const unit=tp-(tp*disc/100);
+  const out=document.getElementById('midPreviewTotal');
+  if(out) out.textContent='Rs. '+((unit*qty)+(tax*qty)).toFixed(2);
+}
+
+function applyMobileItemDetails(i){
+  const l=lines[i]; if(!l) return;
+  l.retail=Math.max(0,Number(document.getElementById('midRetail')?.value)||0);
+  l.tp=Math.max(0,Number(document.getElementById('midTp')?.value)||0);
+  l.disc=Math.max(-100,Math.min(100,Number(document.getElementById('midDisc')?.value)||0));
+  l.qty=Math.max(1,Number(document.getElementById('midQty')?.value)||1);
+  l.tax=l._taxExempt?0:Math.max(0,Number(document.getElementById('midTax')?.value)||0);
+  const gross=l.tp*l.qty;
+  l.lineNet=gross-(gross*l.disc/100);
+  closeMobileItemDetails();
+  renderLines(); recalc();
 }
 
 function closeMobileItemDetails(){
@@ -1550,11 +1457,9 @@ function renderLines(){
   const body=document.getElementById('linesBody');
   if(!lines.length){
     body.innerHTML='<tr><td colspan="9"><div class="empty-lines">Search above to add items to this invoice</div></td></tr>';
-    filterBillLines();
-    return;
+    filterBillLines(); return;
   }
-
-  const order = addOnTop ? lines.map((_,i)=>i).reverse() : lines.map((_,i)=>i);
+  const order=addOnTop?lines.map((_,i)=>i).reverse():lines.map((_,i)=>i);
   body.innerHTML=order.map((i)=>{const l=lines[i];return`
     <tr data-line-index="${i}">
       <td style="color:#888;font-size:.8em">${i+1}</td>
@@ -1568,43 +1473,26 @@ function renderLines(){
           ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
         </div>
         <div class="mobile-item-info">
-          <div class="mob-item-icon">${_itemEmoji(l.item_name)}</div>
           <div class="mob-item-copy">
-            <div class="mob-item-name">${esc(l.item_name)}</div>
-            <div class="mob-item-meta">${l.item_code?'Code: '+esc(l.item_code):'Item'}${l.vendor?' <span>•</span> '+esc(l.vendor):''}</div>
-            <div class="mob-badges">
+            <div class="mob-item-top">
+              <div class="mob-item-name">${esc(l.item_name)}</div>
               <span class="mob-badge mob-badge-disc">Disc ${Number(l.disc||0).toFixed(2).replace(/\\.00$/,'')}%</span>
-              <span class="mob-badge mob-badge-tax">Tax ${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}%</span>
             </div>
-            <div class="mob-item-price">Rs. ${Number(l.tp||0).toFixed(2)}</div>
+            <div class="mob-item-meta">${l.item_code?'Code: '+esc(l.item_code):'Item'}${l.vendor?' <span>•</span> '+esc(l.vendor):''}</div>
+            <div class="mob-item-bottom">
+              <span class="mob-item-price">Rs. ${Number(l.tp||0).toFixed(2)}</span>
+              <span class="mob-tax-state">${l._taxExempt?'No Tax':'Tax Rs. '+Number(l.tax||0).toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </td>
-      <td class="num">
-        <span class="mob-lbl">Qty</span>
-        <div class="qty-stepper">
-          <button type="button" tabindex="-1" onclick="stepQty(${i},-1)">−</button>
-          <input class="qty-inp" type="number" min="1" enterkeyhint="next" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)">
-          <button type="button" tabindex="-1" onclick="stepQty(${i},1)">+</button>
-        </div>
-      </td>
-      <td class="num">
-        <span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" enterkeyhint="search" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center">
-      </td>
+      <td class="num"><span class="mob-lbl">Qty</span><div class="qty-stepper"><button type="button" tabindex="-1" onclick="stepQty(${i},-1)">−</button><input class="qty-inp" type="number" min="1" enterkeyhint="next" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)"><button type="button" tabindex="-1" onclick="stepQty(${i},1)">+</button></div></td>
+      <td class="num"><span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" enterkeyhint="search" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center"></td>
       <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
       <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
-      <td class="num">
-        <span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center">
-      </td>
+      <td class="num"><span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center"></td>
       <td class="num" style="font-weight:800;color:var(--accent)">Rs.${(l.lineNet+l.qty*l.tax).toFixed(2)}</td>
-      <td class="no-print line-action">
-        <button class="remove-btn" onclick="removeLine(${i})">✕</button>
-        <button class="dots-btn" onclick="toggleLineMenu(${i},event)">⋯</button>
-        <div class="line-menu" id="lmenu_${i}">
-          <div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item / Vendor</div>
-          <div class="line-menu-item danger" onclick="removeLine(${i})">🗑 Remove</div>
-        </div>
-      </td>
+      <td class="no-print line-action"><button class="remove-btn" onclick="removeLine(${i})">✕</button><button class="dots-btn" onclick="toggleLineMenu(${i},event)">⋯</button><div class="line-menu" id="lmenu_${i}"><div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item / Vendor</div><div class="line-menu-item danger" onclick="removeLine(${i})">🗑 Remove</div></div></td>
     </tr>`;}).join('');
   filterBillLines();
 }
