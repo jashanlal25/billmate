@@ -107,11 +107,26 @@ document.addEventListener('click', e => {
 });
 // === Header branding ===
 (function(){
-  // Keep the SSD MEDICOS reference branding intact. Shop settings are still
-  // available through window._shopSettings but never replace the header markup.
+  // The business name comes from the logged-in user's setup. Keep the
+  // existing header/CSS untouched and only replace the displayed name.
+  function applyShopName(name){
+    const value = String(name || '').trim();
+    if(!value) return;
+    const parts = value.split(/\s+/);
+    const primary = document.getElementById('shopNamePrimary');
+    const accent = document.getElementById('shopNameAccent');
+    const logo = document.querySelector('.nav-brand-icon img');
+    if(primary) primary.textContent = parts.shift();
+    if(accent) accent.textContent = parts.join(' ');
+    if(logo) logo.alt = value;
+  }
+
   fetch('/api/settings')
-    .then(r => r.json())
-    .then(s => { window._shopSettings = s; })
+    .then(r => r.ok ? r.json() : Promise.reject(r))
+    .then(s => {
+      window._shopSettings = s;
+      applyShopName(s.shop_name);
+    })
     .catch(()=>{});
 })();
 
