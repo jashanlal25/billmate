@@ -551,7 +551,7 @@ function setTaxBreakdown(enabled){
     <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:4px">📦 Message a Vendor</div>
     <div style="font-size:.83em;color:var(--sub);margin-bottom:16px">Pick a vendor to WhatsApp the items on this invoice that came from them — handy for restocking.</div>
     <div id="vendorMsgList" style="display:flex;flex-direction:column;gap:10px"></div>
-    <button class="mbtn mbtn-close" style="width:100%;padding:11px;font-size:.92em;margin-top:16px" onclick="closeVendorMessage()">✕ Cancel</button>
+    <button type="button" id="vendorMsgCancelBtn" class="mbtn mbtn-close" style="width:100%;padding:11px;font-size:.92em;margin-top:16px;position:relative;z-index:2;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeVendorMessage()">✕ Cancel</button>
   </div>
 </div>
 
@@ -2190,17 +2190,44 @@ async function openVendorMessage(inv){
   const target = _vendorInv();
   if(!target) return;
 
-  // Invoice lines keep a snapshot of vendor fields from the time the invoice
-  // was created. A supplier import can update the linked Inventory Item later,
-  // so refresh the current invoice lines from the authoritative catalog before
-  // building the WhatsApp groups. This avoids forcing the user to edit/save
-  // an old invoice just to pick up newly imported vendor codes/list numbers.
+  // Invoice lines are historical snapshots. Supplier imports can replace or
+  // archive catalog rows, so an old line's item_id/vendor fields may no longer
+  // contain the current supplier metadata. Resolve each line against the
+  // current active catalog using several stable identities, in priority order.
   if(!IS_GUEST && Array.isArray(target.lines) && target.lines.some(l=>l.item_id!=null)){
     try{
-      const catalog = await _fetchItems('');
-      const byId = new Map(catalog.map(item=>[String(item.id),item]));
+      const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
+      const byId = new Map(catalog.map(i=>[String(i.id),i]));
+      const norm = v => String(v||'').trim().replace(/\\s+/g,' ').toLowerCase();
+      const candidates = (line) => {
+        const vendor = norm(line.vendor);
+        const lineVendorCode = norm(line.vendor_code);
+        const lineItemCode = norm(line.item_code);
+        const lineName = norm(line.vendor_name || line.item_name);
+        return catalog.map(item=>{
+          const iv = norm(item.vendor);
+          if(vendor && iv !== vendor) return null;
+          let score = 0;
+          if(String(item.id) === String(line.item_id)) score += 1000;
+          if(lineVendorCode && norm(item.vendor_code) === lineVendorCode) score += 900;
+          if(lineVendorCode && norm(item.code) === lineVendorCode) score += 850;
+          if(lineItemCode && norm(item.code) === lineItemCode) score += 800;
+          if(lineName && norm(item.vendor_name || item.name) === lineName) score += 700;
+          if(lineName && norm(item.name) === lineName) score += 650;
+          if(line.vendor_list_no && norm(item.vendor_list_no) === norm(line.vendor_list_no)) score += 100;
+          return score ? {item,score} : null;
+        }).filter(Boolean).sort((a,b)=>b.score-a.score);
+      };
+
       target.lines.forEach(line=>{
-        const item = byId.get(String(line.item_id));
+        let item = byId.get(String(line.item_id));
+        // If item_id points to an archived/old row, fall back to the current
+        // supplier catalog. This is what makes old invoices work after future
+        // vendor imports too, without requiring edit/save of every invoice.
+        if(!item || !item.vendor_code || !item.vendor_list_no || !item.vendor_name){
+          const best = candidates(line)[0];
+          if(best) item = best.item;
+        }
         if(!item) return;
         if(item.vendor) line.vendor = item.vendor;
         if(item.vendor_code) line.vendor_code = item.vendor_code;
@@ -2216,7 +2243,11 @@ async function openVendorMessage(inv){
   document.getElementById('vendorMsgModal').classList.add('open');
   _prefetchVendorSuppliers();
 }
-function closeVendorMessage(){ document.getElementById('vendorMsgModal').classList.remove('open'); }
+function closeVendorMessage(){
+  const modal=document.getElementById('vendorMsgModal');
+  if(modal) modal.classList.remove('open');
+}
+
 
 function sendVendorMessage(vendor){
   if(!_vendorInv()) return;
