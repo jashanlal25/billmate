@@ -2402,7 +2402,7 @@ function _guestViewInvoice(id){
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
     ${gHasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
-  acts.innerHTML=printPdfBtns+`<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+  acts.innerHTML=printPdfBtns+`<button type="button" id="invModalCloseBtn" class="mbtn mbtn-close" style="position:relative;z-index:5;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeInvModal()">Close</button>`;
   _initShowSourceToggle(inv);
   document.getElementById('invModal').classList.add('open');
 }
@@ -2493,15 +2493,15 @@ async function viewInvoice(id){
     acts.innerHTML = `
       ${sc?`<button class="mbtn mbtn-load" onclick="loadIntoBuilder(${inv.id})">▶ Resume</button>`:''}
       ${sc?printPdfBtns+supplierPurchaseBtn:''}
-      <button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+      <button type="button" id="invModalCloseBtn" class="mbtn mbtn-close" style="position:relative;z-index:5;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeInvModal()">Close</button>`;
   } else if(inv.status === 'posted'){
     acts.innerHTML = `
       ${sc?`<button class="mbtn mbtn-load" onclick="loadIntoBuilder(${inv.id})">✏️ Edit</button>
       <button class="mbtn mbtn-post" onclick="finaliseInvoice(${inv.id})">✅ Finalise</button>`:''}
       ${sc?printPdfBtns+supplierPurchaseBtn:''}
-      <button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+      <button type="button" id="invModalCloseBtn" class="mbtn mbtn-close" style="position:relative;z-index:5;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeInvModal()">Close</button>`;
   } else {
-    acts.innerHTML = `${sc?printPdfBtns+supplierPurchaseBtn:''}<button class="mbtn mbtn-close" onclick="closeInvModal()">Close</button>`;
+    acts.innerHTML = `${sc?printPdfBtns+supplierPurchaseBtn:''}<button type="button" id="invModalCloseBtn" class="mbtn mbtn-close" style="position:relative;z-index:5;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeInvModal()">Close</button>`;
   }
 
   _initShowSourceToggle(inv);
@@ -2509,6 +2509,14 @@ async function viewInvoice(id){
 }
 
 function closeInvModal(){ document.getElementById('invModal').classList.remove('open'); }
+// Use delegated handling as a fallback for dynamically-rendered invoice modal buttons, including Android WebView.
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('#invModalCloseBtn');
+  if(!btn)return;
+  e.preventDefault();
+  e.stopPropagation();
+  closeInvModal();
+},true);
 function closeInvModalBg(e){ if(e.target===document.getElementById('invModal')) closeInvModal(); }
 
 function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrevBal, showPhone){
