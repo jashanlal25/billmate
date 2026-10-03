@@ -2185,9 +2185,59 @@ function _renderVendorMsgList(){
     return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${esc(JSON.stringify(v))})">🏷 ${esc(label)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${ownStock||hasPhone?'':' · ⚠ no phone'}</span></button>`;
   }).join('');
 }
-function openVendorMessage(inv){
+async function openVendorMessage(inv){
   _activeVendorInv = (inv && inv.lines) ? inv : lastSavedInv;
-  if(!_vendorInv()) return;
+  const target = _vendorInv();
+  if(!target) return;
+
+  // Invoice lines are historical snapshots. Supplier imports can replace or
+  // archive catalog rows, so an old line's item_id/vendor fields may no longer
+  // contain the current supplier metadata. Resolve each line against the
+  // current active catalog using several stable identities, in priority order.
+  if(!IS_GUEST && Array.isArray(target.lines) && target.lines.some(l=>l.item_id!=null)){
+    try{
+      const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
+      const byId = new Map(catalog.map(i=>[String(i.id),i]));
+      const norm = v => String(v||'').trim().replace(/\\s+/g,' ').toLowerCase();
+      const candidates = (line) => {
+        const vendor = norm(line.vendor);
+        const lineVendorCode = norm(line.vendor_code);
+        const lineItemCode = norm(line.item_code);
+        const lineName = norm(line.vendor_name || line.item_name);
+        return catalog.map(item=>{
+          const iv = norm(item.vendor);
+          if(vendor && iv !== vendor) return null;
+          let score = 0;
+          if(String(item.id) === String(line.item_id)) score += 1000;
+          if(lineVendorCode && norm(item.vendor_code) === lineVendorCode) score += 900;
+          if(lineVendorCode && norm(item.code) === lineVendorCode) score += 850;
+          if(lineItemCode && norm(item.code) === lineItemCode) score += 800;
+          if(lineName && norm(item.vendor_name || item.name) === lineName) score += 700;
+          if(lineName && norm(item.name) === lineName) score += 650;
+          if(line.vendor_list_no && norm(item.vendor_list_no) === norm(line.vendor_list_no)) score += 100;
+          return score ? {item,score} : null;
+        }).filter(Boolean).sort((a,b)=>b.score-a.score);
+      };
+
+      target.lines.forEach(line=>{
+        let item = byId.get(String(line.item_id));
+        // If item_id points to an archived/old row, fall back to the current
+        // supplier catalog. This is what makes old invoices work after future
+        // vendor imports too, without requiring edit/save of every invoice.
+        if(!item || !item.vendor_code || !item.vendor_list_no || !item.vendor_name){
+          const best = candidates(line)[0];
+          if(best) item = best.item;
+        }
+        if(!item) return;
+        if(item.vendor) line.vendor = item.vendor;
+        if(item.vendor_code) line.vendor_code = item.vendor_code;
+        if(item.vendor_name) line.vendor_name = item.vendor_name;
+        if(item.vendor_list_no) line.vendor_list_no = item.vendor_list_no;
+        if(item.vendor_discount_pct != null) line.vendor_discount_pct = item.vendor_discount_pct;
+      });
+    }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
+  }
+
   if(!Object.keys(_vendorGroups()).length){ toast('No vendor on these items',true); return; }
   _renderVendorMsgList();
   document.getElementById('vendorMsgModal').classList.add('open');
