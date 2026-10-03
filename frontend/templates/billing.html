@@ -261,17 +261,17 @@ input[type=number]{-moz-appearance:textfield}
   body.mobile-add-item-open{overflow:hidden}
   .mobile-add-item-overlay{display:block;position:fixed;inset:0;background:rgba(9,18,40,.5);z-index:1299;opacity:0;pointer-events:none;transition:opacity .2s ease}
   .mobile-add-item-overlay.open{opacity:1;pointer-events:auto}
-  .mobile-add-item-sheet{display:block;position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;z-index:1300;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -12px 40px rgba(0,0,0,.18);padding:12px 18px 22px}
+  .mobile-add-item-sheet{display:block;position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;z-index:1300;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -12px 40px rgba(0,0,0,.18);padding:10px 18px 18px;pointer-events:auto}
   .mobile-add-item-sheet.open{transform:translateY(0)}
-  .mai-grabber{width:42px;height:5px;border-radius:999px;background:#d7dce5;margin:0 auto 14px}
-  .mai-title{font-size:1.05rem;font-weight:850;color:#101a3a}
-  .mai-meta{font-size:.76rem;color:#68738a;margin-top:4px}
-  .mai-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
-  .mai-field{padding:12px;border:1.5px solid #dfe4ed;border-radius:13px;background:#f8fafc}
-  .mai-field label{display:block;font-size:.7rem;font-weight:800;color:#68738a;text-transform:uppercase;letter-spacing:.45px;margin-bottom:6px}
-  .mai-field input{width:100%;border:0;outline:none;background:transparent;color:#17203b;font-size:1.15rem;font-weight:800}
-  .mai-actions{display:flex;gap:10px;margin-top:18px}
-  .mai-btn{flex:1;padding:13px;border:0;border-radius:13px;font-size:.92rem;font-weight:800;cursor:pointer}
+  .mai-grabber{width:40px;height:4px;border-radius:999px;background:#d7dce5;margin:0 auto 12px}
+  .mai-title{font-size:1rem;font-weight:850;color:#101a3a}
+  .mai-meta{font-size:.74rem;color:#68738a;margin-top:3px}
+  .mai-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+  .mai-field{padding:10px 12px;border:1.5px solid #dfe4ed;border-radius:12px;background:#f8fafc}
+  .mai-field label{display:block;font-size:.66rem;font-weight:800;color:#68738a;text-transform:uppercase;letter-spacing:.45px;margin-bottom:4px}
+  .mai-field input{width:100%;border:0;outline:none;background:transparent;color:#17203b;font-size:1.05rem;font-weight:800}
+  .mai-actions{display:flex;gap:9px;margin-top:14px}
+  .mai-btn{flex:1;padding:11px;border:0;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer;touch-action:manipulation;pointer-events:auto}
   .mai-cancel{background:#edf0f4;color:#273247}
   .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
 }
@@ -599,8 +599,8 @@ function setTaxBreakdown(enabled){
     </div>
   </div>
   <div class="mai-actions">
-    <button type="button" class="mai-btn mai-cancel" onclick="closeMobileAddItemDialog()">Cancel</button>
-    <button type="button" class="mai-btn mai-apply" onclick="confirmMobileAddItem()">Add to Bill</button>
+    <button type="button" class="mai-btn mai-cancel" onclick="event.preventDefault();event.stopPropagation();closeMobileAddItemDialog()">Cancel</button>
+    <button type="button" id="mobileAddItemConfirmBtn" class="mai-btn mai-apply" onclick="event.preventDefault();event.stopPropagation();confirmMobileAddItem()">Add to Bill</button>
   </div>
 </section>
 
@@ -1431,6 +1431,8 @@ function confirmMobileAddItem(){
   renderLines();
   recalc();
 }
+window.confirmMobileAddItem = confirmMobileAddItem;
+window.closeMobileAddItemDialog = closeMobileAddItemDialog;
 
 function calcLine(l){
   const gross=l.qty*l.tp;
