@@ -2185,9 +2185,32 @@ function _renderVendorMsgList(){
     return `<button class="mbtn" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;text-align:left" onclick="sendVendorMessage(${esc(JSON.stringify(v))})">🏷 ${esc(label)} <span style="opacity:.8;font-size:.85em">· ${n} item${n!==1?'s':''}${ownStock||hasPhone?'':' · ⚠ no phone'}</span></button>`;
   }).join('');
 }
-function openVendorMessage(inv){
+async function openVendorMessage(inv){
   _activeVendorInv = (inv && inv.lines) ? inv : lastSavedInv;
-  if(!_vendorInv()) return;
+  const target = _vendorInv();
+  if(!target) return;
+
+  // Invoice lines keep a snapshot of vendor fields from the time the invoice
+  // was created. A supplier import can update the linked Inventory Item later,
+  // so refresh the current invoice lines from the authoritative catalog before
+  // building the WhatsApp groups. This avoids forcing the user to edit/save
+  // an old invoice just to pick up newly imported vendor codes/list numbers.
+  if(!IS_GUEST && Array.isArray(target.lines) && target.lines.some(l=>l.item_id!=null)){
+    try{
+      const catalog = await _fetchItems('');
+      const byId = new Map(catalog.map(item=>[String(item.id),item]));
+      target.lines.forEach(line=>{
+        const item = byId.get(String(line.item_id));
+        if(!item) return;
+        if(item.vendor) line.vendor = item.vendor;
+        if(item.vendor_code) line.vendor_code = item.vendor_code;
+        if(item.vendor_name) line.vendor_name = item.vendor_name;
+        if(item.vendor_list_no) line.vendor_list_no = item.vendor_list_no;
+        if(item.vendor_discount_pct != null) line.vendor_discount_pct = item.vendor_discount_pct;
+      });
+    }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
+  }
+
   if(!Object.keys(_vendorGroups()).length){ toast('No vendor on these items',true); return; }
   _renderVendorMsgList();
   document.getElementById('vendorMsgModal').classList.add('open');
