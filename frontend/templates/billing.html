@@ -2190,52 +2190,72 @@ async function openVendorMessage(inv){
   const target = _vendorInv();
   if(!target) return;
 
-  // Invoice lines are historical snapshots. Supplier imports can replace or
-  // archive catalog rows, so an old line may have incomplete supplier metadata.
-  // Always resolve every supplier line against the current catalog, even when
-  // item_id is missing. This keeps old invoices and future vendor imports
-  // usable for WhatsApp reorder messages without forcing edit/save first.
+  // Invoice lines are historical snapshots. Never overwrite supplier data that
+  // was already saved on the invoice with today's catalog. The current catalog
+  // is only a fallback for genuinely missing historical fields.
   if(!IS_GUEST && Array.isArray(target.lines) && target.lines.length){
     try{
-      const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
-      const norm = v => String(v??'').trim().replace(/\\s+/g,' ').toLowerCase();
-      const scoreCandidate = (line,item) => {
-        const lv=norm(line.vendor), iv=norm(item.vendor);
-        const ll=norm(line.vendor_list_no), il=norm(item.vendor_list_no);
-        const lc=norm(line.vendor_code || line.item_code), ic=norm(item.vendor_code || item.code);
-        const ln=norm(line.vendor_name || line.item_name), inn=norm(item.vendor_name || item.name);
-        const lname=norm(line.item_name), iname=norm(item.name);
-        if(lv && iv && lv!==iv) return -1;
-        if(ll && il && ll!==il) return -1;
-        let score=0;
-        if(String(item.id)===String(line.item_id)) score+=1000;
-        if(lv && iv && lv===iv) score+=250;
-        if(ll && il && ll===il) score+=220;
-        if(lc && ic && lc===ic) score+=500;
-        if(ln && inn && ln===inn) score+=450;
-        if(lname && iname && lname===iname) score+=400;
-        if(lc && norm(item.code)===lc) score+=380;
-        if(ln && norm(item.name)===ln) score+=350;
-        if(!score) return -1;
-        return score;
-      };
+      const needsCatalog = target.lines.some(line =>
+        !line.vendor || !line.vendor_code || !line.vendor_name || !line.vendor_list_no ||
+        line.vendor_discount_pct == null || (!line.bonus_text && !line.supplierBonus)
+      );
+      if(needsCatalog){
+        const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
+        const norm = v => String(v??'').trim().replace(/\\s+/g,' ').toLowerCase();
+        const scoreCandidate = (line,item) => {
+          const lv=norm(line.vendor), iv=norm(item.vendor);
+          const ll=norm(line.vendor_list_no), il=norm(item.vendor_list_no);
+          const lc=norm(line.vendor_code), ic=norm(item.vendor_code || item.code);
+          const ln=norm(line.vendor_name), inn=norm(item.vendor_name || item.name);
+          const lname=norm(line.item_name), iname=norm(item.name);
 
-      target.lines.forEach(line=>{
-        const matches=catalog
-          .map(item=>({item,score:scoreCandidate(line,item)}))
-          .filter(x=>x.score>=0)
-          .sort((a,b)=>b.score-a.score);
-        const best=matches[0];
-        if(!best) return;
-        const item=best.item;
+          // Any supplier identity already present on the invoice is a hard
+          // constraint. This prevents GH/SKR items with the same name from
+          // being mixed during a historical invoice reorder.
+          if(lv && lv!==iv) return -1;
+          if(ll && ll!==il) return -1;
+          if(lc && lc!==ic) return -1;
 
-        if(item.vendor) line.vendor=item.vendor;
-        if(item.vendor_code || item.code) line.vendor_code=item.vendor_code || item.code;
-        if(item.vendor_name || item.name) line.vendor_name=item.vendor_name || item.name;
-        if(item.vendor_list_no) line.vendor_list_no=item.vendor_list_no;
-        if(item.vendor_discount_pct != null) line.vendor_discount_pct=item.vendor_discount_pct;
-        if(!line.bonus_text && item.bonus_text) line.bonus_text=item.bonus_text;
-      });
+          let score=0;
+          if(String(item.id)===String(line.item_id)) score+=1000;
+          if(lv && iv && lv===iv) score+=300;
+          if(ll && il && ll===il) score+=250;
+          if(lc && ic && lc===ic) score+=500;
+          if(ln && inn && ln===inn) score+=450;
+          if(lname && iname && lname===iname) score+=400;
+          if(lc && norm(item.code)===lc) score+=380;
+          if(ln && norm(item.name)===ln) score+=350;
+          return score ? score : -1;
+        };
+
+        target.lines.forEach(line=>{
+          const missingBefore = {
+            vendor: !line.vendor,
+            vendor_code: !line.vendor_code,
+            vendor_name: !line.vendor_name,
+            vendor_list_no: !line.vendor_list_no,
+            vendor_discount_pct: line.vendor_discount_pct == null,
+            bonus: !line.bonus_text && !line.supplierBonus
+          };
+          if(!Object.values(missingBefore).some(Boolean)) return;
+
+          const matches=catalog
+            .map(item=>({item,score:scoreCandidate(line,item)}))
+            .filter(x=>x.score>=0)
+            .sort((a,b)=>b.score-a.score);
+          const best=matches[0];
+          if(!best) return;
+          const item=best.item;
+
+          // Fill only fields that were absent on the historical invoice.
+          if(missingBefore.vendor && item.vendor) line.vendor=item.vendor;
+          if(missingBefore.vendor_code && (item.vendor_code || item.code)) line.vendor_code=item.vendor_code || item.code;
+          if(missingBefore.vendor_name && (item.vendor_name || item.name)) line.vendor_name=item.vendor_name || item.name;
+          if(missingBefore.vendor_list_no && item.vendor_list_no) line.vendor_list_no=item.vendor_list_no;
+          if(missingBefore.vendor_discount_pct && item.vendor_discount_pct != null) line.vendor_discount_pct=item.vendor_discount_pct;
+          if(missingBefore.bonus && item.bonus_text) line.bonus_text=item.bonus_text;
+        });
+      }
     }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
   }
 
