@@ -1342,7 +1342,7 @@ function renderLines(){
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
         ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
-      </td>td>
+      </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
         <div class="qty-stepper">
