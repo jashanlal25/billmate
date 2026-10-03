@@ -180,14 +180,18 @@ input[type=number]{-moz-appearance:textfield}
   #linesTable tbody tr{display:flex;flex-wrap:wrap;column-gap:8px;row-gap:0;align-items:flex-start;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative;border-bottom:none!important;box-shadow:0 2px 8px rgba(0,0,0,.06)}
   #linesTable td{display:none;border:none!important}
   #linesTable td:nth-child(1){display:none}
-  /* Item name — full width, on top */
-  #linesTable td:nth-child(2){display:block;order:1;font-weight:700;font-size:1em;padding:0 40px 12px 0;width:100%;line-height:1.4}
-  /* Rate grid restored to original order: Retail | TP  then  Disc | Tax */
+  /* Compact mobile item header: no product picture; use the saved space for the discount control. */
+  #linesTable td:nth-child(2){display:block;order:1;font-weight:700;font-size:1em;padding:0 0 10px;width:100%;line-height:1.35}
+  .mob-item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+  .mob-item-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mob-disc-inline{display:flex;align-items:center;gap:5px;flex:0 0 auto;padding:4px 7px;border:1px solid var(--border);border-radius:9px;background:var(--inp);font-size:.68em;color:var(--sub);font-weight:700}
+  .mob-disc-inline .qty-inp{width:58px!important;min-width:58px;font-size:.86em!important;padding:6px 5px!important;border:0!important;background:transparent!important;text-align:center!important;border-radius:6px!important}
+  .mob-disc-inline .qty-inp:focus{outline:1.5px solid var(--accent)}
+  #linesTable td:nth-child(4){display:none!important}
+  /* Rate grid: Retail | TP | Tax */
   #linesTable td:nth-child(6){order:2}
   #linesTable td:nth-child(5){order:3}
-  #linesTable td:nth-child(4){order:4}
-  #linesTable td:nth-child(7){order:5}
-  #linesTable td:nth-child(4),
+  #linesTable td:nth-child(7){order:4}
   #linesTable td:nth-child(5),
   #linesTable td:nth-child(6),
   #linesTable td:nth-child(7){display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:calc(50% - 6px);padding:6px 4px 4px}
@@ -1329,13 +1333,16 @@ function renderLines(){
     <tr data-line-index="${i}">
       <td style="color:#888;font-size:.8em">${i+1}</td>
       <td>
-        <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
+        <div class="mob-item-head">
+          <div class="mob-item-name" style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
+          <label class="mob-disc-inline"><span>Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" value="${l.disc}" onchange="updateDisc(${i},this.value)" onfocus="this.select()" aria-label="Discount percent"></label>
+        </div>
         ${l.item_code?`<div style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
         ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
         ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
-      </td>
+      </td>td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
         <div class="qty-stepper">
