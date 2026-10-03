@@ -255,6 +255,26 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
 
+/* Mobile add-item confirmation — quantity + discount before a line is created */
+.mobile-add-item-overlay,.mobile-add-item-sheet{display:none}
+@media(max-width:900px){
+  body.mobile-add-item-open{overflow:hidden}
+  .mobile-add-item-overlay{display:block;position:fixed;inset:0;background:rgba(9,18,40,.5);z-index:1299;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .mobile-add-item-overlay.open{opacity:1;pointer-events:auto}
+  .mobile-add-item-sheet{display:block;position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:24px 24px 0 0;z-index:1300;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -12px 40px rgba(0,0,0,.18);padding:12px 18px 22px}
+  .mobile-add-item-sheet.open{transform:translateY(0)}
+  .mai-grabber{width:42px;height:5px;border-radius:999px;background:#d7dce5;margin:0 auto 14px}
+  .mai-title{font-size:1.05rem;font-weight:850;color:#101a3a}
+  .mai-meta{font-size:.76rem;color:#68738a;margin-top:4px}
+  .mai-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+  .mai-field{padding:12px;border:1.5px solid #dfe4ed;border-radius:13px;background:#f8fafc}
+  .mai-field label{display:block;font-size:.7rem;font-weight:800;color:#68738a;text-transform:uppercase;letter-spacing:.45px;margin-bottom:6px}
+  .mai-field input{width:100%;border:0;outline:none;background:transparent;color:#17203b;font-size:1.15rem;font-weight:800}
+  .mai-actions{display:flex;gap:10px;margin-top:18px}
+  .mai-btn{flex:1;padding:13px;border:0;border-radius:13px;font-size:.92rem;font-weight:800;cursor:pointer}
+  .mai-cancel{background:#edf0f4;color:#273247}
+  .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+}
 /* Mobile billing UI — reference-style cart rows + product detail sheet */
 .mobile-item-info,.mobile-item-detail-overlay,.mobile-item-detail-sheet{display:none}
 @media(max-width:900px){
@@ -267,9 +287,8 @@ input[type=number]{-moz-appearance:textfield}
  #linesTable tbody td:nth-child(8){grid-area:amount;display:block!important;padding:0 0 0 3px!important;width:auto!important;text-align:right!important;white-space:nowrap;color:var(--text)!important}
  #linesTable tbody td:nth-child(9){grid-area:dots;display:flex!important;padding:0!important;width:22px!important;align-items:center;justify-content:center}
  #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
- .mobile-item-info{display:grid!important;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
- .mob-item-image{width:56px;height:56px;border-radius:12px;background:linear-gradient(145deg,#f3f5ff,#e9f7ff);border:1px solid #e4e9f3;display:flex;align-items:center;justify-content:center;font-size:29px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
- .mob-item-copy{min-width:0}.mob-item-name{font-size:.92rem;font-weight:850;color:#101a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mob-item-meta{font-size:.68rem;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mob-item-price{font-size:.86rem;font-weight:850;color:#123aa5;margin-top:4px}
+ .mobile-item-info{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+ .mob-item-copy{min-width:0}.mob-item-name{font-size:.92rem;font-weight:850;color:#101a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.mob-item-meta{font-size:.68rem;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.mob-item-price{font-size:.86rem;font-weight:850;color:#123aa5;margin-top:4px;display:block}
  [data-theme=dark] .mob-item-name{color:var(--text)}.mob-item-side{align-self:start;padding-top:1px}.mob-badges{display:flex;gap:5px}.mob-badge{font-size:.61rem;font-weight:850;padding:4px 6px;border-radius:7px;white-space:nowrap}.mob-badge-disc{background:#dff7e8;color:#12804a}.mob-badge-tax{background:#e8f0ff;color:#4969a8}
  #linesTable .qty-stepper{gap:0;border:1px solid #dce3ee;border-radius:10px;overflow:hidden;background:#fff}#linesTable .qty-stepper button{width:30px!important;height:38px!important;border-radius:0!important;background:#f7f9fc!important;color:#1759d1!important;border:0!important;font-size:1.15rem!important;font-weight:700!important}#linesTable .qty-stepper .qty-inp{width:30px!important;height:38px!important;min-width:30px!important;border:0!important;border-left:1px solid #e2e6ee!important;border-right:1px solid #e2e6ee!important;border-radius:0!important;background:#fff!important;color:#17203b!important;font-size:.88rem!important;font-weight:800!important;padding:0!important}
  #linesTable .dots-btn{font-size:1.25rem!important;padding:1px!important;color:#46516c!important}#linesTable .remove-btn{display:none!important}.line-menu{right:0;top:30px;min-width:150px}
@@ -562,6 +581,28 @@ function setTaxBreakdown(enabled){
     <button class="mbtn" style="width:100%;padding:12px;font-size:.95em" onclick="idleReset()">Keep me logged in</button>
   </div>
 </div>
+
+<!-- Mobile add-item confirmation -->
+<div id="mobileAddItemOverlay" class="mobile-add-item-overlay" onclick="if(event.target===this)closeMobileAddItemDialog()"></div>
+<section id="mobileAddItemSheet" class="mobile-add-item-sheet" aria-label="Add item">
+  <div class="mai-grabber"></div>
+  <div class="mai-title" id="mobileAddItemName">Item</div>
+  <div class="mai-meta" id="mobileAddItemMeta"></div>
+  <div class="mai-grid">
+    <div class="mai-field">
+      <label for="mobileAddItemQty">Quantity</label>
+      <input id="mobileAddItemQty" type="number" min="1" step="1" inputmode="numeric" value="1">
+    </div>
+    <div class="mai-field">
+      <label for="mobileAddItemDisc">Discount %</label>
+      <input id="mobileAddItemDisc" type="number" min="-100" max="100" step="0.01" inputmode="decimal" value="0">
+    </div>
+  </div>
+  <div class="mai-actions">
+    <button type="button" class="mai-btn mai-cancel" onclick="closeMobileAddItemDialog()">Cancel</button>
+    <button type="button" class="mai-btn mai-apply" onclick="confirmMobileAddItem()">Add to Bill</button>
+  </div>
+</section>
 
 <!-- Mobile item detail sheet (reference-style UI) -->
 <div id="mobileItemDetailOverlay" class="mobile-item-detail-overlay" onclick="if(event.target===this)closeMobileItemDetails()"></div>
@@ -1303,12 +1344,21 @@ function addCustomItem(){
   hideCustomBar();
 }
 
+let _mobilePendingItem=null;
+
 function addLine(item){
   clearTimeout(itemTimer);
   lastQuery='';
   document.getElementById('itemDropdown').classList.remove('open');
   document.getElementById('itemSearch').value='';
-  // If already in list, just bump qty
+
+  // Mobile: selecting an item must ask for quantity and customer discount first.
+  if(window.innerWidth<=900){
+    openMobileAddItemDialog(item);
+    return;
+  }
+
+  // Desktop keeps the existing fast-add behaviour.
   const existingIdx=lines.findIndex(l=>item.id!=null ? l.item_id===item.id :
     item.historical && l.historical && l.item_name.toLowerCase()===item.name.toLowerCase() && l.vendor===item.vendor);
   if(existingIdx!==-1){
@@ -1331,6 +1381,55 @@ function addLine(item){
   renderLines();
   recalc();
   setTimeout(()=>_focusCartField('q'),10);
+}
+
+function openMobileAddItemDialog(item){
+  _mobilePendingItem=item;
+  document.getElementById('mobileAddItemName').textContent=item.name||'Unnamed item';
+  document.getElementById('mobileAddItemMeta').textContent=[item.code?'Code: '+item.code:'','TP: Rs.'+Number(item.tp||0).toFixed(2)].filter(Boolean).join('  ·  ');
+  document.getElementById('mobileAddItemQty').value='1';
+  document.getElementById('mobileAddItemDisc').value=Number(item.discount_pct||0);
+  document.getElementById('mobileAddItemOverlay').classList.add('open');
+  document.getElementById('mobileAddItemSheet').classList.add('open');
+  document.body.classList.add('mobile-add-item-open');
+  setTimeout(()=>document.getElementById('mobileAddItemQty').focus(),120);
+}
+function closeMobileAddItemDialog(){
+  _mobilePendingItem=null;
+  document.getElementById('mobileAddItemOverlay').classList.remove('open');
+  document.getElementById('mobileAddItemSheet').classList.remove('open');
+  document.body.classList.remove('mobile-add-item-open');
+}
+function confirmMobileAddItem(){
+  const item=_mobilePendingItem;
+  if(!item) return;
+  const qty=Math.max(1,parseFloat(document.getElementById('mobileAddItemQty').value)||1);
+  const disc=Math.min(100,Math.max(-100,parseFloat(document.getElementById('mobileAddItemDisc').value)||0));
+  const existingIdx=lines.findIndex(l=>item.id!=null ? l.item_id===item.id :
+    item.historical && l.historical && l.item_name.toLowerCase()===item.name.toLowerCase() && l.vendor===item.vendor);
+  if(existingIdx!==-1){
+    lines[existingIdx].qty+=qty;
+    lines[existingIdx].disc=disc;
+    calcLine(lines[existingIdx]);
+    closeMobileAddItemDialog();
+    renderLines();recalc();
+    return;
+  }
+  const line={
+    item_id:item.id, item_name:item.name, item_code:item.code,
+    qty, retail:+item.retail_price, tp:+item.tp,
+    disc, bonus:'', supplierBonus:item.bonus_text||'', tax:+item.tax_pct,
+    rate_source:item.rate_source||'',
+    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
+    is_global:!!item.is_global, historical:!!item.historical,
+    category:item.category||'', stock:Number(item.qty||0),
+    lineNet:0
+  };
+  calcLine(line);
+  lines.push(line);
+  closeMobileAddItemDialog();
+  renderLines();
+  recalc();
 }
 
 function calcLine(l){
@@ -1495,7 +1594,7 @@ function renderLines(){
           ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
         </div>
         <div class="mobile-item-info">
-          <div class="mob-item-image">${_itemEmoji(l.item_name)}</div>
+
           <div class="mob-item-copy">
             <div class="mob-item-name">${esc(l.item_name)}</div>
             <div class="mob-item-meta">${l.item_code?'1 Unit · Code: '+esc(l.item_code):'1 Unit'} </div>
