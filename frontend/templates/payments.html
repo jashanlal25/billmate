@@ -233,7 +233,7 @@ let allCustPayments=[],allSuppPayments=[];
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async()=>{
-  try{const s=await fetch('/api/settings');if(s.ok){const d=await s.json();document.getElementById('shopLogo').textContent='⚡ '+(d.shop_name||'BillMate');}}catch(e){}
+  
   loadCustomers();
   loadAllCustPayments();
   loadSuppliers();
