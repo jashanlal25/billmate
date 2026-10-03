@@ -276,17 +276,15 @@ input[type=number]{-moz-appearance:textfield}
   .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
 }
 /* Final mobile billing row override: name first, badges/qty/amount beside it. No image. */
-/* Dedicated mobile item-name line: always visible, no image/icon. */
+/* Final mobile item content: name is the primary visible field; no product image. */
 @media(max-width:900px){
   #linesTable tbody td:nth-child(2){overflow:visible!important}
-  #linesTable .mobile-only-item-name{
-    display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;min-width:0!important;
-    margin:0 0 3px!important;color:var(--text,#17203b)!important;font-size:.95rem!important;font-weight:850!important;
-    line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
-  }
-  #linesTable .mobile-item-info{margin-top:0!important}
+  #linesTable .mobile-item-info{display:flex!important;flex-direction:row!important;align-items:flex-start!important;justify-content:space-between!important;gap:8px!important;width:100%!important;min-width:0!important;overflow:visible!important}
+  #linesTable .mob-item-copy{display:block!important;flex:1 1 auto!important;width:auto!important;min-width:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-name{display:block!important;width:100%!important;min-width:0!important;color:var(--text,#17203b)!important;font-size:.96rem!important;font-weight:850!important;line-height:1.25!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-meta{display:block!important;width:100%!important;color:var(--sub,#6b7280)!important;font-size:.68rem!important;line-height:1.25!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #linesTable .mob-item-side{display:block!important;flex:0 0 auto!important;min-width:max-content!important}
 }
-@media(min-width:901px){.mobile-only-item-name{display:none!important}}
 
 @media(max-width:900px){
   #linesTable tbody tr{
@@ -1656,17 +1654,15 @@ function renderLines(){
           ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
           ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
         </div>
-        <div class="mobile-only-item-name">${esc(l.item_name||'Unnamed item')}</div>
         <div class="mobile-item-info">
           <div class="mob-item-copy">
-            <div class="mob-item-name">${esc(l.item_name)}</div>
-            <div class="mob-item-meta">${l.item_code?'1 Unit · Code: '+esc(l.item_code):'1 Unit'} </div>
-            <div class="mob-item-price">${_mobileMoney(l.tp)}</div>
+            <div class="mob-item-name">${esc(l.item_name||'Unnamed item')}</div>
+            <div class="mob-item-meta">${l.item_code?'1 Unit · Code: '+esc(l.item_code):'1 Unit'} · TP: ${_mobileMoney(l.tp)}</div>
           </div>
           <div class="mob-item-side">
             <div class="mob-badges">
-              <span class="mob-badge mob-badge-disc">Disc ${Number(l.disc||0).toFixed(2).replace(/\\.00$/,'')}%</span>
-              <span class="mob-badge mob-badge-tax">Tax ${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}%</span>
+              <span class="mob-badge mob-badge-disc">Disc ${Number(l.disc||0).toFixed(2).replace(/\.00$/,'')}%</span>
+              <span class="mob-badge mob-badge-tax">Tax ${Number(l.tax||0).toFixed(2).replace(/\.00$/,'')}%</span>
             </div>
           </div>
         </div>
