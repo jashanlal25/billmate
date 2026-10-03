@@ -65,7 +65,7 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 }
 .nav-mobile-menu.open{display:flex}
 .nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
-@media(max-width:640px){
+@media(max-width:900px){
   /* Compact premium mobile header — keep proportions close to the reference */
   body{padding-top:92px}
 
@@ -252,7 +252,7 @@ input[type=number]{-moz-appearance:textfield}
 @media(prefers-reduced-motion:reduce){#bmAccountCard{animation:none}}
 
 /* === SSD MEDICOS reference mobile header === */
-@media(max-width:640px){
+@media(max-width:900px){
   body{padding-top:92px}
   .nav{
     top:8px;left:10px;right:10px;height:76px;
