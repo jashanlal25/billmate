@@ -276,6 +276,18 @@ input[type=number]{-moz-appearance:textfield}
   .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
 }
 /* Final mobile billing row override: name first, badges/qty/amount beside it. No image. */
+/* Dedicated mobile item-name line: always visible, no image/icon. */
+@media(max-width:900px){
+  #linesTable tbody td:nth-child(2){overflow:visible!important}
+  #linesTable .mobile-only-item-name{
+    display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;min-width:0!important;
+    margin:0 0 3px!important;color:var(--text,#17203b)!important;font-size:.95rem!important;font-weight:850!important;
+    line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important
+  }
+  #linesTable .mobile-item-info{margin-top:0!important}
+}
+@media(min-width:901px){.mobile-only-item-name{display:none!important}}
+
 @media(max-width:900px){
   #linesTable tbody tr{
     display:grid!important;
@@ -1644,8 +1656,8 @@ function renderLines(){
           ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
           ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
         </div>
+        <div class="mobile-only-item-name">${esc(l.item_name||'Unnamed item')}</div>
         <div class="mobile-item-info">
-
           <div class="mob-item-copy">
             <div class="mob-item-name">${esc(l.item_name)}</div>
             <div class="mob-item-meta">${l.item_code?'1 Unit · Code: '+esc(l.item_code):'1 Unit'} </div>
