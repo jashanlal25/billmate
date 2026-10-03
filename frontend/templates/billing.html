@@ -180,14 +180,18 @@ input[type=number]{-moz-appearance:textfield}
   #linesTable tbody tr{display:flex;flex-wrap:wrap;column-gap:8px;row-gap:0;align-items:flex-start;background:var(--card);border:1.5px solid var(--border);border-radius:12px;margin-bottom:10px;padding:10px 12px;position:relative;border-bottom:none!important;box-shadow:0 2px 8px rgba(0,0,0,.06)}
   #linesTable td{display:none;border:none!important}
   #linesTable td:nth-child(1){display:none}
-  /* Item name — full width, on top */
-  #linesTable td:nth-child(2){display:block;order:1;font-weight:700;font-size:1em;padding:0 40px 12px 0;width:100%;line-height:1.4}
-  /* Rate grid restored to original order: Retail | TP  then  Disc | Tax */
+  /* Compact mobile item header: no product picture; use the saved space for the discount control. */
+  #linesTable td:nth-child(2){display:block;order:1;font-weight:700;font-size:1em;padding:0 0 10px;width:100%;line-height:1.35}
+  .mob-item-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+  .mob-item-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mob-disc-inline{display:flex;align-items:center;gap:5px;flex:0 0 auto;padding:4px 7px;border:1px solid var(--border);border-radius:9px;background:var(--inp);font-size:.68em;color:var(--sub);font-weight:700}
+  .mob-disc-inline .qty-inp{width:58px!important;min-width:58px;font-size:.86em!important;padding:6px 5px!important;border:0!important;background:transparent!important;text-align:center!important;border-radius:6px!important}
+  .mob-disc-inline .qty-inp:focus{outline:1.5px solid var(--accent)}
+  #linesTable td:nth-child(4){display:none!important}
+  /* Rate grid: Retail | TP | Tax */
   #linesTable td:nth-child(6){order:2}
   #linesTable td:nth-child(5){order:3}
-  #linesTable td:nth-child(4){order:4}
-  #linesTable td:nth-child(7){order:5}
-  #linesTable td:nth-child(4),
+  #linesTable td:nth-child(7){order:4}
   #linesTable td:nth-child(5),
   #linesTable td:nth-child(6),
   #linesTable td:nth-child(7){display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:calc(50% - 6px);padding:6px 4px 4px}
@@ -250,6 +254,108 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu>.user-name{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:10px 14px;border:0;border-radius:12px;background:rgba(102,126,234,.18);color:#a5b4fc;font:inherit;font-weight:700;cursor:pointer}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
+
+/* Mobile add-item confirmation — quantity + discount before a line is created */
+.mobile-add-item-overlay,.mobile-add-item-sheet{display:none}
+@media(max-width:900px){
+  body.mobile-add-item-open{overflow:hidden}
+  .mobile-add-item-overlay{display:block;position:fixed;inset:0;background:rgba(9,18,40,.5);z-index:1299;opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .mobile-add-item-overlay.open{opacity:1;pointer-events:auto}
+  .mobile-add-item-sheet{display:block;position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;z-index:1300;transform:translateY(105%);transition:transform .24s ease;box-shadow:0 -12px 40px rgba(0,0,0,.18);padding:10px 18px 18px;pointer-events:auto}
+  .mobile-add-item-sheet.open{transform:translateY(0)}
+  .mai-grabber{width:40px;height:4px;border-radius:999px;background:#d7dce5;margin:0 auto 12px}
+  .mai-title{font-size:1rem;font-weight:850;color:#101a3a}
+  .mai-meta{font-size:.74rem;color:#68738a;margin-top:3px}
+  .mai-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+  .mai-field{padding:10px 12px;border:1.5px solid #dfe4ed;border-radius:12px;background:#f8fafc}
+  .mai-field label{display:block;font-size:.66rem;font-weight:800;color:#68738a;text-transform:uppercase;letter-spacing:.45px;margin-bottom:4px}
+  .mai-field input{width:100%;border:0;outline:none;background:transparent;color:#17203b;font-size:1.05rem;font-weight:800}
+  .mai-actions{display:flex;gap:9px;margin-top:14px}
+  .mai-btn{flex:1;padding:11px;border:0;border-radius:12px;font-size:.9rem;font-weight:800;cursor:pointer;touch-action:manipulation;pointer-events:auto}
+  .mai-cancel{background:#edf0f4;color:#273247}
+  .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+}
+/* Final mobile billing row override: name first, badges/qty/amount beside it. No image. */
+/* Final mobile item content: name is the primary visible field; no product image. */
+@media(max-width:900px){
+  #linesTable tbody td:nth-child(2){overflow:visible!important}
+  #linesTable .mobile-item-info{display:flex!important;flex-direction:row!important;align-items:flex-start!important;justify-content:space-between!important;gap:8px!important;width:100%!important;min-width:0!important;overflow:visible!important}
+  #linesTable .mob-item-copy{display:block!important;flex:1 1 auto!important;width:auto!important;min-width:0!important;overflow:visible!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-name{display:block!important;width:100%!important;min-width:0!important;color:var(--text,#17203b)!important;font-size:.96rem!important;font-weight:850!important;line-height:1.25!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-meta{display:block!important;width:100%!important;color:var(--sub,#6b7280)!important;font-size:.68rem!important;line-height:1.25!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #linesTable .mob-item-side{display:block!important;flex:0 0 auto!important;min-width:max-content!important}
+}
+
+@media(max-width:900px){
+  #linesTable tbody tr{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto auto 22px!important;
+    grid-template-areas:"info qty amount dots"!important;
+    align-items:center!important;
+    gap:7px!important;
+    padding:10px 8px!important;
+    min-height:96px!important;
+    position:relative!important;
+  }
+  #linesTable tbody td{display:none!important;border:none!important;background:transparent!important}
+  #linesTable tbody td:nth-child(2){display:block!important;grid-area:info!important;width:auto!important;padding:0!important;min-width:0!important}
+  #linesTable tbody td:nth-child(3){display:block!important;grid-area:qty!important;width:auto!important;padding:0!important}
+  #linesTable tbody td:nth-child(8){display:block!important;grid-area:amount!important;width:auto!important;padding:0 0 0 3px!important;text-align:right!important;white-space:nowrap!important}
+  #linesTable tbody td:nth-child(9){display:flex!important;grid-area:dots!important;width:22px!important;padding:0!important;align-items:center!important;justify-content:center!important}
+  #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
+  #linesTable .mobile-item-info{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:8px!important;
+    align-items:start!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  #linesTable .mob-item-copy{display:block!important;min-width:0!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-name{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    color:var(--text,#17203b)!important;
+    font-size:.92rem!important;
+    font-weight:850!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  #linesTable .mob-item-meta{display:block!important;color:var(--sub,#6b7280)!important;font-size:.68rem!important;margin-top:3px!important}
+  #linesTable .mob-item-price{display:block!important;color:#123aa5!important;font-size:.86rem!important;font-weight:850!important;margin-top:4px!important}
+  #linesTable .mob-item-side{display:block!important;align-self:start!important}
+  #linesTable .mob-badges{display:flex!important;gap:5px!important}
+  #linesTable .qty-stepper{display:flex!important;gap:0!important}
+}
+/* Mobile billing UI — reference-style cart rows + product detail sheet */
+.mobile-item-info,.mobile-item-detail-overlay,.mobile-item-detail-sheet{display:none}
+@media(max-width:900px){
+ body.mobile-detail-open{overflow:hidden}
+ #linesTable tbody tr{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto 22px;grid-template-areas:"info qty amount dots";gap:7px;align-items:center;margin-bottom:7px;padding:10px 8px!important;min-height:96px;border:1px solid #e2e7ef!important;border-radius:14px!important;background:var(--card)!important;box-shadow:0 2px 8px rgba(0,0,0,.04)!important}
+ #linesTable tbody td{border:none!important;background:transparent!important;min-width:0}
+ #linesTable tbody td:nth-child(1),#linesTable tbody td:nth-child(4),#linesTable tbody td:nth-child(5),#linesTable tbody td:nth-child(6),#linesTable tbody td:nth-child(7){display:none!important}
+ #linesTable tbody td:nth-child(2){grid-area:info;display:block!important;padding:0!important;width:auto!important;min-width:0!important}
+ #linesTable tbody td:nth-child(3){grid-area:qty;display:block!important;padding:0!important;width:auto!important}
+ #linesTable tbody td:nth-child(8){grid-area:amount;display:block!important;padding:0 0 0 3px!important;width:auto!important;text-align:right!important;white-space:nowrap;color:var(--text)!important}
+ #linesTable tbody td:nth-child(9){grid-area:dots;display:flex!important;padding:0!important;width:22px!important;align-items:center;justify-content:center}
+ #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
+ .mobile-item-info{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+ .mob-item-copy{min-width:0}.mob-item-name{font-size:.92rem;font-weight:850;color:#101a3a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.mob-item-meta{font-size:.68rem;color:#6b7280;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.mob-item-price{font-size:.86rem;font-weight:850;color:#123aa5;margin-top:4px;display:block}
+ [data-theme=dark] .mob-item-name{color:var(--text)}.mob-item-side{align-self:start;padding-top:1px}.mob-badges{display:flex;gap:5px}.mob-badge{font-size:.61rem;font-weight:850;padding:4px 6px;border-radius:7px;white-space:nowrap}.mob-badge-disc{background:#dff7e8;color:#12804a}.mob-badge-tax{background:#e8f0ff;color:#4969a8}
+ #linesTable .qty-stepper{gap:0;border:1px solid #dce3ee;border-radius:10px;overflow:hidden;background:#fff}#linesTable .qty-stepper button{width:30px!important;height:38px!important;border-radius:0!important;background:#f7f9fc!important;color:#1759d1!important;border:0!important;font-size:1.15rem!important;font-weight:700!important}#linesTable .qty-stepper .qty-inp{width:30px!important;height:38px!important;min-width:30px!important;border:0!important;border-left:1px solid #e2e6ee!important;border-right:1px solid #e2e6ee!important;border-radius:0!important;background:#fff!important;color:#17203b!important;font-size:.88rem!important;font-weight:800!important;padding:0!important}
+ #linesTable .dots-btn{font-size:1.25rem!important;padding:1px!important;color:#46516c!important}#linesTable .remove-btn{display:none!important}.line-menu{right:0;top:30px;min-width:150px}
+ .mobile-item-detail-overlay{display:block;position:fixed;inset:0;background:rgba(9,18,40,.5);z-index:1199;opacity:0;pointer-events:none;transition:opacity .2s ease}.mobile-item-detail-overlay.open{opacity:1;pointer-events:auto}
+ .mobile-item-detail-sheet{display:block;position:fixed;left:0;right:0;bottom:0;max-height:91vh;overflow:auto;background:#fff;border-radius:25px 25px 0 0;z-index:1200;transform:translateY(105%);transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:0 -14px 45px rgba(0,0,0,.24);padding:10px 14px calc(16px + env(safe-area-inset-bottom))}
+ [data-theme=dark] .mobile-item-detail-sheet{background:var(--card)}
+ .mobile-item-detail-sheet.open{transform:translateY(0)}.mid-grabber{width:42px;height:5px;border-radius:99px;background:#b9c0cb;margin:2px auto 10px}.mid-sheet-head{display:flex;align-items:center;gap:11px;padding:2px 2px 12px}.mid-item-icon{width:58px;height:58px;border-radius:13px;background:linear-gradient(145deg,#f3f5ff,#e9f7ff);border:1px solid #e4e9f3;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0}.mid-head-copy{min-width:0;flex:1}.mid-title{font-size:1.08rem;font-weight:850;color:#111a39;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid-sub{font-size:.75rem;color:#71809d;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mid-sub span{padding:0 5px}.mid-close{width:40px;height:40px;border:0;border-radius:50%;background:#f0f2f6;color:#526078;font-size:1.7rem;line-height:1;flex-shrink:0}
+ .mid-section{background:#f3f6fb;border-radius:15px;padding:11px 12px;margin-bottom:9px}[data-theme=dark] .mid-section{background:#252a3b}.mid-section-title{font-size:.82rem;font-weight:850;color:#142044;margin-bottom:8px;display:flex;align-items:center;gap:7px}[data-theme=dark] .mid-section-title{color:var(--text)}.mid-section-icon{color:#1467ed;font-size:1rem}
+ .mid-grid{display:grid;grid-template-columns:1fr 1fr;background:#fff;border-radius:11px;overflow:hidden}[data-theme=dark] .mid-grid{background:#1e2230}.mid-grid>div{padding:8px 10px;border-right:1px solid #e6eaf1;border-bottom:1px solid #e6eaf1;min-width:0}.mid-grid>div:nth-child(2n){border-right:0}.mid-grid>div:nth-last-child(-n+2){border-bottom:0}.mid-grid span{display:block;font-size:.67rem;color:#71809d;margin-bottom:3px}.mid-grid strong{display:block;font-size:.8rem;color:#17203b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}[data-theme=dark] .mid-grid strong{color:var(--text)}
+ .mid-highlight{margin-top:7px;padding:9px 11px;border-radius:10px;background:#e8f8ee;color:#137b4a;display:flex;justify-content:space-between;align-items:center;font-weight:850}.mid-highlight strong{font-size:.98rem}.mid-highlight-blue{background:#e8f1ff;color:#1557cf}.mid-highlight-blue strong{color:#1557cf}.mid-stock,.mid-green{color:#0d9255!important}
+ .mid-actions{display:flex;gap:9px;margin-top:5px}.mid-btn{flex:1;padding:12px;border-radius:12px;font-size:.9rem;font-weight:850;cursor:pointer}.mid-btn-close{background:#f2f3f6;color:#1f2a43;border:1px solid #cdd3de}.mid-btn-edit{background:#2467ee;color:#fff;border:1px solid #2467ee}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
@@ -530,6 +636,35 @@ function setTaxBreakdown(enabled){
     <button class="mbtn" style="width:100%;padding:12px;font-size:.95em" onclick="idleReset()">Keep me logged in</button>
   </div>
 </div>
+
+<!-- Mobile add-item confirmation -->
+<div id="mobileAddItemOverlay" class="mobile-add-item-overlay" onclick="if(event.target===this)closeMobileAddItemDialog()"></div>
+<section id="mobileAddItemSheet" class="mobile-add-item-sheet" aria-label="Add item">
+  <div class="mai-grabber"></div>
+  <div class="mai-title" id="mobileAddItemName">Item</div>
+  <div class="mai-meta" id="mobileAddItemMeta"></div>
+  <div class="mai-grid">
+    <div class="mai-field">
+      <label for="mobileAddItemQty">Quantity</label>
+      <input id="mobileAddItemQty" type="number" min="1" step="1" inputmode="numeric" value="1" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('mobileAddItemDisc').focus();document.getElementById('mobileAddItemDisc').select();}">
+    </div>
+    <div class="mai-field">
+      <label for="mobileAddItemDisc">Discount %</label>
+      <input id="mobileAddItemDisc" type="number" min="-100" max="100" step="0.01" inputmode="decimal" value="0" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmMobileAddItem();}">
+    </div>
+  </div>
+  <div class="mai-actions">
+    <button type="button" class="mai-btn mai-cancel" onclick="event.preventDefault();event.stopPropagation();closeMobileAddItemDialog()">Cancel</button>
+    <button type="button" id="mobileAddItemConfirmBtn" class="mai-btn mai-apply" onclick="event.preventDefault();event.stopPropagation();confirmMobileAddItem()">Add to Bill</button>
+  </div>
+</section>
+
+<!-- Mobile item detail sheet (reference-style UI) -->
+<div id="mobileItemDetailOverlay" class="mobile-item-detail-overlay" onclick="if(event.target===this)closeMobileItemDetails()"></div>
+<section id="mobileItemDetailSheet" class="mobile-item-detail-sheet" aria-label="Item details">
+  <div class="mid-grabber"></div>
+  <div id="mobileItemDetailContent"></div>
+</section>
 
 <!-- Edit Item Modal (from billing) -->
 <div class="overlay" id="itemEditModal" onclick="if(event.target===this)closeItemEdit()">
@@ -1209,16 +1344,13 @@ async function itemSearchKey(e){
   if(e.key !== 'Enter') return;
   e.preventDefault();
   clearTimeout(itemTimer);
+  // Enter selects only the item the user highlighted with ArrowDown.
+  // Never silently add the first search result.
   if(dd.classList.contains('open') && _ddHighlight >= 0 && items[_ddHighlight]){
     items[_ddHighlight].click();
     _ddHighlight = -1;
-    return;
   }
-  const q = document.getElementById('itemSearch').value.trim();
-  if(!q) return;
-  const fetched = await _fetchItems(q);
-  if(fetched.length) addLine(fetched[0]);
-  else showCustomBar(toTitleCase(q));
+  return;
 }
 
 function showCustomBar(name=''){
@@ -1264,12 +1396,21 @@ function addCustomItem(){
   hideCustomBar();
 }
 
+let _mobilePendingItem=null;
+
 function addLine(item){
   clearTimeout(itemTimer);
   lastQuery='';
   document.getElementById('itemDropdown').classList.remove('open');
   document.getElementById('itemSearch').value='';
-  // If already in list, just bump qty
+
+  // Mobile: selecting an item must ask for quantity and customer discount first.
+  if(window.innerWidth<=900){
+    openMobileAddItemDialog(item);
+    return;
+  }
+
+  // Desktop keeps the existing fast-add behaviour.
   const existingIdx=lines.findIndex(l=>item.id!=null ? l.item_id===item.id :
     item.historical && l.historical && l.item_name.toLowerCase()===item.name.toLowerCase() && l.vendor===item.vendor);
   if(existingIdx!==-1){
@@ -1284,6 +1425,7 @@ function addLine(item){
     rate_source:item.rate_source||'',
     vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
     is_global:!!item.is_global, historical:!!item.historical,
+    category:item.category||'', stock:Number(item.qty||0),
     lineNet:0
   };
   calcLine(line);
@@ -1292,6 +1434,65 @@ function addLine(item){
   recalc();
   setTimeout(()=>_focusCartField('q'),10);
 }
+
+function openMobileAddItemDialog(item){
+  _mobilePendingItem=item;
+  document.getElementById('mobileAddItemName').textContent=item.name||'Unnamed item';
+  document.getElementById('mobileAddItemMeta').textContent=[item.code?'Code: '+item.code:'','TP: Rs.'+Number(item.tp||0).toFixed(2)].filter(Boolean).join('  ·  ');
+  document.getElementById('mobileAddItemQty').value='1';
+  document.getElementById('mobileAddItemDisc').value=Number(item.discount_pct||0);
+  document.getElementById('mobileAddItemOverlay').classList.add('open');
+  document.getElementById('mobileAddItemSheet').classList.add('open');
+  document.body.classList.add('mobile-add-item-open');
+  setTimeout(()=>document.getElementById('mobileAddItemQty').focus(),120);
+}
+function closeMobileAddItemDialog(){
+  _mobilePendingItem=null;
+  document.getElementById('mobileAddItemOverlay').classList.remove('open');
+  document.getElementById('mobileAddItemSheet').classList.remove('open');
+  document.body.classList.remove('mobile-add-item-open');
+}
+function confirmMobileAddItem(){
+  const item=_mobilePendingItem;
+  if(!item) return;
+  const qty=Math.max(1,parseFloat(document.getElementById('mobileAddItemQty').value)||1);
+  const disc=Math.min(100,Math.max(-100,parseFloat(document.getElementById('mobileAddItemDisc').value)||0));
+  const existingIdx=lines.findIndex(l=>item.id!=null ? l.item_id===item.id :
+    item.historical && l.historical && l.item_name.toLowerCase()===item.name.toLowerCase() && l.vendor===item.vendor);
+  if(existingIdx!==-1){
+    lines[existingIdx].qty+=qty;
+    lines[existingIdx].disc=disc;
+    calcLine(lines[existingIdx]);
+    closeMobileAddItemDialog();
+    renderLines();recalc();
+    setTimeout(()=>{
+      const s=document.getElementById('itemSearch');
+      if(s){s.focus();s.select();}
+    },80);
+    return;
+  }
+  const line={
+    item_id:item.id, item_name:item.name, item_code:item.code,
+    qty, retail:+item.retail_price, tp:+item.tp,
+    disc, bonus:'', supplierBonus:item.bonus_text||'', tax:+item.tax_pct,
+    rate_source:item.rate_source||'',
+    vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
+    is_global:!!item.is_global, historical:!!item.historical,
+    category:item.category||'', stock:Number(item.qty||0),
+    lineNet:0
+  };
+  calcLine(line);
+  lines.push(line);
+  closeMobileAddItemDialog();
+  renderLines();
+  recalc();
+  setTimeout(()=>{
+    const s=document.getElementById('itemSearch');
+    if(s){s.focus();s.select();}
+  },80);
+}
+window.confirmMobileAddItem = confirmMobileAddItem;
+window.closeMobileAddItemDialog = closeMobileAddItemDialog;
 
 function calcLine(l){
   const gross=l.qty*l.tp;
@@ -1315,52 +1516,164 @@ function clearBillLineSearch(){
   input.value='';filterBillLines();input.focus();
 }
 
+function _itemEmoji(name){
+  const n=String(name||'').toLowerCase();
+  if(/syrup|suspension/.test(n)) return '🧴';
+  if(/powder|ors|salt/.test(n)) return '🧃';
+  if(/cream|ointment|gel/.test(n)) return '🧴';
+  if(/drop/.test(n)) return '💧';
+  if(/tablet|panadol|paracetamol|augmentin|capsule/.test(n)) return '💊';
+  return '💊';
+}
+
+function _mobileMoney(v){ return 'Rs. '+Number(v||0).toFixed(2); }
+function _mobileTaxAmount(l){
+  const base=Number(l.lineNet||0);
+  return base*(Number(l.tax||0)/100);
+}
+
+function openMobileItemDetails(i,e){
+  if(window.innerWidth>900) return;
+  if(e && e.target && e.target.closest('button,input,select,a,.line-menu')) return;
+  const l=lines[i];
+  if(!l) return;
+
+  const qty=Number(l.qty||0);
+  const tp=Number(l.tp||0);
+  const retail=Number(l.retail||0);
+  const discPct=Number(l.disc||0);
+  const gross=qty*tp;
+  const discAmt=gross*discPct/100;
+  const netUnit=tp-(tp*discPct/100);
+  const taxAmt=(l.lineNet||0)*(Number(l.tax||0)/100);
+  const total=(l.lineNet||0)+(qty*taxAmt);
+
+  document.getElementById('mobileItemDetailContent').innerHTML=`
+    <div class="mid-sheet-head">
+      <div class="mid-head-copy">
+        <div class="mid-title">${esc(l.item_name)}</div>
+        <div class="mid-sub">Code: ${esc(l.item_code||'—')} <span>|</span> ${esc(l.unit||l.bonus||'1 Unit')}</div>
+      </div>
+      <button type="button" class="mid-close" onclick="closeMobileItemDetails()">×</button>
+    </div>
+
+    <section class="mid-section">
+      <div class="mid-section-title"><span class="mid-section-icon">ⓘ</span> Product Information</div>
+      <div class="mid-grid mid-grid-product">
+        <div><span>Generic Name</span><strong>${esc(l.generic_name||'—')}</strong></div>
+        <div><span>Strength</span><strong>${esc(l.strength||'—')}</strong></div>
+        <div><span>Dosage Form</span><strong>${esc(l.dosage_form||'—')}</strong></div>
+        <div><span>Pack Size</span><strong>${esc(l.pack_size||l.unit||'—')}</strong></div>
+        <div><span>Barcode</span><strong>${esc(l.barcode||l.item_code||'—')}</strong></div>
+        <div><span>HSN/SAC</span><strong>${esc(l.hsn||'—')}</strong></div>
+        <div><span>Manufacturer</span><strong>${esc(l.manufacturer||l.vendor_name||l.vendor||'—')}</strong></div>
+        <div><span>Schedule</span><strong>${esc(l.schedule||'—')}</strong></div>
+        <div><span>Category</span><strong>${esc(l.category||'—')}</strong></div>
+        <div><span>Location</span><strong>${esc(l.location||'—')}</strong></div>
+      </div>
+    </section>
+
+    <section class="mid-section">
+      <div class="mid-section-title"><span class="mid-section-icon">◆</span> Pricing Details</div>
+      <div class="mid-grid">
+        <div><span>Retail Price</span><strong>${_mobileMoney(retail)}</strong></div>
+        <div><span>TP Price</span><strong>${_mobileMoney(tp)}</strong></div>
+        <div><span>Discount</span><strong>${Number(discPct).toFixed(2).replace(/\\.00$/,'')}% (${_mobileMoney(discPct*tp/100)})</strong></div>
+        <div><span>Tax</span><strong>${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}% (${_mobileMoney(taxAmt)})</strong></div>
+      </div>
+      <div class="mid-highlight"><span>Net Unit Price</span><strong>${_mobileMoney(netUnit)}</strong></div>
+    </section>
+
+    <section class="mid-section">
+      <div class="mid-section-title"><span class="mid-section-icon">▣</span> Quantity &amp; Amount</div>
+      <div class="mid-grid">
+        <div><span>Quantity</span><strong>${qty}</strong></div>
+        <div><span>Unit</span><strong>${esc(l.unit||l.bonus||'—')}</strong></div>
+        <div><span>Gross Amount</span><strong>${_mobileMoney(gross)}</strong></div>
+        <div><span>Discount Amount</span><strong>${_mobileMoney(discAmt)}</strong></div>
+      </div>
+      <div class="mid-highlight mid-highlight-blue"><span>Net Amount</span><strong>${_mobileMoney((l.lineNet||0)+qty*taxAmt)}</strong></div>
+    </section>
+
+    <section class="mid-section">
+      <div class="mid-section-title"><span class="mid-section-icon">◇</span> Stock Information</div>
+      <div class="mid-grid">
+        <div><span>Current Stock</span><strong class="mid-stock">${l.stock!=null?Number(l.stock).toLocaleString():'—'} ${esc(l.unit||'')}</strong></div>
+        <div><span>Batch No.</span><strong>${esc(l.batch_no||'—')}</strong></div>
+        <div><span>Expiry Date</span><strong>${esc(l.expiry_date||'—')}</strong></div>
+        <div><span>Supplier</span><strong>${esc(l.vendor_name||l.vendor||'—')}</strong></div>
+        <div><span>Supplier Offer</span><strong class="mid-green">${l.vendor_discount_pct!=null?esc(String(l.vendor_discount_pct))+'%':'—'}</strong></div>
+        <div><span>Purchase Price</span><strong>${l.purchase_price!=null?_mobileMoney(l.purchase_price):'—'}</strong></div>
+      </div>
+    </section>
+
+    <section class="mid-section">
+      <div class="mid-section-title"><span class="mid-section-icon">ⓘ</span> Other Information</div>
+      <div class="mid-grid">
+        <div><span>Tax Category</span><strong>${Number(l.tax||0).toFixed(2).replace(/\\.00$/,'')}%</strong></div>
+        <div><span>Rate Source</span><strong>${esc(l.rate_source||'—')}</strong></div>
+        <div><span>Remarks</span><strong>${esc(l.remarks||l.bonus||'—')}</strong></div>
+        <div><span>Vendor Code</span><strong>${esc(l.vendor_code||'—')}</strong></div>
+      </div>
+    </section>
+
+    <div class="mid-actions">
+      <button type="button" class="mid-btn mid-btn-close" onclick="closeMobileItemDetails()">Close</button>
+      <button type="button" class="mid-btn mid-btn-edit" onclick="closeMobileItemDetails();openItemEdit(${i})">✎ Edit Item</button>
+    </div>`;
+
+  document.getElementById('mobileItemDetailOverlay').classList.add('open');
+  document.getElementById('mobileItemDetailSheet').classList.add('open');
+  document.body.classList.add('mobile-detail-open');
+}
+
+function closeMobileItemDetails(){
+  document.getElementById('mobileItemDetailOverlay').classList.remove('open');
+  document.getElementById('mobileItemDetailSheet').classList.remove('open');
+  document.body.classList.remove('mobile-detail-open');
+}
+
 function renderLines(){
   scheduleAutoDraft();
   const body=document.getElementById('linesBody');
   if(!lines.length){
     body.innerHTML='<tr><td colspan="9"><div class="empty-lines">Search above to add items to this invoice</div></td></tr>';
-    filterBillLines();
-    return;
+    filterBillLines(); return;
   }
 
-  const order = addOnTop ? lines.map((_,i)=>i).reverse() : lines.map((_,i)=>i);
+  const order=addOnTop?lines.map((_,i)=>i).reverse():lines.map((_,i)=>i);
   body.innerHTML=order.map((i)=>{const l=lines[i];return`
     <tr data-line-index="${i}">
       <td style="color:#888;font-size:.8em">${i+1}</td>
-      <td>
-        <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
-        ${l.item_code?`<div style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
-        ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
-        ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
-        ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
-        ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
-      </td>
-      <td class="num">
-        <span class="mob-lbl">Qty</span>
-        <div class="qty-stepper">
-          <button type="button" tabindex="-1" onclick="stepQty(${i},-1)">−</button>
-          <input class="qty-inp" type="number" min="1" enterkeyhint="next" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)">
-          <button type="button" tabindex="-1" onclick="stepQty(${i},1)">+</button>
+      <td class="line-item-cell" onclick="openMobileItemDetails(${i},event)">
+        <div class="desktop-item-info">
+          <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
+          ${l.item_code?`<div style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
+          ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
+          ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
+          ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
+          ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
+        </div>
+        <div class="mobile-item-info">
+          <div class="mob-item-copy">
+            <div class="mob-item-name">${esc(l.item_name||'Unnamed item')}</div>
+            <div class="mob-item-meta">${l.item_code?'1 Unit · Code: '+esc(l.item_code):'1 Unit'} · TP: ${_mobileMoney(l.tp)}</div>
+          </div>
+          <div class="mob-item-side">
+            <div class="mob-badges">
+              <span class="mob-badge mob-badge-disc">Disc ${Number(l.disc||0).toFixed(2).replace(/\.00$/,'')}%</span>
+              <span class="mob-badge mob-badge-tax">Tax ${Number(l.tax||0).toFixed(2).replace(/\.00$/,'')}%</span>
+            </div>
+          </div>
         </div>
       </td>
-      <td class="num">
-        <span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" enterkeyhint="search" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center">
-      </td>
+      <td class="num"><span class="mob-lbl">Qty</span><div class="qty-stepper"><button type="button" tabindex="-1" onclick="stepQty(${i},-1)">−</button><input class="qty-inp" type="number" min="1" enterkeyhint="next" value="${l.qty}" onfocus="this.select()" onchange="updateQty(${i},this.value)"><button type="button" tabindex="-1" onclick="stepQty(${i},1)">+</button></div></td>
+      <td class="num"><span class="mob-lbl">Disc%</span><input class="qty-inp" type="number" min="-100" max="100" step="0.01" enterkeyhint="search" value="${l.disc}" onchange="updateDisc(${i},this.value)" style="width:62px;text-align:center"></td>
       <td class="num col-tp"><span class="mob-lbl">TP</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tp.toFixed(2)}" onchange="updateTp(${i},this.value)" style="width:80px;text-align:right"></td>
       <td class="num col-retail"><span class="mob-lbl">Retail</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.retail?l.retail.toFixed(2):''}" onchange="updateRetail(${i},this.value)" style="width:80px;text-align:right"></td>
-      <td class="num">
-        <span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center">
-      </td>
+      <td class="num"><span class="mob-lbl">Tax</span><input class="qty-inp" type="number" min="0" step="0.01" tabindex="-1" value="${l.tax}" onchange="updateTax(${i},this.value)" style="width:68px;text-align:center"></td>
       <td class="num" style="font-weight:800;color:var(--accent)">Rs.${(l.lineNet+l.qty*l.tax).toFixed(2)}</td>
-      <td class="no-print line-action">
-        <button class="remove-btn" onclick="removeLine(${i})">✕</button>
-        <button class="dots-btn" onclick="toggleLineMenu(${i},event)">⋯</button>
-        <div class="line-menu" id="lmenu_${i}">
-          <div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item / Vendor</div>
-          <div class="line-menu-item danger" onclick="removeLine(${i})">🗑 Remove</div>
-        </div>
-      </td>
+      <td class="no-print line-action"><button class="remove-btn" onclick="removeLine(${i})">✕</button><button class="dots-btn" onclick="toggleLineMenu(${i},event)">⋯</button><div class="line-menu" id="lmenu_${i}"><div class="line-menu-item" onclick="openItemEdit(${i})">✏️ Edit Item / Vendor</div><div class="line-menu-item danger" onclick="removeLine(${i})">🗑 Remove</div></div></td>
     </tr>`;}).join('');
   filterBillLines();
 }
@@ -3176,7 +3489,7 @@ function applyScanResults(){
         vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
         qty: qty, retail: +item.retail_price, tp: +item.tp,
         disc: +item.discount_pct, bonus: '', supplierBonus:item.bonus_text||'', tax: +item.tax_pct,
-        is_global: !!item.is_global, lineNet: 0
+        is_global: !!item.is_global, category:item.category||'', stock:Number(item.qty||0), lineNet: 0
       };
       calcLine(line);
       lines.push(line);
