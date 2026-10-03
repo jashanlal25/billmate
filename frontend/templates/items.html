@@ -449,16 +449,24 @@ function _applyLoadedItems(serverItems){
   applyFilters();
 }
 async function loadItems(q=''){
-  const cached=_cacheGet();
-  if(Array.isArray(cached) && cached.length) _applyLoadedItems(cached);
+  q = String(q || '').trim();
+  // Do not load the entire catalog on page open. The catalog can contain
+  // thousands of items; fetch only what the user is searching for.
+  if(!q){
+    const localItems = IS_GUEST ? _guestItems() : [];
+    allItems = localItems;
+    populateVendorFilter();
+    render([]);
+    return;
+  }
   try{
-    const r=await fetch('/api/items');
+    const r=await fetch('/api/items?q='+encodeURIComponent(q));
     if(!r.ok) throw new Error('Items request failed');
     const serverItems=await r.json();
-    _cacheSet(serverItems);
     _applyLoadedItems(serverItems);
   }catch(e){
-    if(!Array.isArray(cached)) toast('Could not load items',true);
+    render([]);
+    toast('Could not load items',true);
   }
 }
 
@@ -504,7 +512,11 @@ function render(items){
 let selectedVendors = new Set();  // empty = show all vendors
 
 let _searchTimer=0;
-function search(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(applyFilters,90); }
+function search(value){
+  clearTimeout(_searchTimer);
+  const q=String(value || '').trim();
+  _searchTimer=setTimeout(()=>loadItems(q),180);
+}
 
 // Combined filter: item name search AND any of the ticked vendors
 function applyFilters(){
@@ -917,7 +929,7 @@ function loadSupplierList(){
 }
 
 loadCategories();
-loadItems();
+loadItems('');
 loadSupplierList();
 const directInventoryShares = document.getElementById('directInventoryShares');
 directInventoryShares.checked = ShareStore.directInventoryEnabled();
