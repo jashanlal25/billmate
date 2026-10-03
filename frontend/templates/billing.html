@@ -275,6 +275,51 @@ input[type=number]{-moz-appearance:textfield}
   .mai-cancel{background:#edf0f4;color:#273247}
   .mai-apply{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
 }
+/* Final mobile billing row override: name first, badges/qty/amount beside it. No image. */
+@media(max-width:900px){
+  #linesTable tbody tr{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto auto 22px!important;
+    grid-template-areas:"info qty amount dots"!important;
+    align-items:center!important;
+    gap:7px!important;
+    padding:10px 8px!important;
+    min-height:96px!important;
+    position:relative!important;
+  }
+  #linesTable tbody td{display:none!important;border:none!important;background:transparent!important}
+  #linesTable tbody td:nth-child(2){display:block!important;grid-area:info!important;width:auto!important;padding:0!important;min-width:0!important}
+  #linesTable tbody td:nth-child(3){display:block!important;grid-area:qty!important;width:auto!important;padding:0!important}
+  #linesTable tbody td:nth-child(8){display:block!important;grid-area:amount!important;width:auto!important;padding:0 0 0 3px!important;text-align:right!important;white-space:nowrap!important}
+  #linesTable tbody td:nth-child(9){display:flex!important;grid-area:dots!important;width:22px!important;padding:0!important;align-items:center!important;justify-content:center!important}
+  #linesTable tbody td:nth-child(2) .desktop-item-info{display:none!important}
+  #linesTable .mobile-item-info{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:8px!important;
+    align-items:start!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  #linesTable .mob-item-copy{display:block!important;min-width:0!important;visibility:visible!important;opacity:1!important}
+  #linesTable .mob-item-name{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    color:var(--text,#17203b)!important;
+    font-size:.92rem!important;
+    font-weight:850!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  #linesTable .mob-item-meta{display:block!important;color:var(--sub,#6b7280)!important;font-size:.68rem!important;margin-top:3px!important}
+  #linesTable .mob-item-price{display:block!important;color:#123aa5!important;font-size:.86rem!important;font-weight:850!important;margin-top:4px!important}
+  #linesTable .mob-item-side{display:block!important;align-self:start!important}
+  #linesTable .mob-badges{display:flex!important;gap:5px!important}
+  #linesTable .qty-stepper{display:flex!important;gap:0!important}
+}
 /* Mobile billing UI — reference-style cart rows + product detail sheet */
 .mobile-item-info,.mobile-item-detail-overlay,.mobile-item-detail-sheet{display:none}
 @media(max-width:900px){
@@ -591,11 +636,11 @@ function setTaxBreakdown(enabled){
   <div class="mai-grid">
     <div class="mai-field">
       <label for="mobileAddItemQty">Quantity</label>
-      <input id="mobileAddItemQty" type="number" min="1" step="1" inputmode="numeric" value="1">
+      <input id="mobileAddItemQty" type="number" min="1" step="1" inputmode="numeric" value="1" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('mobileAddItemDisc').focus();document.getElementById('mobileAddItemDisc').select();}">
     </div>
     <div class="mai-field">
       <label for="mobileAddItemDisc">Discount %</label>
-      <input id="mobileAddItemDisc" type="number" min="-100" max="100" step="0.01" inputmode="decimal" value="0">
+      <input id="mobileAddItemDisc" type="number" min="-100" max="100" step="0.01" inputmode="decimal" value="0" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmMobileAddItem();}">
     </div>
   </div>
   <div class="mai-actions">
@@ -1289,16 +1334,13 @@ async function itemSearchKey(e){
   if(e.key !== 'Enter') return;
   e.preventDefault();
   clearTimeout(itemTimer);
+  // Enter selects only the item the user highlighted with ArrowDown.
+  // Never silently add the first search result.
   if(dd.classList.contains('open') && _ddHighlight >= 0 && items[_ddHighlight]){
     items[_ddHighlight].click();
     _ddHighlight = -1;
-    return;
   }
-  const q = document.getElementById('itemSearch').value.trim();
-  if(!q) return;
-  const fetched = await _fetchItems(q);
-  if(fetched.length) addLine(fetched[0]);
-  else showCustomBar(toTitleCase(q));
+  return;
 }
 
 function showCustomBar(name=''){
@@ -1413,6 +1455,10 @@ function confirmMobileAddItem(){
     calcLine(lines[existingIdx]);
     closeMobileAddItemDialog();
     renderLines();recalc();
+    setTimeout(()=>{
+      const s=document.getElementById('itemSearch');
+      if(s){s.focus();s.select();}
+    },80);
     return;
   }
   const line={
@@ -1430,6 +1476,10 @@ function confirmMobileAddItem(){
   closeMobileAddItemDialog();
   renderLines();
   recalc();
+  setTimeout(()=>{
+    const s=document.getElementById('itemSearch');
+    if(s){s.focus();s.select();}
+  },80);
 }
 window.confirmMobileAddItem = confirmMobileAddItem;
 window.closeMobileAddItemDialog = closeMobileAddItemDialog;
