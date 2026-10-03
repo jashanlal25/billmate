@@ -551,7 +551,7 @@ function setTaxBreakdown(enabled){
     <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:4px">📦 Message a Vendor</div>
     <div style="font-size:.83em;color:var(--sub);margin-bottom:16px">Pick a vendor to WhatsApp the items on this invoice that came from them — handy for restocking.</div>
     <div id="vendorMsgList" style="display:flex;flex-direction:column;gap:10px"></div>
-    <button class="mbtn mbtn-close" style="width:100%;padding:11px;font-size:.92em;margin-top:16px" onclick="closeVendorMessage()">✕ Cancel</button>
+    <button type="button" id="vendorMsgCancelBtn" class="mbtn mbtn-close" style="width:100%;padding:11px;font-size:.92em;margin-top:16px;position:relative;z-index:2;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeVendorMessage()">✕ Cancel</button>
   </div>
 </div>
 
@@ -2243,7 +2243,11 @@ async function openVendorMessage(inv){
   document.getElementById('vendorMsgModal').classList.add('open');
   _prefetchVendorSuppliers();
 }
-function closeVendorMessage(){ document.getElementById('vendorMsgModal').classList.remove('open'); }
+function closeVendorMessage(){
+  const modal=document.getElementById('vendorMsgModal');
+  if(modal) modal.classList.remove('open');
+}
+
 
 function sendVendorMessage(vendor){
   if(!_vendorInv()) return;
