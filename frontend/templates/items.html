@@ -450,13 +450,19 @@ function _applyLoadedItems(serverItems){
 }
 async function loadItems(q=''){
   q = String(q || '').trim();
-  // Do not load the entire catalog on page open. The catalog can contain
-  // thousands of items; fetch only what the user is searching for.
   if(!q){
     const localItems = IS_GUEST ? _guestItems() : [];
     allItems = localItems;
     populateVendorFilter();
     render([]);
+    try{
+      const r=await fetch('/api/items/count');
+      if(r.ok){
+        const counts=await r.json();
+        const countEl=document.getElementById('itemCount');
+        countEl.textContent = `${counts.private} private · ${counts.global} global`;
+      }
+    }catch(e){}
     return;
   }
   try{
@@ -464,6 +470,8 @@ async function loadItems(q=''){
     if(!r.ok) throw new Error('Items request failed');
     const serverItems=await r.json();
     _applyLoadedItems(serverItems);
+    const countEl=document.getElementById('itemCount');
+    countEl.textContent = `${serverItems.length} record${serverItems.length===1?'':'s'} for "${q}"`;
   }catch(e){
     render([]);
     toast('Could not load items',true);
