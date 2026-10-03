@@ -2101,6 +2101,19 @@ def agent_inventory(uid, q=''):
         result.append(d)
     return result
 
+@app.route('/api/items/count', methods=['GET'])
+def get_items_count():
+    uid = session.get('user_id')
+    if session.get('is_superadmin') or session.get('is_guest'):
+        uid = None
+    if not uid:
+        private_count = 0
+        global_count = Item.query.filter_by(is_active=True, is_global=True).count()
+    else:
+        private_count = Item.query.filter_by(is_active=True, user_id=uid, is_global=False).count()
+        global_count = Item.query.filter_by(is_active=True, is_global=True).count()
+    return jsonify({'private': private_count, 'global': global_count, 'total': private_count + global_count})
+
 @app.route('/api/items', methods=['POST'])
 def add_item():
     if session.get('is_guest'):
