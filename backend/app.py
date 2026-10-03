@@ -430,6 +430,17 @@ def get_or_create_user_settings(user_id=None):
         db.session.flush()
     return s
 
+@app.context_processor
+def inject_header_business_name():
+    """Provide the current user's business name to the shared header at render time."""
+    s = get_user_settings()
+    name = (s.shop_name or '').strip() if s else ''
+    parts = name.split() if name else []
+    return {
+        'shop_name_primary': parts[0] if parts else '',
+        'shop_name_accent': ' '.join(parts[1:]) if len(parts) > 1 else ''
+    }
+
 @app.before_request
 def check_auth():
     session.permanent = True
