@@ -263,6 +263,8 @@ input[type=number]{-moz-appearance:textfield}
     box-shadow:0 8px 26px rgba(5,10,28,.30),inset 0 1px rgba(255,255,255,.07) !important;
     gap:6px;
   }
+  /* The brand icon is rendered by .nav-brand-icon; disable the legacy pseudo-icon. */
+  .nav-logo::before{content:none !important;display:none !important}
   .nav-logo{
     flex:1 1 auto;min-width:0;max-width:none;height:58px;
     display:grid !important;
