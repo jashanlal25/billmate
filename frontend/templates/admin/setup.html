@@ -228,7 +228,7 @@ async function saveSetup(){
     admin_password:adminPwd
   })});
   const res=await r.json();
-  if(res.success){toast('Settings saved!');adminPwdAlreadySet=true;checkAdminPwdSet();document.getElementById('shopLogo').textContent=name;}
+  if(res.success){toast('Settings saved!');adminPwdAlreadySet=true;checkAdminPwdSet();}
   else toast(res.error||'Error saving',true);
 }
 
