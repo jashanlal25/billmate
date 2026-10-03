@@ -1,0 +1,41 @@
+{# Shared BillMate header — keep all header markup in this component. #}
+<nav class="nav">
+  <a href="/" class="nav-logo" id="shopLogo">
+    <span class="nav-brand-icon"><img src="/static/icon-192.png" alt="SSD MEDICOS"></span>
+    <span class="nav-brand-divider"></span>
+    <span class="nav-brand-copy"><span class="nav-brand-name"><span>SSD</span> <b>MEDICOS</b></span><span class="nav-brand-subtitle">PHARMACY MANAGEMENT</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="/billing" class="nav-link {{ 'active' if request.path == '/billing' else '' }}">🧾 Billing</a>
+    <a href="/items" class="nav-link {{ 'active' if request.path == '/items' else '' }}">💊 Items</a>
+    <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
+    <a href="/customers" class="nav-link {{ 'active' if request.path == '/customers' else '' }}">👥 Customers</a>
+    <a href="/purchase" class="nav-link {{ 'active' if request.path == '/purchase' else '' }}">🛒 Purchase</a>
+    <a href="/payments" class="nav-link {{ 'active' if request.path == '/payments' else '' }}">💳 Payments</a>
+    <a href="/backup" class="nav-link {{ 'active' if request.path == '/backup' else '' }}">💾 Backup</a>
+    {% if not is_guest %}<a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>{% endif %}
+    <a href="/admin" class="nav-link {{ 'active' if request.path == '/admin' else '' }}">🛡️ Admin</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-btn" type="button" onclick="toggleTheme()">🌙</button>
+    <div class="user-menu">
+      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false">{{ session.username or 'Guest' }} ▾</button>
+    </div>
+    <button class="nav-hamburger" type="button" onclick="toggleNav()">☰</button>
+  </div>
+</nav>
+
+<div class="nav-mobile-menu" id="navMenu">
+  <a href="/billing" class="nav-link {{ 'active' if request.path == '/billing' else '' }}">🧾 Billing</a>
+  <a href="/items" class="nav-link {{ 'active' if request.path == '/items' else '' }}">💊 Items</a>
+  <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
+  <a href="/customers" class="nav-link {{ 'active' if request.path == '/customers' else '' }}">👥 Customers</a>
+  <a href="/purchase" class="nav-link {{ 'active' if request.path == '/purchase' else '' }}">🛒 Purchase</a>
+  <a href="/payments" class="nav-link {{ 'active' if request.path == '/payments' else '' }}">💳 Payments</a>
+  <a href="/backup" class="nav-link {{ 'active' if request.path == '/backup' else '' }}">💾 Backup</a>
+  {% if not is_guest %}<a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>{% endif %}
+  <a href="/admin" class="nav-link {{ 'active' if request.path == '/admin' else '' }}">🛡️ Admin</a>
+  {% if request.path == '/billing' %}
+  <button id="nativeUpdateBtn" class="nav-link" onclick="checkNativeUpdate()" style="display:none;border:0;width:100%;text-align:left;background:transparent;cursor:pointer">⬆️ Update BillMate</button>
+  {% endif %}
+</div>

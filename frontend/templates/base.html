@@ -10,45 +10,7 @@
   <style>{% block page_styles %}{% endblock %}</style>
 </head>
 <body>
-<nav class="nav">
-  <a href="/" class="nav-logo" id="shopLogo">
-  <span class="nav-brand-icon"><img src="/static/icon-192.png" alt="SSD MEDICOS"></span>
-  <span class="nav-brand-divider"></span>
-  <span class="nav-brand-copy"><span class="nav-brand-name"><span>SSD</span> <b>MEDICOS</b></span><span class="nav-brand-subtitle">PHARMACY MANAGEMENT</span></span>
-</a>
-  <div class="nav-links">
-    <a href="/billing"   class="nav-link {% block nav_billing %}{% endblock %}">🧾 Billing</a>
-    <a href="/items"     class="nav-link {% block nav_items %}{% endblock %}">💊 Items</a>
-    <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
-    <a href="/customers" class="nav-link {% block nav_customers %}{% endblock %}">👥 Customers</a>
-    <a href="/purchase"  class="nav-link {% block nav_purchase %}{% endblock %}">🛒 Purchase</a>
-    <a href="/payments"  class="nav-link {% block nav_payments %}{% endblock %}">💳 Payments</a>
-    <a href="/backup"   class="nav-link {% block nav_backup %}{% endblock %}">💾 Backup</a>
-    <a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>
-    <a href="/admin"     class="nav-link {% block nav_admin %}{% endblock %}">🛡️ Admin</a>
-  </div>
-  <div class="nav-right">
-    <a href="/download/android" class="nav-link billmate-install-link" title="Download BillMate Android APK">📱 Install App</a>
-    {% block nav_right_extra %}
-    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
-    <div class="user-menu">
-      <button type="button" class="user-name" aria-label="Account menu" aria-expanded="false">{{ session.username or 'Guest' }} ▾</button>
-    </div>
-    {% endblock %}
-    <button class="nav-hamburger" onclick="toggleNav()">☰</button>
-  </div>
-</nav>
-<div class="nav-mobile-menu" id="navMenu">
-  <a href="/billing" class="nav-link {% block mnav_billing %}{% endblock %}">🧾 Billing</a>
-  <a href="/items" class="nav-link {% block mnav_items %}{% endblock %}">💊 Items</a>
-    <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
-  <a href="/customers" class="nav-link {% block mnav_customers %}{% endblock %}">👥 Customers</a>
-  <a href="/purchase" class="nav-link {% block mnav_purchase %}{% endblock %}">🛒 Purchase</a>
-  <a href="/payments" class="nav-link {% block mnav_payments %}{% endblock %}">💳 Payments</a>
-  <a href="/backup" class="nav-link {% block mnav_backup %}{% endblock %}">💾 Backup</a>
-  <a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>
-  <a href="/admin" class="nav-link {% block mnav_admin %}{% endblock %}">🛡️ Admin</a>
-</div>
+{% include "_header.html" %}
 
 {% block content %}{% endblock %}
 
