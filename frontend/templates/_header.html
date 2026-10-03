@@ -39,3 +39,25 @@
   <button id="nativeUpdateBtn" class="nav-link" onclick="checkNativeUpdate()" style="display:none;border:0;width:100%;text-align:left;background:transparent;cursor:pointer">⬆️ Update BillMate</button>
   {% endif %}
 </div>
+
+<script>
+(function(){
+  function loadBusinessName(){
+    fetch('/api/settings')
+      .then(function(r){ return r.ok ? r.json() : Promise.reject(r); })
+      .then(function(s){
+        var name=String((s&&s.shop_name)||'').trim();
+        if(!name) return;
+        var parts=name.split(/\s+/);
+        var primary=document.getElementById('shopNamePrimary');
+        var accent=document.getElementById('shopNameAccent');
+        var logo=document.querySelector('.nav-brand-icon img');
+        if(primary) primary.textContent=parts.shift();
+        if(accent) accent.textContent=parts.join(' ');
+        if(logo) logo.alt=name;
+      })
+      .catch(function(){});
+  }
+  loadBusinessName();
+})();
+</script>
