@@ -3,7 +3,7 @@
   <a href="/" class="nav-logo" id="shopLogo">
     <span class="nav-brand-icon"><img src="/static/icon-192.png" alt="BillMate"></span>
     <span class="nav-brand-divider"></span>
-    <span class="nav-brand-copy"><span class="nav-brand-name"><span id="shopNamePrimary">Your Shop</span><b id="shopNameAccent"></b></span><span class="nav-brand-subtitle">PHARMACY MANAGEMENT</span></span>
+    <span class="nav-brand-copy"><span class="nav-brand-name"><span id="shopNamePrimary">{{ shop_name_primary or "Your Shop" }}</span><b id="shopNameAccent">{{ shop_name_accent }}</b></span><span class="nav-brand-subtitle">PHARMACY MANAGEMENT</span></span>
   </a>
   <div class="nav-links">
     <a href="/billing" class="nav-link {{ 'active' if request.path == '/billing' else '' }}">🧾 Billing</a>
@@ -40,24 +40,3 @@
   {% endif %}
 </div>
 
-<script>
-(function(){
-  function loadBusinessName(){
-    fetch('/api/settings')
-      .then(function(r){ return r.ok ? r.json() : Promise.reject(r); })
-      .then(function(s){
-        var name=String((s&&s.shop_name)||'').trim();
-        if(!name) return;
-        var parts=name.split(/\s+/);
-        var primary=document.getElementById('shopNamePrimary');
-        var accent=document.getElementById('shopNameAccent');
-        var logo=document.querySelector('.nav-brand-icon img');
-        if(primary) primary.textContent=parts.shift();
-        if(accent) accent.textContent=parts.join(' ');
-        if(logo) logo.alt=name;
-      })
-      .catch(function(){});
-  }
-  loadBusinessName();
-})();
-</script>
