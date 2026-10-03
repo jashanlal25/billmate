@@ -65,15 +65,93 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;pad
 }
 .nav-mobile-menu.open{display:flex}
 .nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
-@media(max-width:640px){
-  body{padding-top:108px}
-  .nav{top:8px;left:12px;right:12px;height:88px;padding:0 12px 0 20px;border-radius:22px}
-  .nav-logo{font-size:1.2em}
-  .nav-right{gap:10px}
-  .theme-btn{width:58px;height:58px}
-  .user-menu>.user-name{min-width:118px;min-height:58px;padding:10px 14px}
-  .nav-hamburger{display:flex;width:58px;height:58px}
-  .nav-mobile-menu{top:106px;left:12px;right:12px}
+@media(max-width:900px){
+  /* Compact premium mobile header — keep proportions close to the reference */
+  body{padding-top:92px}
+
+  .nav{
+    top:8px;left:10px;right:10px;height:76px;
+    padding:0 10px 0 14px;
+    border-radius:18px;
+    background:linear-gradient(105deg,rgba(30,24,76,.97),rgba(18,28,61,.98) 58%,rgba(25,29,64,.98));
+    border:1px solid rgba(112,104,255,.28);
+    box-shadow:0 8px 24px rgba(0,0,0,.20),inset 0 1px rgba(255,255,255,.055);
+  }
+
+  .nav-links{display:none}
+  .nav-right{gap:7px;flex-shrink:0}
+  .billmate-install-link{display:none}
+
+  /* Brand: icon + shop name, with a small pharmacy-management subtitle */
+  .nav-logo{
+    min-width:0;max-width:calc(100% - 160px);
+    display:grid;grid-template-columns:40px minmax(0,1fr);
+    grid-template-rows:1fr auto;
+    column-gap:9px;align-items:center;
+    font-size:1.02rem;line-height:1.05;
+    letter-spacing:-.25px;
+    background:none;
+    -webkit-text-fill-color:#f4f5ff;
+    color:#f4f5ff;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+  .nav-logo::before{
+    content:'';
+    grid-row:1 / span 2;
+    width:40px;height:40px;
+    border-radius:50%;
+    background:url('/static/icon-192.png') center/cover no-repeat;
+    box-shadow:0 0 0 1px rgba(255,255,255,.18),0 3px 10px rgba(70,70,220,.22);
+  }
+  .nav-logo::after{
+    content:'PHARMACY MANAGEMENT';
+    grid-column:2;
+    grid-row:2;
+    color:rgba(205,211,241,.72);
+    -webkit-text-fill-color:rgba(205,211,241,.72);
+    font-size:.43rem;
+    font-weight:600;
+    letter-spacing:1.8px;
+    line-height:1;
+    margin-top:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .theme-btn{
+    width:44px;height:44px;min-width:44px;
+    border-radius:13px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(135,140,220,.25);
+    font-size:21px;
+    box-shadow:0 3px 10px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.045);
+  }
+
+  .user-menu>.user-name{
+    min-width:86px;height:44px;min-height:44px;
+    padding:7px 10px;
+    border-radius:13px;
+    gap:5px;
+    background:linear-gradient(135deg,#5143d8,#6849d5);
+    border:1px solid rgba(155,148,255,.42);
+    box-shadow:0 4px 12px rgba(73,60,210,.20),inset 0 1px rgba(255,255,255,.10);
+    font-size:.82rem;
+    font-weight:700;
+  }
+  .user-menu>.user-name::before{font-size:18px}
+  .nav-hamburger{
+    display:flex;width:44px;height:44px;min-width:44px;
+    border-radius:13px;font-size:21px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(135,140,220,.25);
+    box-shadow:0 3px 10px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.045);
+  }
+
+  .nav-mobile-menu{
+    top:92px;left:10px;right:10px;
+    border-radius:15px;
+  }
 }
 /* === Toast === */
 .toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:9999}
@@ -172,3 +250,106 @@ input[type=number]{-moz-appearance:textfield}
 .bm-account-logout{border-color:var(--red);background:var(--red);color:#fff}
 @keyframes bmAccountIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){#bmAccountCard{animation:none}}
+
+/* === SSD MEDICOS reference mobile header === */
+@media(max-width:900px){
+  body{padding-top:92px}
+  .nav{
+    top:8px;left:10px;right:10px;height:76px;
+    padding:0 9px 0 12px;
+    border-radius:26px;
+    background:linear-gradient(105deg,#17203a 0%,#111a32 52%,#1b2146 100%) !important;
+    border:1px solid rgba(105,94,236,.38) !important;
+    box-shadow:0 8px 26px rgba(5,10,28,.30),inset 0 1px rgba(255,255,255,.07) !important;
+    gap:6px;
+  }
+  .nav-logo{
+    flex:1 1 auto;min-width:0;max-width:none;height:58px;
+    display:grid !important;
+    grid-template-columns:42px 1px minmax(0,1fr);
+    align-items:center;
+    column-gap:8px;
+    color:#fff !important;background:none !important;
+    -webkit-text-fill-color:initial !important;
+    text-decoration:none;
+    overflow:hidden;
+    letter-spacing:0;
+  }
+  .nav-brand-icon{
+    width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+    flex:0 0 42px;
+  }
+  .nav-brand-icon img{
+    display:block;width:42px;height:42px;object-fit:contain;
+    filter:drop-shadow(0 2px 5px rgba(60,70,220,.18));
+  }
+  .nav-brand-divider{
+    width:1px;height:43px;
+    background:rgba(180,188,235,.38);
+  }
+  .nav-brand-copy{
+    min-width:0;display:flex;flex-direction:column;justify-content:center;
+    overflow:hidden;
+  }
+  .nav-brand-name{
+    display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;
+    font-size:17px;line-height:1.02;font-weight:800;letter-spacing:-.45px;
+    color:#fff;
+  }
+  .nav-brand-name span{color:#fff}
+  .nav-brand-name b{
+    font-weight:800;
+    background:linear-gradient(90deg,#6676ef,#8753f4);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+  }
+  .nav-brand-subtitle{
+    display:block;margin-top:4px;
+    white-space:nowrap;overflow:hidden;
+    color:rgba(225,229,247,.78);
+    font-size:5.6px;line-height:1;letter-spacing:1.45px;font-weight:650;
+  }
+  .nav-right{
+    flex:0 0 auto;gap:7px;
+    display:flex;align-items:center;
+  }
+  .nav-right .billmate-install-link{display:none !important}
+  .nav .theme-btn,
+  .nav .nav-hamburger{
+    width:44px !important;height:44px !important;min-width:44px !important;
+    padding:0 !important;border-radius:15px !important;
+    background:rgba(10,18,42,.38) !important;
+    border:1px solid rgba(122,132,207,.30) !important;
+    box-shadow:inset 0 1px rgba(255,255,255,.055),0 4px 12px rgba(3,8,25,.16) !important;
+  }
+  .nav .theme-btn{font-size:22px !important;color:#ffd447 !important}
+  .nav .nav-hamburger{font-size:22px !important;color:#f5f6ff !important}
+  .nav .user-menu{padding:0 !important;margin:0 !important;background:none !important}
+  .nav .user-menu>.user-name{
+    width:80px !important;min-width:80px !important;height:44px !important;min-height:44px !important;
+    padding:0 9px !important;gap:6px !important;border-radius:15px !important;
+    background:linear-gradient(135deg,#5146e5 0%,#7650f5 100%) !important;
+    border:1px solid rgba(177,166,255,.58) !important;
+    color:#fff !important;
+    font-size:14px !important;font-weight:750 !important;
+    box-shadow:inset 0 1px rgba(255,255,255,.14),0 5px 15px rgba(65,52,190,.24) !important;
+  }
+  .nav .user-menu>.user-name::before{
+    content:'♙' !important;font-size:19px !important;color:#fff !important;
+  }
+  .nav-mobile-menu{
+    top:92px !important;left:10px !important;right:10px !important;
+    border-radius:18px !important;
+  }
+}
+@media(max-width:370px){
+  .nav{left:7px;right:7px;padding-left:9px;padding-right:7px}
+  .nav-logo{grid-template-columns:38px 1px minmax(0,1fr);column-gap:6px}
+  .nav-brand-icon,.nav-brand-icon img{width:38px;height:38px}
+  .nav-brand-divider{height:39px}
+  .nav-brand-name{font-size:15px;letter-spacing:-.4px}
+  .nav-brand-subtitle{font-size:5px;letter-spacing:1.15px}
+  .nav-right{gap:5px}
+  .nav .theme-btn,.nav .nav-hamburger{width:41px !important;height:41px !important;min-width:41px !important;border-radius:13px !important}
+  .nav .user-menu>.user-name{width:73px !important;min-width:73px !important;height:41px !important;min-height:41px !important;font-size:13px !important}
+}

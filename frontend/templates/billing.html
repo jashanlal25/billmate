@@ -10,7 +10,7 @@
 [data-theme=dark]{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row-hover:#2e2e44}
 [data-theme=dim]{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#d8d8d8;--text:#000;--sub:#444;--border:#c0c0c0;--inp:#cecece;--shadow:0 4px 15px rgba(0,0,0,.2);--accent:#667eea;--row-hover:#e2e2e2;--red:#ef4444;--green:#10b981}
 @view-transition{navigation:auto}
-body{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 16px 40px}
+html,body{width:100%;max-width:100%;overflow-x:hidden}\nbody{font-family:'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:90px 16px 40px}
 .nav{position:fixed;top:0;left:0;right:0;height:64px;background:rgba(26,26,46,.96);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:999;border-bottom:1px solid rgba(255,255,255,.08)}
 [data-theme=dim] .nav{background:rgba(26,26,46,.96);border-bottom:1px solid rgba(255,255,255,.08)}
 .nav-logo{color:#fff;font-size:1.2em;font-weight:700;text-decoration:none;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.nav-logo #navVersion{-webkit-text-fill-color:#a5b4fc;color:#a5b4fc;font-size:.62em;font-weight:700;white-space:nowrap}
@@ -165,11 +165,11 @@ input[type=number]{-moz-appearance:textfield}
 .nav-mobile-menu{display:none;position:fixed;top:64px;left:0;right:0;background:rgba(26,26,46,.97);flex-direction:column;padding:8px 12px;z-index:998;border-bottom:1px solid rgba(255,255,255,.08)}
 .nav-mobile-menu.open{display:flex}
 .nav-mobile-menu .nav-link{padding:14px 16px;font-size:.95em;border-radius:10px;border-bottom:1px solid rgba(255,255,255,.05)}
-@media(max-width:640px){.nav-links{display:none}.nav-hamburger{display:flex}}
-@media(max-width:640px){.ci-grid{grid-template-columns:1fr 1fr !important}.ci-grid>div:first-child{grid-column:1/-1}.ci-grid>div:last-child{grid-column:1/-1;justify-content:flex-end}}
+@media(max-width:900px){.nav-links{display:none}.nav-hamburger{display:flex}}
+@media(max-width:900px){.ci-grid{grid-template-columns:1fr 1fr !important}.ci-grid>div:first-child{grid-column:1/-1}.ci-grid>div:last-child{grid-column:1/-1;justify-content:flex-end}}
 /* Mobile label spans for inputs */
 .mob-lbl{display:none;font-size:.7em;color:var(--sub);margin-right:3px;font-weight:600}
-@media(max-width:640px){
+@media(max-width:900px){
   body{padding:80px 8px 40px;overflow-x:hidden}
   .panel{padding:14px 12px}
   .summary-card{padding:16px 14px}
@@ -222,7 +222,7 @@ input[type=number]{-moz-appearance:textfield}
 /* Line row 3-dots menu */
 .dots-btn{display:inline-flex;align-items:center;background:none;border:none;cursor:pointer;color:var(--sub);font-size:1.3em;padding:2px 6px;border-radius:6px;line-height:1}
 .dots-btn:hover{background:var(--row-hover)}
-@media(max-width:640px){.remove-btn{display:none}}
+@media(max-width:900px){.remove-btn{display:none}}
 .line-action{position:relative}
 .line-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--card);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:200;min-width:110px;display:none}
 .line-menu.open{display:block}
@@ -265,10 +265,15 @@ function setTaxBreakdown(enabled){
 }
 </script>
 <link rel="stylesheet" href="/static/css/common.css?v=20261003-account">
+<script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </head>
 <body>
 <nav class="nav">
-  <a href="/" class="nav-logo" id="shopLogo"><span id="shopLogoName">⚡ BillMate</span> <span id="navVersion"></span></a>
+  <a href="/" class="nav-logo" id="shopLogo">
+  <span class="nav-brand-icon"><img src="/static/icon-192.png" alt="SSD MEDICOS"></span>
+  <span class="nav-brand-divider"></span>
+  <span class="nav-brand-copy"><span class="nav-brand-name"><span>SSD</span> <b>MEDICOS</b></span><span class="nav-brand-subtitle">PHARMACY MANAGEMENT</span></span>
+</a>
   <div class="nav-links">
     <a href="/billing"   class="nav-link active">🧾 Billing</a>
     <a href="/items"     class="nav-link">💊 Items</a>
@@ -920,6 +925,8 @@ async function loadSettings(){
   settings=await r.json();
   setupCompleted=!!settings.setup_completed;
   document.getElementById('shopName').textContent=settings.shop_name||'Your Shop';
+  const logoName=document.getElementById('shopLogoName');
+  if(logoName && settings.shop_name) logoName.textContent=settings.shop_name;
   const meta=[settings.address,settings.phone].filter(Boolean).join(' | ');
   document.getElementById('shopMeta').textContent=meta;
   // Show setup banner if not completed (guests have no setup)
@@ -1955,13 +1962,28 @@ function closePostSave(){
 function _invWithPhone(inv){ const ph=document.getElementById('custPhone').value.trim()||(customer?(customer.phone||''):''); return Object.assign({}, inv, {customer_phone: ph, customer_address: customer?(customer.address||''):''}); }
 
 function _openInvoiceWindow(html){
-  // Open a blank tab first (inside the click handler = allowed by mobile browsers),
-  // then write content — avoids blob: URL issues on iOS Safari and popup-blocked fallbacks
-  // that would navigate away from the billing page.
+  // Open a blank tab first (inside the click handler = allowed by mobile browsers).
+  // The generated invoice contains no <script> tag, so Android WebView cannot
+  // accidentally expose the remainder of this billing page as visible text.
   const w = window.open('', '_blank');
   if(w){
+    const preparePrint = () => {
+      try{
+        const bar = w.document.getElementById('_printBar');
+        const isMob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if(isMob){
+          if(bar) bar.style.display='block';
+          if(w.document.body) w.document.body.style.paddingBottom='80px';
+        } else {
+          if(bar) bar.style.display='block';
+          setTimeout(()=>{ try{ w.print(); }catch(e){} },500);
+        }
+      }catch(e){}
+    };
+    try{ w.addEventListener('load',preparePrint,{once:true}); }catch(e){}
     w.document.write(html);
     w.document.close();
+    setTimeout(preparePrint,300);
     return;
   }
   // Popup blocked: print via a hidden iframe so we never leave the billing page.
@@ -2556,16 +2578,6 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
   <div id="_printBar" class="no-print" style="display:none;position:fixed;bottom:0;left:0;right:0;padding:14px 16px;background:#fff;border-top:2px solid #4f46e5;text-align:center;z-index:999;box-shadow:0 -4px 20px rgba(0,0,0,.12)">
     <button onclick="window.print()" style="width:100%;max-width:400px;padding:14px;background:#4f46e5;color:#fff;border:none;border-radius:12px;font-size:1.05em;font-weight:700;cursor:pointer;letter-spacing:.3px">${forPdf?'📄 Save as PDF':'🖨️ Print'}</button>
   </div>
-  <script>
-    var _mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if(_mob){
-      document.getElementById('_printBar').style.display='block';
-      document.body.style.paddingBottom='80px';
-    } else {
-      ${forPdf?'document.getElementById(\'_printBar\').style.display=\'block\';':'setTimeout(function(){window.print();window.onafterprint=function(){window.close();};},500);'}
-    }
-  <\/script>
-  <script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body></html>`;
 }
 
