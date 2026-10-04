@@ -3217,17 +3217,26 @@ def supplier_cleanup_preview():
         return jsonify({'error': 'Invalid supplier preview rows'}), 400
     company_keys = {(_pos_key(row.get('NAME')), str(row.get('CODE') or '').strip()) for row in companies}
     current_names = {_pos_key(row.get('NAME')) for row in current}
-    linked_ids, linked_names = _supplier_cleanup_links(uid)
-    candidates = []
-    for supplier in Supplier.query.filter_by(user_id=uid).order_by(Supplier.name).all():
-        candidate = _supplier_cleanup_candidate(supplier, company_keys, current_names, linked_ids, linked_names)
-        if candidate:
-            candidates.append(candidate)
-    eligible = [row['id'] for row in candidates if not row['protected_reasons']]
-    token = _supplier_cleanup_signer().dumps({'uid': uid, 'ids': eligible,
-        'companies': sorted(company_keys), 'current_names': sorted(current_names)}) if eligible else None
-    return jsonify({'candidates': candidates, 'preview_only': True,
-                    'cleanup_token': token, 'eligible_count': len(eligible)})
+    try:
+        linked_ids, linked_names = _supplier_cleanup_links(uid)
+        candidates = []
+        for supplier in Supplier.query.filter_by(user_id=uid).order_by(Supplier.name).all():
+            candidate = _supplier_cleanup_candidate(supplier, company_keys, current_names, linked_ids, linked_names)
+            if candidate:
+                candidates.append(candidate)
+        eligible = [row['id'] for row in candidates if not row['protected_reasons']]
+        token = _supplier_cleanup_signer().dumps({'uid': uid, 'ids': eligible,
+            'companies': sorted(company_keys), 'current_names': sorted(current_names)}) if eligible else None
+        return jsonify({'candidates': candidates, 'preview_only': True,
+                        'cleanup_token': token, 'eligible_count': len(eligible)})
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.exception('POS supplier cleanup preview failed for user %s', uid)
+        return jsonify({
+            'error': 'Supplier preview database check failed: %s: %s' % (
+                type(exc).__name__, str(exc)
+            )
+        }), 500
 
 @app.route('/api/pos-backup/supplier-cleanup', methods=['POST'])
 def supplier_cleanup():
