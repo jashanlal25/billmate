@@ -71,8 +71,14 @@ async function previewSupplierCleanup(){
   const [master,companies]=await Promise.all([_readDbf(zip,'MAST.DBF'),_readDbf(zip,'COMPANYF.DBF')]);
   const suppliers=_posSuppliers(master);
   if(!suppliers.length)throw new Error('Supplier accounts were not found in MAST.DBF');
-  const response=await fetch('/api/pos-backup/supplier-cleanup-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({suppliers,companies:companies.map(r=>({CODE:r.CODE,NAME:r.NAME}))})});
-  const result=await response.json();if(!response.ok)throw new Error(result.error||'Preview failed');
+  const response=await fetch('/api/pos-backup/supplier-cleanup-preview',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({suppliers,companies:companies.map(r=>({CODE:r.CODE,NAME:r.NAME}))})});
+  const raw=await response.text();
+  let result=null;
+  try{result=raw?JSON.parse(raw):{};}catch(_){
+   const detail=raw.trim().replace(/\s+/g,' ').slice(0,180);
+   throw new Error('Supplier preview API returned HTTP '+response.status+' HTML/non-JSON response'+(detail?' — '+detail:''));
+  }
+  if(!response.ok)throw new Error(result.error||'Preview failed (HTTP '+response.status+')');
   supplierCleanupToken=result.cleanup_token;supplierCleanupCount=result.eligible_count||0;
   const cleanupBtn=document.getElementById('supplierCleanupBtn');cleanupBtn.hidden=!supplierCleanupToken;cleanupBtn.textContent='Remove eligible extra suppliers ('+supplierCleanupCount+')';
   out.replaceChildren();
