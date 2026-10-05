@@ -250,6 +250,28 @@ input[type=number]{-moz-appearance:textfield}
 .user-menu>.user-name{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:64px;padding:10px 14px;border:0;border-radius:12px;background:rgba(102,126,234,.18);color:#a5b4fc;font:inherit;font-weight:700;cursor:pointer}
 .user-menu .user-dropdown{min-width:200px;padding:8px}
 .user-menu .user-dropdown-item{display:flex;align-items:center;min-height:52px;padding:14px 18px;font-size:1rem;border-radius:8px}
+/* Completed items reuse the existing card's fields in a compact summary. */
+@media screen{
+  #linesTable tr.line-compact{cursor:pointer}
+  #linesTable tr.line-compact td:nth-child(5),
+  #linesTable tr.line-compact td:nth-child(6),
+  #linesTable tr.line-compact td:nth-child(7){display:none}
+  #linesTable tr.line-compact .line-item-code,
+  #linesTable tr.line-compact .qty-stepper button{display:none}
+}
+@media screen and (max-width:900px){
+  #linesTable tbody tr.line-compact{display:grid;grid-template-columns:minmax(0,1fr) 48px 48px minmax(72px,.55fr);gap:8px;align-items:center;padding:12px 10px}
+  #linesTable tr.line-compact td:nth-child(2){grid-column:1;grid-row:1;order:initial;width:auto;padding:0;font-size:.88em;overflow-wrap:anywhere}
+  #linesTable tr.line-compact td:nth-child(3){grid-column:3;grid-row:1;order:initial;width:auto;padding:0;gap:6px}
+  #linesTable tr.line-compact td:nth-child(4){grid-column:2;grid-row:1;order:initial;width:auto;padding:0;gap:6px}
+  #linesTable tr.line-compact td:nth-child(8){grid-column:4;grid-row:1;order:initial;width:auto;margin:0;padding:0 0 0 6px;border-top:none!important;border-left:1px solid var(--border)!important;font-size:.88em;color:#0f766e!important;text-align:left;white-space:nowrap}
+  #linesTable tr.line-compact td:nth-child(8)::before{content:'Amount';display:block;color:var(--sub);font-size:.72em;text-transform:uppercase;margin-bottom:12px;padding-right:18px}
+  #linesTable tr.line-compact td:nth-child(9){top:8px;right:5px}
+  #linesTable tr.line-compact .qty-stepper{gap:4px;width:100%}
+  #linesTable tr.line-compact .qty-stepper button{width:28px!important;height:36px!important;border-radius:8px!important;font-size:1.1em!important}
+  #linesTable tr.line-compact .qty-inp{min-width:0;padding:8px 3px!important;font-size:.9em!important}
+  #linesTable tr.line-compact .qty-stepper .qty-inp{width:42px!important}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
@@ -1322,6 +1344,39 @@ function clearBillLineSearch(){
   input.value='';filterBillLines();input.focus();
 }
 
+// Presentation state stays separate from invoice data and survives cart redraws.
+const _compactLines = new WeakSet();
+const _reopenedLines = new WeakSet();
+function collapseReopenedBillLines(){
+  lines.forEach((line,i)=>{
+    if(!_reopenedLines.has(line)) return;
+    _reopenedLines.delete(line);
+    _compactLines.add(line);
+    document.querySelector(`#linesBody tr[data-line-index="${i}"]`)?.classList.add('line-compact');
+  });
+}
+function expandBillLine(i){
+  if(!lines[i]) return;
+  if(_compactLines.has(lines[i])) _reopenedLines.add(lines[i]);
+  _compactLines.delete(lines[i]);
+  document.querySelector(`#linesBody tr[data-line-index="${i}"]`)?.classList.remove('line-compact');
+}
+document.addEventListener('click',e=>{
+  if(e.target.id==='itemSearch') collapseReopenedBillLines();
+  const row=e.target.closest('#linesBody tr.line-compact');
+  if(row && !e.target.closest('button,.line-menu')) expandBillLine(Number(row.dataset.lineIndex));
+});
+document.addEventListener('focusin',e=>{
+  const compactRow=e.target.closest('#linesBody tr.line-compact');
+  if(compactRow && e.target.tagName==='INPUT') expandBillLine(Number(compactRow.dataset.lineIndex));
+  if(e.target.id!=='itemSearch') return;
+  collapseReopenedBillLines();
+  const previous=e.relatedTarget;
+  const row=previous?.closest('#linesBody tr');
+  if(!row || previous!==row.children[3]?.querySelector('input')) return;
+  const line=lines[Number(row.dataset.lineIndex)];
+  if(line){ _compactLines.add(line); row.classList.add('line-compact'); }
+});
 function renderLines(){
   scheduleAutoDraft();
   const body=document.getElementById('linesBody');
@@ -1333,11 +1388,11 @@ function renderLines(){
 
   const order = addOnTop ? lines.map((_,i)=>i).reverse() : lines.map((_,i)=>i);
   body.innerHTML=order.map((i)=>{const l=lines[i];return`
-    <tr data-line-index="${i}">
+    <tr data-line-index="${i}" class="${_compactLines.has(l)?'line-compact':''}">
       <td style="color:#888;font-size:.8em">${i+1}</td>
       <td>
         <div style="font-weight:600;font-size:.88em">${esc(l.item_name)}</div>
-        ${l.item_code?`<div style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
+        ${l.item_code?`<div class="line-item-code" style="font-size:.7em;color:var(--sub)">Code: ${esc(l.item_code)}</div>`:''}
         ${showBonus?`<input class="qty-inp" type="text" value="${esc(l.bonus||'')}" onchange="updateBonus(${i},this.value)" placeholder="bonus" style="width:100%;max-width:120px;font-size:.75em;color:#16a34a;margin-top:2px;padding:3px 6px">`:(l.bonus?`<div style="font-size:.75em;color:#16a34a">${esc(l.bonus)}</div>`:'')}
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
@@ -3227,6 +3282,7 @@ function _rowForLine(idx){ const d = addOnTop ? (lines.length-1-idx) : idx; retu
 
 function _focusRowField(lineIdx, key){
   const row = _rowForLine(lineIdx); if(!row) return;
+  if(row.classList?.contains('line-compact')) expandBillLine(lineIdx);
   const cell = row.querySelectorAll('td')[_CART_COL[key]]; if(!cell) return;
   const inp = cell.querySelector('input'); if(inp){ inp.focus(); inp.select(); }
 }
