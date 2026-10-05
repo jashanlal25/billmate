@@ -1220,10 +1220,20 @@ if(!_cacheGet()){
 // Item search
 let itemTimer, lastQuery='';
 // Stock belongs to this shop even when its original vendor name is retained.
-// Keep the existing name order within both groups.
+// Show in-stock offers first, then sort each group by highest discount.
+// If discounts tie, preserve the existing order.
 function _stockFirst(items){
   const available=[], other=[];
   for(const item of items) (Number(item.qty)>0 ? available : other).push(item);
+  const byDiscount=(a,b)=>{
+    const ad=Number(a.discount_pct);
+    const bd=Number(b.discount_pct);
+    const av=Number.isFinite(ad)?ad:0;
+    const bv=Number.isFinite(bd)?bd:0;
+    return bv-av;
+  };
+  available.sort(byDiscount);
+  other.sort(byDiscount);
   return available.concat(other);
 }
 // Instant local filter over the cached catalog (no network).
