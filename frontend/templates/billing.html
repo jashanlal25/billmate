@@ -1085,10 +1085,17 @@ if(!_cacheGet()){
 // Item search
 let itemTimer, lastQuery='';
 // Stock belongs to this shop even when its original vendor name is retained.
-// Keep the existing name order within both groups.
+// Preserve stock order; rank remaining offers by the displayed discount, high to low.
 function _stockFirst(items){
   const available=[], other=[];
   for(const item of items) (Number(item.qty)>0 ? available : other).push(item);
+  other.sort((a,b)=>{
+    const discount=item=>{
+      const value=Number(item.discount_pct);
+      return Number.isFinite(value) ? value : 0;
+    };
+    return discount(b)-discount(a);
+  });
   return available.concat(other);
 }
 // Instant local filter over the cached catalog (no network).
