@@ -122,7 +122,7 @@ def download_android_apk():
 def invoice_pdf():
     """Server Share-PDF renderer mirroring buildInvoicePrintHtml()."""
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
@@ -149,6 +149,8 @@ def invoice_pdf():
     bodyb=ParagraphStyle('bodyb',parent=body,fontName='Helvetica-Bold')
     tiny=ParagraphStyle('tiny',parent=body,fontSize=6.5,leading=8,textColor=colors.HexColor('#888888'))
     th=ParagraphStyle('th',parent=tiny,fontName='Helvetica-Bold',textColor=accent)
+    th_center=ParagraphStyle('th_center',parent=th,alignment=TA_CENTER)
+    th_right=ParagraphStyle('th_right',parent=th,alignment=TA_RIGHT)
     story=[]
 
     shop_name=p(data.get('shop_name'),'Your Shop'); phone=p(data.get('shop_phone'),'') if data.get('show_phone',True) else ''
@@ -188,7 +190,7 @@ def invoice_pdf():
     head.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
     story += [head,Spacer(1,5*mm)]
 
-    rows=[[Paragraph('#',th),Paragraph('ITEM DESCRIPTION',th),Paragraph('RATE (TP)',th),Paragraph('DISC%',th),Paragraph('TAX/UNIT',th),Paragraph('QTY',th),Paragraph('NET AMOUNT',th)]]
+    rows=[[Paragraph('#',th_center),Paragraph('ITEM DESCRIPTION',th),Paragraph('QTY',th_center),Paragraph('DISC%',th_center),Paragraph('RATE (TP)',th_right),Paragraph('TAX/UNIT',th_right),Paragraph('NET AMOUNT',th_right)]]
     for i,l in enumerate(sorted(lines, key=lambda line: str(line.get('item_name') or '').strip().casefold()),1):
         desc=f"<b>{p(l.get('item_name'),'')}</b>"
         if l.get('bonus_text'): desc+=f"<br/><font color='#16a34a' size='6.5'><b>{p(l.get('bonus_text'),'')}</b></font>"
@@ -197,11 +199,11 @@ def invoice_pdf():
         disc=n(l.get('discount_pct'))
         qty=n(l.get('qty')); line_total=n(l.get('line_net'))+qty*n(l.get('tax_pct'))
         tax=n(l.get('tax_pct'))
-        rows.append([str(i),Paragraph(desc,body),m(l.get('tp')),f"{disc:.1f}%" if disc else '—',m(tax) if tax else '—',f"{qty:.2f}".rstrip('0').rstrip('.'),m(line_total)])
-    it=Table(rows,colWidths=[9*mm,58*mm,27*mm,18*mm,23*mm,16*mm,33*mm],repeatRows=1)
+        rows.append([str(i),Paragraph(desc,body),f"{qty:.2f}".rstrip('0').rstrip('.'),f"{disc:.1f}%" if disc else '—',m(l.get('tp')),m(tax) if tax else '—',m(line_total)])
+    it=Table(rows,colWidths=[9*mm,58*mm,16*mm,18*mm,27*mm,23*mm,33*mm],repeatRows=1)
     ts=[('TEXTCOLOR',(0,0),(-1,0),accent),('LINEBELOW',(0,0),(-1,0),1.6,accent),('FONTSIZE',(0,0),(-1,-1),8),
-        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(2,-1),'RIGHT'),
-        ('ALIGN',(3,0),(3,-1),'CENTER'),('ALIGN',(4,0),(4,-1),'RIGHT'),('ALIGN',(5,0),(5,-1),'CENTER'),
+        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),('ALIGN',(0,0),(0,-1),'CENTER'),('ALIGN',(2,0),(2,-1),'CENTER'),
+        ('ALIGN',(3,0),(3,-1),'CENTER'),('ALIGN',(4,0),(4,-1),'RIGHT'),('ALIGN',(5,0),(5,-1),'RIGHT'),
         ('ALIGN',(6,0),(6,-1),'RIGHT'),('LINEBELOW',(0,1),(-1,-1),.35,light),
         ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5)]
     it.setStyle(TableStyle(ts)); story += [it,Spacer(1,5*mm)]
@@ -4664,3 +4666,4 @@ install_whatsapp_agent(app, _frontend, agent_inventory, _parse_demand_pdf_table)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
+

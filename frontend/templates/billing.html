@@ -614,10 +614,10 @@ function setTaxBreakdown(enabled){
           <tr style="border-bottom:2px solid var(--border)">
             <th style="padding:8px 10px;text-align:left;color:var(--text);font-weight:700">#</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text);font-weight:700">Item</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">TP</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Disc%</th>
-            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Tax</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Qty</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Disc%</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">TP</th>
+            <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Tax</th>
             <th style="padding:8px 10px;text-align:right;color:var(--text);font-weight:700">Amount incl. tax</th>
           </tr>
         </thead>
@@ -2431,10 +2431,10 @@ function _guestViewInvoice(id){
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;color:#888">${i+1}</td>
       <td style="padding:8px 10px;font-weight:600">${esc(l.item_name)}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
-      <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
-      <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.qty).toFixed(l.qty%1?2:0)}</td>
+      <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${((+l.line_net)+(+l.qty)*(+l.tax_pct||0)).toFixed(2)}</td>
     </tr>`).join('');
   document.getElementById('mSubtotal').textContent='Rs.'+(+inv.subtotal).toFixed(2);
@@ -2499,10 +2499,10 @@ async function viewInvoice(id){
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:8px 10px;color:#888">${i+1}</td>
       <td style="padding:8px 10px;font-weight:600">${esc(l.item_name)}${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
-      <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
-      <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right">${(+l.qty).toFixed(l.qty%1?2:0)}</td>
+      <td style="padding:8px 10px;text-align:right">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="padding:8px 10px;text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="padding:8px 10px;text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:700">Rs.${((+l.line_net)+(+l.qty)*(+l.tax_pct||0)).toFixed(2)}</td>
     </tr>`).join('');
 
@@ -2586,10 +2586,10 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
     return `<tr>
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
       <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}${srcHtml}${venHtml}</td>
-      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
-      <td style="text-align:right;color:${(+l.tax_pct)>0?'#92400e':'#888'}">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
+      <td style="text-align:center;color:#555">${(+l.discount_pct)!==0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:right;color:${(+l.tax_pct)>0?'#92400e':'#888'}">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${lineTotal}</td>
     </tr>`;}).join('');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -2662,10 +2662,10 @@ function buildInvoicePrintHtml(inv, forPdf, showRateSource, showVendor, showPrev
     <thead><tr>
       <th style="width:28px">#</th>
       <th>Item Description</th>
-      <th style="text-align:right">Rate (TP)</th>
-      <th style="text-align:center">Disc%</th>
-      <th style="text-align:right">Tax/unit</th>
       <th style="text-align:center">Qty</th>
+      <th style="text-align:center">Disc%</th>
+      <th style="text-align:right">Rate (TP)</th>
+      <th style="text-align:right">Tax/unit</th>
       <th style="text-align:right">Net Amount</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -3418,3 +3418,4 @@ document.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
