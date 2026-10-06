@@ -52,9 +52,9 @@
     <table class="modal-table">
       <thead>
         <tr>
-          <th>#</th><th>Item</th><th style="text-align:right">TP</th>
-          <th style="text-align:right">Disc%</th><th style="text-align:right">Tax</th>
-          <th style="text-align:right">Qty</th><th style="text-align:right">Net</th>
+          <th>#</th><th>Item</th><th style="text-align:right">Qty</th>
+          <th style="text-align:right">Disc%</th><th style="text-align:right">TP</th>
+          <th style="text-align:right">Tax</th><th style="text-align:right">Net</th>
         </tr>
       </thead>
       <tbody id="dLines"></tbody>
@@ -164,10 +164,10 @@ async function openDetail(id){
     <tr>
       <td>${i+1}</td>
       <td><strong>${esc(l.item_name)}</strong>${l.bonus_text?`<br><span style="font-size:.75em;color:#16a34a">${esc(l.bonus_text)}</span>`:''}</td>
-      <td style="text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="text-align:right">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
-      <td style="text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:right">${(+l.qty)%1===0?(+l.qty).toFixed(0):(+l.qty).toFixed(2)}</td>
+      <td style="text-align:right">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:right">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:right;font-weight:700">Rs.${(+l.line_net).toFixed(2)}</td>
     </tr>`).join('');
   document.getElementById('dSub').textContent='Rs.'+((+inv.subtotal).toFixed(2));
@@ -265,10 +265,10 @@ function buildInvoicePrintHtml(inv, forPdf){
     return `<tr>
       <td style="text-align:center;color:#888;width:28px">${i+1}</td>
       <td><span style="font-weight:600">${esc(l.item_name)}</span>${l.bonus_text?`<br><span style="font-size:.78em;color:#16a34a;font-weight:600">${esc(l.bonus_text)}</span>`:''}</td>
-      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
-      <td style="text-align:center;color:#555">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
-      <td style="text-align:right;color:#111">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:center;font-weight:600">${(+l.qty).toFixed((+l.qty)%1?2:0)}</td>
+      <td style="text-align:center;color:#555">${(+l.discount_pct)>0?(+l.discount_pct).toFixed(1)+'%':'—'}</td>
+      <td style="text-align:right;color:#555">Rs.${(+l.tp).toFixed(2)}</td>
+      <td style="text-align:right;color:#111">${(+l.tax_pct)>0?'Rs.'+(+l.tax_pct).toFixed(2):'—'}</td>
       <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${lineTotal}</td>
     </tr>`;}).join('');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -328,8 +328,8 @@ function buildInvoicePrintHtml(inv, forPdf){
   </div>
   <table>
     <thead><tr>
-      <th style="width:28px">#</th><th>Item Description</th><th style="text-align:right">Rate (TP)</th>
-      <th style="text-align:center">Disc%</th><th style="text-align:right">Tax/unit</th><th style="text-align:center">Qty</th><th style="text-align:right">Net Amount</th>
+      <th style="width:28px">#</th><th>Item Description</th><th style="text-align:center">Qty</th>
+      <th style="text-align:center">Disc%</th><th style="text-align:right">Rate (TP)</th><th style="text-align:right">Tax/unit</th><th style="text-align:right">Net Amount</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -370,3 +370,4 @@ function pdfInvoice(){
 load();
 </script>
 {% endblock %}
+
