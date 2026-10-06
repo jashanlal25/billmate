@@ -14,7 +14,7 @@
 .demand .swipe-note{display:none}
 .demand .muted{color:var(--sub)}
 .demand button:disabled{opacity:.5;cursor:default}
-#demandBillingTarget{width:min(520px,calc(100% - 32px));max-height:85vh;box-sizing:border-box;border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--card);color:var(--text)}
+#demandBillingTarget{position:fixed;inset:0;margin:auto;width:min(520px,calc(100% - 32px));height:fit-content;max-height:85vh;max-height:min(85vh,calc(100dvh - 32px));overflow:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--card);color:var(--text)}
 #demandBillingTarget::backdrop{background:rgba(0,0,0,.6)}
 #demandBillingTarget select,#demandBillingTarget input{width:100%;box-sizing:border-box;margin:10px 0;padding:12px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
 #demandBillingTarget .target-list{display:grid;gap:8px;max-height:38vh;overflow:auto}
