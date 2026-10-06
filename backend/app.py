@@ -3621,8 +3621,17 @@ def get_invoices():
     cust_id = request.args.get('customer_id')
     offset = max(0, int(request.args.get('offset', 0)))
     limit = min(max(1, int(request.args.get('limit', 100))), 500)
-    query = Invoice.query.filter(Invoice.status != 'deleted').filter(
-        ~Invoice.invoice_number.like('DRAFT-%')).filter_by(user_id=uid)
+    query = Invoice.query.filter(Invoice.status != 'deleted').filter_by(user_id=uid)
+    target_status = request.args.get('billing_target')
+    if target_status in ('draft', 'posted'):
+        query = query.filter_by(status=target_status)
+        search = request.args.get('q', '').strip()
+        if search:
+            term = '%' + search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+            query = query.filter(db.or_(Invoice.invoice_number.ilike(term, escape='\\'),
+                                       Invoice.customer_name_snap.ilike(term, escape='\\')))
+    else:
+        query = query.filter(~Invoice.invoice_number.like('DRAFT-%'))
     query = query.order_by(Invoice.id.desc())
     if cust_id:
         query = query.filter_by(customer_id=int(cust_id)).limit(5)

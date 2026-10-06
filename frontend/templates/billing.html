@@ -1053,17 +1053,44 @@ if(preselCust){
     if(c){customers=[c];selectCustomer(c.id);}
   });
 }
-if(preselEdit){
-  fetch(`/api/invoices/${preselEdit}`).then(r=>r.json()).then(inv=>{
-    currentInv=inv;
-    loadIntoBuilder(inv.id);
+if(urlParams.get('demand_selection')==='1'){
+  // Load the chosen bill before appending demand items; never restore an unrelated draft.
+  window.addEventListener('load', async()=>{
+    const notice=document.getElementById('demandImportNotice');
+    try{
+      if(preselEdit){
+        let inv;
+        if(IS_GUEST)inv=GuestStore.getInvoice(preselEdit);
+        else{
+          const response=await fetch('/api/invoices/'+encodeURIComponent(preselEdit),{cache:'no-store'});
+          if(!response.ok)throw Error('The selected invoice could not be loaded. Return to Demand Search and choose again.');
+          inv=await response.json();
+        }
+        if(!inv||!['draft','posted'].includes(inv.status))throw Error('This invoice is no longer editable. Return to Demand Search and choose another invoice or draft.');
+        currentInv=inv;
+        if(IS_GUEST)_guestLoadIntoBuilder(inv.id);else loadIntoBuilder(inv.id);
+      }else if(urlParams.get('demand_new')!=='1')await restoreAutoDraft();
+      if(await importDemandSelection()){
+        const cleaned=new URL(window.location.href);
+        cleaned.searchParams.delete('demand_selection');
+        cleaned.searchParams.delete('demand_new');
+        window.history.replaceState(null,'',cleaned.pathname+cleaned.search+cleaned.hash);
+      }
+    }catch(error){
+      notice.style.display='block';notice.textContent=error.message||'Could not load the chosen bill. Your demand selection is still available; reload to retry.';
+    }
   });
+}else if(preselEdit){
+  if(IS_GUEST)window.addEventListener('load',()=>_guestLoadIntoBuilder(preselEdit));
+  else fetch(`/api/invoices/${preselEdit}`).then(r=>r.json()).then(inv=>{
+      currentInv=inv;
+      loadIntoBuilder(inv.id);
+    });
 } else if(!preselCust){
   // No specific invoice/customer requested → restore an unsaved auto-draft if any.
   // Deferred so the const declarations further down have initialised (avoids TDZ).
   window.addEventListener('load', async()=>{
     try{if(urlParams.get('agent_draft'))await importAgentDraft(urlParams.get('agent_draft'));else await restoreAutoDraft();}catch(e){toast(e.message||'Could not load WhatsApp draft',true);}
-    if(urlParams.get('demand_selection')==='1')await importDemandSelection();
   });
 }
 
@@ -1925,10 +1952,11 @@ async function importDemandSelection(){
   sessionStorage.removeItem(key);
   if(added){renderLines();recalc();}
   notice.style.display='block';
-  notice.textContent=`${added} selected item${added===1?'':'s'} added to this Billing draft. Customer discounts from the demand were applied where provided. Review items, quantities and prices, then tap Save Invoice to bill.`+
+  notice.textContent=`${added} selected item${added===1?'':'s'} added to ${savedInvoiceId?'invoice '+currentInv.invoice_number:'this new Billing draft'}. Customer discounts from the demand were applied where provided. Review items, quantities and prices, then tap Save Invoice ${savedInvoiceId?'to update this bill':'to bill'}.`+
     (missing?` ${missing} not found in Inventory: their supplied codes, TP and retail prices were carried over. Review their prices and discounts${missingWithoutTp?`; ${missingWithoutTp} need TP`:''}${missingWithoutRetail?`; ${missingWithoutRetail} need retail`:''} before saving.`:'')+
     (reviewed?` ${reviewed} marked offer${reviewed===1?'':'s'} need${reviewed===1?'s':''} name or strength verification.`:'')+
     (skipped?` ${skipped} skipped because the item changed, was removed, or was already on this bill.`:'');
+  return true;
 }
 // Promote the live auto-draft into the invoice the user is explicitly saving,
 // so Save/Draft updates that same record instead of creating a duplicate.

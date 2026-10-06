@@ -17,7 +17,7 @@ def sqlite_init(self, app):
 
 with patch.object(SQLAlchemy, 'init_app', sqlite_init):
     import app as service
-from models import db, User, Customer
+from models import db, User, Customer, Invoice
 service._defaults_seeded = True
 
 
@@ -38,6 +38,25 @@ class InvoicePreviousBalanceTest(unittest.TestCase):
         return dict(customer_id=1, customer_name='Customer', lines=[
             dict(item_name='Manual item', qty=1, tp=50, discount_pct=0, tax_pct=0)
         ], **extra)
+
+    def test_demand_targets_include_auto_drafts_and_only_owned_editable_status(self):
+        db.session.add(User(id=2, username='two', password_hash='x'))
+        db.session.add_all([
+            Invoice(user_id=1, invoice_number='DRAFT-1', status='draft', customer_name_snap='Alpha'),
+            Invoice(user_id=1, invoice_number='INV-1', status='posted', customer_name_snap='Alpha'),
+            Invoice(user_id=1, invoice_number='INV-2', status='finalised', customer_name_snap='Alpha'),
+            Invoice(user_id=2, invoice_number='DRAFT-2', status='draft', customer_name_snap='Alpha'),
+        ])
+        db.session.commit()
+        drafts = self.client.get('/api/invoices?billing_target=draft').json
+        self.assertEqual([i['invoice_number'] for i in drafts['items']], ['DRAFT-1'])
+        saved = self.client.get('/api/invoices?billing_target=posted&q=Alpha&limit=1').json
+        self.assertEqual([i['invoice_number'] for i in saved['items']], ['INV-1'])
+        self.assertEqual(saved['total'], 1)
+        self.assertEqual(self.client.get('/api/invoices?billing_target=posted&q=%25').json['total'], 0)
+        self.assertEqual(self.client.get('/api/invoices?billing_target=draft&offset=1').json['items'], [])
+        normal = self.client.get('/api/invoices').json
+        self.assertNotIn('DRAFT-1', [i['invoice_number'] for i in normal['items']])
 
     def test_draft_customer_selection_and_edit_exclude_current_invoice(self):
         draft = self.client.post('/api/invoices', json=self.payload(is_auto_draft=True)).json
