@@ -400,6 +400,9 @@ function setTaxBreakdown(enabled){
 
     <!-- History -->
     <div id="histSection">
+      <div class="hist-title" id="pendingDraftTitle">Pending drafts</div>
+      <div class="hist-card" id="pendingDraftList" role="status" aria-live="polite"></div>
+      <button type="button" id="pendingDraftMore" class="btn" style="margin-top:10px" onclick="loadPendingDrafts(true)" hidden>Load more drafts</button>
       <div class="hist-title" id="histTitle">Recent Invoices</div>
       <div class="hist-card" id="histList"></div>
     </div>
@@ -1850,6 +1853,7 @@ async function _autoDraftSave(){
       _rememberAutoDraft(_autoDraftId);
       const info = document.getElementById('savedInvInfo');
       if(info) info.textContent = 'Auto-saved draft · '+inv.invoice_number;
+      loadPendingDrafts();
     }
   }catch(e){ /* offline / transient — will retry on next change */ }
   finally{ _autoDraftSaving = false; }
@@ -2410,12 +2414,12 @@ function updateHistoryRow(inv){
   if(!document.querySelector(`#histList .hist-no`)) loadHistory();
 }
 
-function _renderHistoryRows(invs, isGuest){
-  const el=document.getElementById('histList');
-  document.getElementById('histTitle').textContent='Recent Invoices';
-  if(!invs.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--sub);font-size:.9em">No invoices yet</div>';return;}
-  el.innerHTML=invs.slice(0,5).map(inv=>{
-    const vid=JSON.stringify(inv.id);
+function _renderHistoryRows(invs, isGuest, targetId='histList', limit=5){
+  const el=document.getElementById(targetId);
+  if(targetId==='histList')document.getElementById('histTitle').textContent='Recent Invoices';
+  if(!invs.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--sub);font-size:.9em">'+(targetId==='pendingDraftList'?'No pending drafts':'No invoices yet')+'</div>';return;}
+  el.innerHTML=invs.slice(0,limit).map(inv=>{
+    const vid=esc(JSON.stringify(inv.id));
     const viewBtn=`<button onclick="${isGuest?`_guestViewInvoice(${vid})`:`viewInvoice(${vid})`}" style="padding:5px 11px;border:none;border-radius:7px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:.78em;font-weight:700;cursor:pointer;letter-spacing:.3px">View</button>`;
     const resumeBtn=`<button onclick="${isGuest?`_guestLoadIntoBuilder(${vid})`:`loadIntoBuilderById(${vid})`}" style="padding:5px 11px;border:none;border-radius:7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:.78em;font-weight:700;cursor:pointer;letter-spacing:.3px">▶ Resume</button>`;
     const delBtn=`<button onclick="${isGuest?`_guestDeleteInvoice(${vid})`:`deleteDraft(${vid})`}" style="padding:5px 11px;border:none;border-radius:7px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:.78em;font-weight:700;cursor:pointer;letter-spacing:.3px">🗑 Delete</button>`;
@@ -2426,8 +2430,8 @@ function _renderHistoryRows(invs, isGuest){
     else if(inv.status==='posted') btns=viewBtn+(isGuest?'':editBtn+finalBtn);
     else btns=viewBtn;
     return `<div class="hist-row" style="grid-template-columns:auto 1fr auto auto auto">
-      <span class="hist-no">${inv.invoice_number}</span>
-      <span style="font-size:.85em">${inv.customer_name}</span>
+      <span class="hist-no">${esc(inv.invoice_number)}</span>
+      <span style="font-size:.85em">${esc(inv.customer_name)}</span>
       <span style="font-size:.85em">Rs.${(+inv.total).toFixed(0)}</span>
       <span class="hist-badge badge-${inv.status}">${statusLabel(inv.status)}</span>
       <span style="display:flex;gap:5px;flex-wrap:wrap">${btns}</span>
@@ -2435,15 +2439,48 @@ function _renderHistoryRows(invs, isGuest){
   }).join('');
 }
 
+let _pendingDraftRows=[],_pendingDraftVersion=0;
+async function loadPendingDrafts(append=false){
+  const ticket=++_pendingDraftVersion;
+  const title=document.getElementById('pendingDraftTitle');
+  const list=document.getElementById('pendingDraftList');
+  const more=document.getElementById('pendingDraftMore');
+  more.hidden=true;
+  if(!append)list.textContent='Loading pending drafts…';
+  try{
+    let rows,total;
+    if(IS_GUEST){rows=GuestStore.getInvoices().filter(inv=>inv.status==='draft');total=rows.length;}
+    else{
+      const offset=append?_pendingDraftRows.length:0;
+      const response=await fetch(`/api/invoices?billing_target=draft&offset=${offset}&limit=20`,{cache:'no-store'});
+      if(!response.ok)throw Error('Could not load pending drafts');
+      const data=await response.json();
+      if(!Array.isArray(data.items))throw Error('Could not load pending drafts');
+      rows=append?[..._pendingDraftRows,...data.items]:data.items;total=data.total;
+    }
+    if(ticket!==_pendingDraftVersion)return;
+    _pendingDraftRows=rows;
+    title.textContent=`Pending drafts (${total})`;
+    _renderHistoryRows(rows,IS_GUEST,'pendingDraftList',Infinity);
+    more.hidden=rows.length>=total;
+  }catch(error){
+    if(ticket!==_pendingDraftVersion)return;
+    title.textContent='Pending drafts';
+    if(!append)list.textContent='Could not load pending drafts. Refresh Billing to retry.';
+    else more.hidden=false;
+  }
+}
+
 async function loadHistory(){
   if(IS_GUEST){
-    _renderHistoryRows(GuestStore.getInvoices(), true);
+    _renderHistoryRows(GuestStore.getInvoices().filter(inv=>inv.status!=='draft'), true);
+    await loadPendingDrafts();
     return;
   }
-  const r=await fetch('/api/invoices?limit=20');
+  const [r]=await Promise.all([fetch('/api/invoices?limit=20'),loadPendingDrafts()]);
   const data=await r.json();
   const invs=data.items||data;
-  _renderHistoryRows(invs, false);
+  _renderHistoryRows(invs.filter(inv=>inv.status!=='draft'), false);
 }
 
 function _guestViewInvoice(id){
@@ -3446,4 +3483,3 @@ document.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
-
