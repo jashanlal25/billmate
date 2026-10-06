@@ -341,10 +341,15 @@
   $('reviewInBilling').addEventListener('click',()=>{
     const entries=[...selectedOffers.values()];
     if(!entries.length||entries.some(s=>!validQty(s.qty)))return;
-    try{
-      sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,customerDiscount:s.demand.discount_pct??null,customerBonus:s.demand.bonus||'',required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
-      location.assign('/billing?demand_selection=1');
-    }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
+    DemandBillingTarget.open(target=>{
+      try{
+        sessionStorage.setItem(billingTransferKey,JSON.stringify(entries.map(s=>({item:s.offer.item,qty:Number(s.qty),demandName:s.demand.name,customerDiscount:s.demand.discount_pct??null,customerBonus:s.demand.bonus||'',required:!!s.demand.required,review:s.offer.status==='review',missing:s.offer.status==='missing',code:s.offer.status==='missing'?s.demand.code||'':'',tp:s.offer.status==='missing'?s.demand.tp??null:null,retail:s.offer.status==='missing'?s.demand.retail??null:null}))));
+        const params=new URLSearchParams({demand_selection:'1'});
+        if(target==='new')params.set('demand_new','1');
+        else params.set('edit',target);
+        location.assign('/billing?'+params.toString());
+      }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
+    });
   });
   $('copyMarkedOffers').addEventListener('click',async()=>{
     if(!$('enableDemandMarks').checked||!selectedOffers.size)return;

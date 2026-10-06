@@ -14,6 +14,13 @@
 .demand .swipe-note{display:none}
 .demand .muted{color:var(--sub)}
 .demand button:disabled{opacity:.5;cursor:default}
+#demandBillingTarget{position:fixed;inset:0;margin:auto;width:min(520px,calc(100% - 32px));height:fit-content;max-height:85vh;max-height:min(85vh,calc(100dvh - 32px));overflow:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--card);color:var(--text)}
+#demandBillingTarget::backdrop{background:rgba(0,0,0,.6)}
+#demandBillingTarget select,#demandBillingTarget input{width:100%;box-sizing:border-box;margin:10px 0;padding:12px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
+#demandBillingTarget .target-list{display:grid;gap:8px;max-height:38vh;overflow:auto}
+#demandBillingTarget .target-list button{text-align:left;padding:12px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px;cursor:pointer}
+#demandBillingTarget .target-list small{display:block;color:var(--sub);margin-top:4px}
+#demandBillingTarget .target-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .demand .scroll{overflow:auto;max-height:65vh}
 .demand th{position:sticky;top:0;background:var(--card);z-index:1;font-size:14px}
 .demand td{font-size:14px;vertical-align:top;white-space:normal}
@@ -81,14 +88,29 @@
   <p id="selectedOffersCount" class="muted" role="status" aria-live="polite"></p>
   <div id="selectedOffersList"></div>
   <button id="reviewInBilling" class="btn" type="button" disabled>Review in Billing</button>
-  <p class="muted note">Billing opens as a draft for you to check; the invoice is billed only when you save it there. WhatsApp opens a prepared message for each vendor; check it before sending.</p>
+  <p class="muted note">Choose a new invoice, a saved invoice to edit, or a pending draft. Review the added items in Billing, then save. WhatsApp opens a prepared message for each vendor; check it before sending.</p>
   <div id="selectedVendorList"></div>
 </section>
 </main>
+<dialog id="demandBillingTarget" aria-labelledby="demandBillingTitle">
+  <h2 id="demandBillingTitle">Where should these items go?</h2>
+  <label for="demandBillingMode">Invoice option</label>
+  <select id="demandBillingMode"><option value="new">New invoice</option><option value="posted">Edit saved invoice</option><option value="draft">Add to pending draft</option></select>
+  <div id="demandBillingExisting" hidden>
+    <label for="demandBillingSearch">Search invoice number or customer</label>
+    <input id="demandBillingSearch" type="search" placeholder="Invoice number or customer" autocomplete="off">
+    <p id="demandBillingStatus" role="status" aria-live="polite"></p>
+    <div id="demandBillingList" class="target-list"></div>
+    <button id="demandBillingMore" class="btn" type="button" hidden>Load more</button>
+    <p>Existing items stay on the bill. Repeated inventory items are skipped. Changes are saved only when you save in Billing.</p>
+  </div>
+  <div class="target-actions"><button id="demandBillingNew" class="btn" type="button">Continue with new invoice</button><button id="demandBillingCancel" class="btn" type="button">Cancel</button></div>
+</dialog>
 {% endblock %}
 {% block scripts %}
 <script src="/static/share-store.js"></script>
 <script src="/static/js/demand-text-parser.js"></script>
 <script src="/static/js/demand-matcher.js"></script>
+<script src="/static/js/demand-billing-target.js"></script>
 <script src="/static/js/demand-search.js"></script>
 {% endblock %}
