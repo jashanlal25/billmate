@@ -11,7 +11,7 @@
 .demand select{width:auto;min-width:190px}
 #demandResults table{min-width:1080px;table-layout:fixed}
 #demandResults th{white-space:normal}
-.demand .swipe-note{display:none}
+#demandResults .offer-bonus{display:none}
 .demand .muted{color:var(--sub)}
 .demand button:disabled{opacity:.5;cursor:default}
 #demandBillingTarget{position:fixed;inset:0;margin:auto;width:min(520px,calc(100% - 32px));height:fit-content;max-height:85vh;max-height:min(85vh,calc(100dvh - 32px));overflow:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--card);color:var(--text)}
@@ -46,7 +46,44 @@
 .demand .vendor-send input{max-width:190px;width:100%;padding:8px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
 .demand textarea{display:block;box-sizing:border-box;width:100%;min-height:115px;margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font:inherit;resize:vertical}
 @media(max-width:1100px){.nav-links{display:none}.nav-hamburger{display:flex}}
-@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand .swipe-note{display:block}.demand select{width:100%}.demand .mark-actions{display:grid;grid-template-columns:1fr}.demand .mark-actions .btn{width:100%}}
+@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand select{width:100%}.demand .mark-actions{display:grid;grid-template-columns:1fr}.demand .mark-actions .btn{width:100%}}
+@media(max-width:768px){
+  .demand,.demand .panel,.demand .controls{min-width:0}
+  .demand select{width:100%;min-width:0;max-width:100%}
+  #demandResults .scroll{overflow:visible;max-height:none}
+  #demandResults table{display:block;width:100%;min-width:0;table-layout:auto}
+  #demandResults thead{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  #resultRows{display:grid;gap:8px}
+  #resultRows tr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--border);border-radius:10px;background:var(--card);padding:10px;gap:8px 10px;min-width:0}
+  #resultRows tr.group-start{border-top:3px solid var(--accent);margin-top:4px}
+  #resultRows td{display:block;grid-column:1/-1;width:auto;min-width:0;padding:0;border:0;background:transparent;white-space:normal;overflow-wrap:anywhere;font-size:15px}
+  #resultRows td[data-label]::before{content:attr(data-label);display:block;margin-bottom:2px;color:var(--sub);font-size:11px;font-weight:600;line-height:1.35}
+  #resultRows .offer-number{grid-column:1/3;grid-row:1;display:flex;align-items:center;gap:5px;font-weight:700;color:var(--accent)}
+  #resultRows .offer-number::before{margin:0}
+  #resultRows .mark-col{display:none;grid-column:4;grid-row:5;flex-direction:column;align-items:flex-end;justify-content:flex-end;gap:6px;text-align:right;border-top:1px solid var(--border);padding-top:8px}
+  .demand.selecting #resultRows .mark-col{display:flex;min-height:44px}
+  .demand.selecting #resultRows .offer-verification{grid-column:1/4}
+  #resultRows .mark-col::before{margin:0}
+  #resultRows .mark-offer{width:24px;height:24px;margin:0;cursor:pointer}
+  #resultRows .names{font-weight:600;line-height:1.35}
+  #resultRows td[data-label="Demand item name"]{grid-column:1/3;grid-row:2}
+  #resultRows .offer-qty{grid-column:4;grid-row:2}
+  #resultRows .offer-qty::before{content:"Qty"}
+  #resultRows td[data-label="Vendor item name"]{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;align-items:center;grid-row:3}
+  #resultRows td[data-label="Vendor item name"]::before{grid-column:1;grid-row:1}
+  #resultRows .offer-vendor{grid-column:1/3;grid-row:4}
+  #resultRows .offer-discount{grid-column:3;grid-row:2}
+  #resultRows .offer-bonus{display:block;grid-column:3;grid-row:4;font-weight:700}
+  #resultRows .bonus-detail{display:none}
+  #resultRows td.offer-discount[data-label]::before{content:"Discount %"}
+  #resultRows .offer-tp{grid-column:4;grid-row:4}
+  #resultRows .offer-discount,#resultRows .offer-tp{font-size:16px;font-weight:700}
+  #resultRows .offer-verification{grid-row:5;border-top:1px solid var(--border);padding-top:8px;font-size:13px}
+  #resultRows .offer-verification::before{display:none}
+  #resultRows .note{margin:2px 0 0;font-size:12px;line-height:1.35}
+  #resultRows .copy-offer{grid-column:2;grid-row:1/3;min-height:44px;margin:0;padding:6px 10px;font-size:13px}
+  #resultRows tr:has(.mark-offer:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+}
 {% endblock %}
 {% block content %}
 <main class="demand" data-guest="{{ 'true' if is_guest else 'false' }}" data-owner="{{ session.get('user_id') or session.get('superadmin_uid') or 'guest' }}">
@@ -80,8 +117,7 @@
   <p id="visibleResultCount" class="muted note" role="status" aria-live="polite"></p>
   <p id="copyFeedback" class="muted note" role="status" aria-live="polite"></p>
   <p class="muted note">Compare pack sizes before ordering. “Not found” means no compatible name was found in the uploaded inventory, not a stock guarantee.</p>
-  <p class="muted note swipe-note">Swipe the table sideways to see vendor prices and verification details.</p>
-  <div class="scroll"><table><thead><tr><th class="mark-col">Mark</th><th style="width:55px">No.</th><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Supplier discount %</th><th>TP</th><th>Demand qty</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th class="mark-col">Mark</th><th style="width:55px">No.</th><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Supplier discount %</th><th class="offer-bonus">Bonus</th><th>TP</th><th>Demand qty</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
 </section>
 <section id="selectedOffersPanel" class="panel" hidden>
   <h2>Selected demand items</h2>
@@ -112,5 +148,5 @@
 <script src="/static/js/demand-text-parser.js"></script>
 <script src="/static/js/demand-matcher.js"></script>
 <script src="/static/js/demand-billing-target.js"></script>
-<script src="/static/js/demand-search.js"></script>
+<script src="/static/js/demand-search.js?v=20261008-bonus-card-1"></script>
 {% endblock %}
