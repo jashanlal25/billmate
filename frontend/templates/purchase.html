@@ -878,7 +878,6 @@ function buildPurchasePrintHtml(p, forPdf){
   </div>
   <div class="footer">${s.shop_name||''} ${s.phone?'· '+s.phone:''} · Purchase Record</div>
   ${forPdf?'<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>':''}
-  <script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body></html>`;
 }
 
@@ -916,5 +915,6 @@ document.addEventListener('focusout',e=>{
   }
 });
 </script>
+<script src="/static/js/account-dialog.js?v=20261003-account"></script>
 </body>
 </html>
