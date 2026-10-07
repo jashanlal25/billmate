@@ -11,7 +11,6 @@
 .demand select{width:auto;min-width:190px}
 #demandResults table{min-width:1080px;table-layout:fixed}
 #demandResults th{white-space:normal}
-.demand .swipe-note{display:none}
 .demand .muted{color:var(--sub)}
 .demand button:disabled{opacity:.5;cursor:default}
 #demandBillingTarget{position:fixed;inset:0;margin:auto;width:min(520px,calc(100% - 32px));height:fit-content;max-height:85vh;max-height:min(85vh,calc(100dvh - 32px));overflow:auto;box-sizing:border-box;border:1px solid var(--border);border-radius:16px;padding:20px;background:var(--card);color:var(--text)}
@@ -46,7 +45,30 @@
 .demand .vendor-send input{max-width:190px;width:100%;padding:8px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px}
 .demand textarea{display:block;box-sizing:border-box;width:100%;min-height:115px;margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font:inherit;resize:vertical}
 @media(max-width:1100px){.nav-links{display:none}.nav-hamburger{display:flex}}
-@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand .swipe-note{display:block}.demand select{width:100%}.demand .mark-actions{display:grid;grid-template-columns:1fr}.demand .mark-actions .btn{width:100%}}
+@media(max-width:640px){.demand .panel{padding:14px}.demand td,.demand th{padding:10px}.demand .names{width:150px}.demand select{width:100%}.demand .mark-actions{display:grid;grid-template-columns:1fr}.demand .mark-actions .btn{width:100%}}
+@media(max-width:768px){
+  .demand,.demand .panel,.demand .controls{min-width:0}
+  .demand select{width:100%;min-width:0;max-width:100%}
+  #demandResults .scroll{overflow:visible;max-height:none}
+  #demandResults table{display:block;width:100%;min-width:0;table-layout:auto}
+  #demandResults thead{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  #resultRows{display:grid;gap:12px}
+  #resultRows tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--border);border-radius:12px;background:var(--card);padding:12px;gap:12px;min-width:0}
+  #resultRows tr.group-start{border-top:3px solid var(--accent);margin-top:8px}
+  #resultRows td{display:block;grid-column:1/-1;width:auto;min-width:0;padding:0;border:0;background:transparent;white-space:normal;overflow-wrap:anywhere;font-size:15px}
+  #resultRows td[data-label]::before{content:attr(data-label);display:block;margin-bottom:4px;color:var(--sub);font-size:12px;font-weight:600;line-height:1.35}
+  #resultRows .offer-number{grid-column:1;grid-row:1;font-weight:700;color:var(--accent)}
+  #resultRows .mark-col{display:none;grid-column:2;grid-row:1;align-items:center;justify-content:flex-end;gap:8px;text-align:right}
+  .demand.selecting #resultRows .mark-col{display:flex;min-height:44px}
+  #resultRows .mark-col::before{margin:0}
+  #resultRows .mark-offer{width:24px;height:24px;margin:0;cursor:pointer}
+  #resultRows .names{font-weight:600}
+  #resultRows .offer-discount,#resultRows .offer-tp{grid-column:auto;font-size:18px;font-weight:700}
+  #resultRows .offer-verification{border-top:1px solid var(--border);padding-top:12px}
+  #resultRows .note{margin-bottom:0}
+  #resultRows .copy-offer{min-height:44px;padding:8px 16px;font-size:14px}
+  #resultRows tr:has(.mark-offer:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+}
 {% endblock %}
 {% block content %}
 <main class="demand" data-guest="{{ 'true' if is_guest else 'false' }}" data-owner="{{ session.get('user_id') or session.get('superadmin_uid') or 'guest' }}">
@@ -80,7 +102,6 @@
   <p id="visibleResultCount" class="muted note" role="status" aria-live="polite"></p>
   <p id="copyFeedback" class="muted note" role="status" aria-live="polite"></p>
   <p class="muted note">Compare pack sizes before ordering. “Not found” means no compatible name was found in the uploaded inventory, not a stock guarantee.</p>
-  <p class="muted note swipe-note">Swipe the table sideways to see vendor prices and verification details.</p>
   <div class="scroll"><table><thead><tr><th class="mark-col">Mark</th><th style="width:55px">No.</th><th class="names">Demand item name</th><th class="names">Vendor item name</th><th>Vendor</th><th>Supplier discount %</th><th>TP</th><th>Demand qty</th><th>Verification</th></tr></thead><tbody id="resultRows"></tbody></table></div>
 </section>
 <section id="selectedOffersPanel" class="panel" hidden>
