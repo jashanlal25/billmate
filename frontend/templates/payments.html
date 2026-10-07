@@ -144,6 +144,39 @@ tr:last-child td{border-bottom:none}
 .all-pay-total{color:#a5b4fc;font-size:.88em;font-weight:600}
 </style>
 <link rel="stylesheet" href="/static/css/common.css?v=20261003-header">
+<style>
+/* Keep payment content inside its grid tracks, including wide ledger tables.
+   These page-specific rules follow common.css so mobile forms stay stacked. */
+.page-wrap .pmt-grid{grid-template-columns:340px minmax(0,1fr)}
+.page-wrap .pmt-grid>* ,.page-wrap .right-panel,.page-wrap .card,
+.page-wrap .form-group,.page-wrap .search-inp{min-width:0}
+.page-wrap .form-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+.page-wrap .entity-row>div:first-child{min-width:0;overflow-wrap:anywhere}
+.page-wrap .entity-bal{flex-shrink:0}
+.page-wrap .sel-header{gap:12px;flex-wrap:wrap}
+.page-wrap .sel-header>div{min-width:0;overflow-wrap:anywhere}
+.page-wrap .card-title{overflow-wrap:anywhere}
+.page-wrap .all-pay-hdr,.page-wrap .sum-row-stat{gap:8px;flex-wrap:wrap}
+.page-wrap .inv-table-wrap{max-width:100%;overflow-x:auto}
+.page-wrap .inv-table-wrap td{overflow-wrap:anywhere}
+@media(max-width:760px){
+  .page-wrap .pmt-grid{grid-template-columns:minmax(0,1fr)}
+  .page-wrap .tabs{width:100%}
+  .page-wrap .tab-btn{flex:1;min-width:0;padding:10px 8px}
+}
+@media(max-width:500px){
+  .page-wrap .card{padding:14px;border-radius:16px}
+  .page-wrap .form-row{grid-template-columns:minmax(0,1fr)}
+  .page-wrap .form-group{margin-bottom:0}
+  .page-wrap .form-inp,.page-wrap .search-inp{min-width:0;font-size:16px}
+  .page-wrap .sel-header{align-items:flex-start;flex-direction:column}
+  .page-wrap .sel-bal-wrap{text-align:left}
+  .page-wrap .filter-btn,.page-wrap .btn{min-height:44px;white-space:normal}
+  .page-wrap .fill-btn,.page-wrap .del-btn{min-height:44px;min-width:44px}
+  .page-wrap .entity-row{padding:10px 6px}
+  .page-wrap .inv-table-wrap th,.page-wrap .inv-table-wrap td{padding:10px 8px}
+}
+</style>
 </head>
 <body>
 {% include "_header.html" %}
@@ -453,7 +486,7 @@ function renderHistTable(pmts,type){
     <td class="td-del"><button class="del-btn" onclick="delPayment(${p.id},'${type}')" title="Delete">🗑</button></td>
   </tr>`).join('');
   const total=pmts.reduce((s,p)=>s+(+p.amount),0);
-  return`<table><thead><tr><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+  return`<div class="inv-table-wrap"><table><thead><tr><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="sum-row-stat total-row" style="margin-top:10px"><span class="lbl">Total</span><span class="val">Rs.${total.toFixed(2)}</span></div>`;
 }
 
@@ -557,7 +590,7 @@ function renderAllCustPayments(){
     <td>${esc(p.notes||'—')}</td>
     <td class="td-del"><button class="del-btn" onclick="delPaymentFromAll(${p.id},'cust')" title="Delete">🗑</button></td>
   </tr>`).join('');
-  el.innerHTML=`<table><thead><tr><th>Customer</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.innerHTML=`<div class="inv-table-wrap"><table><thead><tr><th>Customer</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function delPaymentFromAll(pid,type){
@@ -788,7 +821,7 @@ function renderAllSuppPayments(){
     <td>${esc(p.notes||'—')}</td>
     <td class="td-del"><button class="del-btn" onclick="delPaymentFromAll(${p.id},'supp')" title="Delete">🗑</button></td>
   </tr>`).join('');
-  el.innerHTML=`<table><thead><tr><th>Supplier</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.innerHTML=`<div class="inv-table-wrap"><table><thead><tr><th>Supplier</th><th>Date</th><th style="text-align:right">Amount</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 </script>
 <script src="/static/js/account-dialog.js?v=20261003-account"></script>
