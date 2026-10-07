@@ -73,6 +73,7 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}\nbody{font-family:'Segoe 
 .dd-item:hover{background:var(--row-hover)}
 .dd-name{font-weight:600;font-size:.9em;color:var(--text)}
 .dd-meta{font-size:.78em;color:var(--sub);margin-top:2px}
+.dd-history-divider{margin:8px 14px 0;padding:10px 0 4px;border-top:2px solid var(--accent);color:var(--sub);font-size:.78em;font-weight:600}
 /* Lines table */
 table{width:100%;border-collapse:collapse;margin-top:4px}
 th{padding:8px 10px;text-align:left;font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;border-bottom:2px solid var(--border)}
@@ -1137,10 +1138,13 @@ if(!_cacheGet()){
 // Item search
 let itemTimer, lastQuery='';
 // Stock belongs to this shop even when its original vendor name is retained.
-// Preserve stock order; rank remaining offers by the displayed discount, high to low.
+// Preserve stock order; rank current vendor offers by discount, then show bill history.
 function _stockFirst(items){
-  const available=[], other=[];
-  for(const item of items) (Number(item.qty)>0 ? available : other).push(item);
+  const available=[], other=[], history=[];
+  for(const item of items){
+    if(item.historical)history.push(item);
+    else (Number(item.qty)>0 ? available : other).push(item);
+  }
   other.sort((a,b)=>{
     const discount=item=>{
       const value=Number(item.discount_pct);
@@ -1148,7 +1152,7 @@ function _stockFirst(items){
     };
     return discount(b)-discount(a);
   });
-  return available.concat(other);
+  return available.concat(other,history);
 }
 // Instant local filter over the cached catalog (no network).
 function _searchCache(q){
@@ -1187,11 +1191,13 @@ function _renderItemDropdown(items, q){
     dd.innerHTML='<div class="dd-item" style="color:#888">No items found</div>'+addRow;
     dd.classList.add('open');return;
   }
-  dd.innerHTML=items.map(i=>{
+  const firstHistorical=items.findIndex(i=>i.historical);
+  dd.innerHTML=items.map((i,index)=>{
     const qty=+(i.qty||0);
     const qtyColor=qty<=0?'color:#ef4444;font-weight:700':qty<=5?'color:#f59e0b;font-weight:600':'color:#10b981;font-weight:600';
     const qtyStr=i.historical?'Stock unknown':qty<=0?'Out of stock':qty%1===0?qty.toFixed(0):qty.toFixed(2);
-    return`<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
+    const divider=index===firstHistorical?'<div class="dd-history-divider" role="separator" aria-label="Previously billed items">Previously billed items</div>':'';
+    return`${divider}<div class="dd-item" onclick="addLine(${JSON.stringify(i).replace(/"/g,'&quot;')})">
       <div class="dd-name">${esc(i.name)}</div>
       <div class="dd-meta">${i.historical?`<strong>Previous bill ${esc(i.previous_invoice||'')}</strong> &nbsp;|&nbsp; `:''}TP: Rs.${(+i.tp).toFixed(2)} &nbsp;|&nbsp; Disc: ${i.discount_pct}%${i.bonus_text?' &nbsp;|&nbsp; Supplier bonus: '+esc(i.bonus_text):''} &nbsp;|&nbsp; <span style="${i.historical?'color:var(--sub)':qtyColor}">${i.historical?qtyStr:'Stock: '+qtyStr}</span>${i.rate_source?` &nbsp;|&nbsp; <span style="color:#888">by ${esc(i.rate_source)}</span>`:''}${i.vendor?` &nbsp;|&nbsp; <span style="color:#6366f1;font-weight:600">🏷 ${esc(i.vendor)}${i.vendor_list_no?' · List '+esc(i.vendor_list_no):''}</span>`:''}</div>
     </div>`;
