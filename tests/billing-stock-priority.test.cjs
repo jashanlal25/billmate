@@ -7,6 +7,16 @@ const path=require('node:path');
 const html=fs.readFileSync(path.join(__dirname,'../frontend/templates/billing.html'),'utf8');
 const source=html.slice(html.indexOf('function _stockFirst('),html.indexOf('function _renderItemDropdown('));
 
+test('previously billed offers stay after every current vendor even with higher discount or old stock',async()=>{
+  const catalog=[{id:1,name:'Zeegap SKR',qty:0,discount_pct:4},{id:2,name:'Zeegap JANGDA',qty:0,discount_pct:3},{id:3,name:'Zeegap stock',qty:2,discount_pct:1}];
+  const history=[{id:null,name:'Zeegap old bill',qty:10,discount_pct:90,historical:true}];
+  const context={IS_GUEST:false,fetch:async url=>({ok:true,json:async()=>url.includes('/history')?history:catalog})};
+  vm.createContext(context);vm.runInContext(source,context);
+  const results=await context._fetchItems('zeegap');
+  assert.deepEqual(Array.from(results,i=>i.name),['Zeegap stock','Zeegap SKR','Zeegap JANGDA','Zeegap old bill']);
+  assert.equal(results.at(-1),history[0]);
+});
+
 test('cached and refreshed offers rank by discount after stock, preserving ties',async()=>{
   const catalog=[
     {id:1,name:'Betnovate JANGDA',qty:0,discount_pct:'14',bonus_text:'CTN 99%'},
