@@ -101,7 +101,7 @@ public final class MainActivity extends FragmentActivity {
         // Set this before page scripts run, only on the exact BillMate origin.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(web,
-                "window.__BILLMATE_NATIVE__=true;Object.defineProperty(navigator,'standalone',{get:()=>true});",
+                "window.__BILLMATE_NATIVE__=true;window.__BILLMATE_IMAGE_SHARE__=true;Object.defineProperty(navigator,'standalone',{get:()=>true});",
                 Collections.singleton(ShareUpload.ORIGIN));
         } else {
             new AlertDialog.Builder(this).setTitle("Update Android System WebView")
@@ -321,6 +321,32 @@ public final class MainActivity extends FragmentActivity {
             try {
                 JSONObject request = new JSONObject(data);
                 String action = request.getString("action");
+                if ("share_images".equals(action)) {
+                    JSONArray images = request.getJSONArray("files");
+                    InvoiceImageShare.validateTotal(images.length(), 0);
+                    File folder = new File(getCacheDir(), "shares/" + UUID.randomUUID());
+                    if (!folder.mkdirs()) throw new IOException("Could not prepare bill images.");
+                    ArrayList<File> outputs = new ArrayList<>();
+                    long totalBytes = 0;
+                    for (int i = 0; i < images.length(); i++) {
+                        JSONObject image = images.getJSONObject(i);
+                        String filename = ShareUpload.safeName(image.getString("filename"));
+                        byte[] bytes = android.util.Base64.decode(image.getString("data_b64"), android.util.Base64.DEFAULT);
+                        InvoiceImageShare.validateImage(filename, image.getString("mime"), bytes);
+                        totalBytes += bytes.length;
+                        InvoiceImageShare.validateTotal(images.length(), totalBytes);
+                        File output = new File(folder, (i + 1) + "-" + filename);
+                        try (OutputStream out = new FileOutputStream(output)) { out.write(bytes); }
+                        outputs.add(output);
+                    }
+                    runOnUiThread(() -> {
+                        if (isDestroyed()) return;
+                        busy = false;
+                        toolbar.setVisibility(View.GONE);
+                        shareImages(outputs);
+                    });
+                    return;
+                }
                 if ("print_html".equals(action) || "share_pdf_html".equals(action)) {
                     String html = request.getString("html");
                     String title = ShareUpload.safeName(request.optString("filename", "BillMate Invoice.pdf"));
@@ -563,6 +589,23 @@ public final class MainActivity extends FragmentActivity {
         install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         try { startActivity(install); }
         catch (ActivityNotFoundException e) { toast("Android installer is unavailable."); }
+    }
+
+    private void shareImages(ArrayList<File> outputs) {
+        ArrayList<Uri> uris = new ArrayList<>();
+        for (File output : outputs) {
+            uris.add(FileProvider.getUriForFile(this, getPackageName() + ".files", output));
+        }
+        Intent send = new Intent(uris.size() == 1 ? Intent.ACTION_SEND : Intent.ACTION_SEND_MULTIPLE);
+        send.setType("image/jpeg");
+        if (uris.size() == 1) send.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+        else send.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        ClipData clips = ClipData.newRawUri("Bill images", uris.get(0));
+        for (int i = 1; i < uris.size(); i++) clips.addItem(new ClipData.Item(uris.get(i)));
+        send.setClipData(clips);
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(Intent.createChooser(send, "Share bill images")); }
+        catch (ActivityNotFoundException e) { toast("No app can share images."); }
     }
 
     private void sharePdf(File output, String filename) {
@@ -889,3 +932,4 @@ public final class MainActivity extends FragmentActivity {
         super.onDestroy();
     }
 }
+
