@@ -276,6 +276,7 @@ input[type=number]{-moz-appearance:textfield}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
 <script src="/static/js/contact-picker.js?v=1"></script>
+<script src="/static/js/invoice-image.js?v=20261007"></script>
 <link rel="stylesheet" href="/static/css/confirm-dialog.css?v=20261003">
 <script src="/static/js/confirm-dialog.js?v=20261003"></script>
 <script>
@@ -529,6 +530,7 @@ function setTaxBreakdown(enabled){
       <button class="setup-req" onclick="shareWhatsApp()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#25d366;color:#fff;font-size:.95em;font-weight:600;cursor:pointer;transition:all .2s">📲 Share on WhatsApp</button>
       <button class="mbtn setup-req" style="width:100%;padding:12px;font-size:.95em;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfSavedBill()">📄 PDF</button>
       <button class="setup-req" id="psPdfCustBtn" style="display:block;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#25d366);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="pdfToCustomer()">📎 Share PDF</button>
+      <button class="setup-req" style="display:block;width:100%;padding:12px;border:none;border-radius:10px;background:#0f766e;color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="imageToCustomer()">🖼️ Share Image</button>
       <button class="setup-req" id="psMsgVendorBtn" style="display:none;width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:.95em;font-weight:600;cursor:pointer" onclick="openVendorMessage()">📦 Send items to suppliers (reorder)</button>
       <button class="mbtn mbtn-close" style="width:100%;padding:12px;font-size:.95em" onclick="closePostSave()">✕ Close</button>
     </div>
@@ -2092,6 +2094,23 @@ async function pdfSavedBill(){
   _openInvoiceWindow(buildInvoicePrintHtml(inv, true, false, _psShowVendor(), _psShowBalance(), _psShowPhone()));
 }
 
+function imageToCustomer(){
+  if(!lastSavedInv) return;
+  const inv=_invWithPhone(lastSavedInv);
+  return BillMateInvoiceImage.prepare({
+    html:buildInvoicePrintHtml(inv, true, false, _psShowVendor(), _psShowBalance(), _psShowPhone()),
+    filename:inv.invoice_number, title:inv.invoice_number
+  });
+}
+
+function imageToCustomerModal(){
+  if(!currentInv) return;
+  return BillMateInvoiceImage.prepare({
+    html:buildInvoicePrintHtml(currentInv, true, _showRateSourcePref(), _showVendorPref(), _mShowBalancePref(), _mShowPhonePref()),
+    filename:currentInv.invoice_number, title:currentInv.invoice_number
+  });
+}
+
 function pdfToCustomer(){
   if(!lastSavedInv) return;
   const inv=_invWithPhone(lastSavedInv);
@@ -2518,6 +2537,7 @@ function _guestViewInvoice(id){
   const gHasVendor=(inv.lines||[]).some(l=>(l.vendor||'').trim());
   const printPdfBtns=`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff" onclick="printInvoiceModal()">🖨️ Print</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
+    <button class="mbtn" style="background:#0f766e;color:#fff" onclick="imageToCustomerModal()">🖼️ Share Image</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
     ${gHasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   acts.innerHTML=printPdfBtns+`<button type="button" id="invModalCloseBtn" class="mbtn mbtn-close" style="position:relative;z-index:5;pointer-events:auto" onclick="event.preventDefault();event.stopPropagation();closeInvModal()">Close</button>`;
@@ -2605,6 +2625,7 @@ async function viewInvoice(id){
     <button class="mbtn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff" onclick="pdfInvoiceModal()">📄 PDF</button>
     <button class="mbtn" style="background:#25d366;color:#fff" onclick="shareInvoiceWhatsApp(currentInv)">📲 WhatsApp</button>
     <button class="mbtn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="pdfToCustomerModal()">📎 Share PDF</button>
+    <button class="mbtn" style="background:#0f766e;color:#fff" onclick="imageToCustomerModal()">🖼️ Share Image</button>
     ${hasVendor?`<button class="mbtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff" onclick="openVendorMessage(currentInv)">📦 Send to supplier</button>`:''}`;
   const sc=setupCompleted;
   if(inv.status === 'draft'){
@@ -3489,3 +3510,4 @@ document.addEventListener('DOMContentLoaded',()=>{
 </script>
 </body>
 </html>
+
