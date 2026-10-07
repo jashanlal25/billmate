@@ -5,6 +5,16 @@ const vm=require('node:vm');
 const path=require('node:path');
 
 const html=fs.readFileSync(path.join(__dirname,'../frontend/templates/purchase.html'),'utf8');
+test('purchase inline scripts remain valid at HTML script boundaries',()=>{
+  const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+  const inline=scripts.filter(m=>! /\bsrc\s*=/.test(m[1]));
+  assert.ok(inline.length>0);
+  for(const script of inline)assert.doesNotThrow(()=>new vm.Script(script[2]));
+  const main=inline.find(m=>m[2].includes('function loadBillingInvoices('));
+  assert.ok(main[2].includes('function viewPurchaseBill('));
+  assert.ok(scripts.some(m=>m[1].includes('/static/js/account-dialog.js')));
+});
+
 const source=html.slice(html.indexOf('let lines=[], supplier=null'),html.indexOf('// Supplier search'))
   +html.slice(html.indexOf('function clearAll(){'),html.indexOf("document.addEventListener('click'",html.indexOf('function clearAll(){')));
 
@@ -20,7 +30,7 @@ test('customer invoice prepares separate supplier bills with supplier discounts'
     {id:2,vendor:'SKR',tp:150,retail_price:220,tax_pct:0,qty:4,bonus_text:'',vendor_discount_pct:25}
   ];
   const context={
-    URLSearchParams,location:{search:'?invoice=42'},window:{location:{href:''}},
+    URLSearchParams,location:{search:'?invoice=42'},window:{location:{href:''},addEventListener(){}},
     document:{getElementById(id){return nodes[id] ||= {style:{},innerHTML:'',textContent:''};}},
     fetch:async(url)=>({ok:true,json:async()=>url.includes('/api/invoices/')?invoice:url.startsWith('/api/items')?items:[]}),
     esc:x=>String(x),clearSupplier(){context.supplier=null;},selectSupplier(id,name){context.supplier={id,name};},
