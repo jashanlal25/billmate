@@ -5,6 +5,30 @@ const vm=require('node:vm');
 const path=require('node:path');
 
 const html=fs.readFileSync(path.join(__dirname,'../frontend/templates/purchase.html'),'utf8');
+test('purchase startup loads saved invoices with the shared header',async()=>{
+  const header=fs.readFileSync(path.join(__dirname,'../frontend/templates/_header.html'),'utf8');
+  assert.match(header,/class="theme-btn"/);
+  const nodes=Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>[m[1],{style:{},innerHTML:'',textContent:'',value:''}]));
+  const themeButton={textContent:''};
+  const requests=[];
+  const context={URLSearchParams,location:{search:''},
+    localStorage:{getItem:()=>null,setItem(){}},
+    window:{addEventListener(){}},
+    document:{documentElement:{setAttribute(){}},addEventListener(){},
+      getElementById:id=>nodes[id]||null,
+      querySelector:selector=>selector==='.nav .theme-btn'?themeButton:null},
+    fetch:async url=>{requests.push(url);return {ok:true,json:async()=>url.startsWith('/api/invoices')
+      ?{items:[{id:42,invoice_number:'SSD-0042',customer_name:'Test customer',lines:[{vendor:'DOSANI'}]}]}:[]};}
+  };
+  vm.createContext(context);
+  const script=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)].find(m=>m[2].includes('function loadBillingInvoices('))[2];
+  vm.runInContext(script,context);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.ok(requests.includes('/api/invoices?offset=0&limit=100'));
+  assert.match(nodes.billingInvoicePicker.innerHTML,/SSD-0042/);
+  assert.equal(themeButton.textContent,'☀️');
+});
+
 test('purchase inline scripts remain valid at HTML script boundaries',()=>{
   const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
   const inline=scripts.filter(m=>! /\bsrc\s*=/.test(m[1]));
