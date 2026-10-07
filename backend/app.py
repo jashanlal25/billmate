@@ -88,15 +88,15 @@ db.init_app(app)
 migrate = Migrate(app, db)
 
 # Public APK metadata + download proxy. Keeps GitHub/repository URLs out of the browser.
-ANDROID_APK_VERSION = '1.12'
-ANDROID_APK_VERSION_CODE = 13
+ANDROID_APK_VERSION = '1.13'
+ANDROID_APK_VERSION_CODE = 14
 
 @app.route('/api/android/latest')
 def android_latest():
     return jsonify({
         'version': ANDROID_APK_VERSION,
         'version_code': ANDROID_APK_VERSION_CODE,
-        'download_url': '/download/android',
+        'download_url': f'/download/android?v={ANDROID_APK_VERSION_CODE}',
     })
 
 @app.route('/download/android')
@@ -4675,4 +4675,5 @@ install_whatsapp_agent(app, _frontend, agent_inventory, _parse_demand_pdf_table)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
+
 

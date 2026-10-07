@@ -3,12 +3,49 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const {safeName,canShare,canvasBlob}=require('../frontend/static/js/invoice-image.js');
+const {safeName,canShare,canvasBlob,shareFiles}=require('../frontend/static/js/invoice-image.js');
 
 test('image download names cannot contain directories or leading dots',()=>{
   assert.equal(safeName('../../SSD 0027'),'_.._SSD_0027');
   assert.equal(safeName('SSD-0027'),'SSD-0027');
   assert.equal(safeName('...'),'invoice');
+});
+
+test('the Android bridge enables sharing without a browser file-share API',async()=>{
+  const messages=[];
+  globalThis.__BILLMATE_NATIVE__=true;globalThis.__BILLMATE_IMAGE_SHARE__=true;
+  globalThis.BillMateNativeShare={postMessage:s=>messages.push(JSON.parse(s))};
+  globalThis.FileReader=class {
+    readAsDataURL(file){file.arrayBuffer().then(bytes=>{
+      this.result='data:'+file.type+';base64,'+Buffer.from(bytes).toString('base64');this.onload();
+    });}
+  };
+  try{
+    const files=[new File([new Uint8Array([255,216,255,0,255,217])],'SSD-34.jpg',{type:'image/jpeg'})];
+    assert.equal(canShare(files),true);
+    await shareFiles(files,'SSD-34');
+    assert.equal(messages[0].action,'share_images');
+    assert.equal(messages[0].files[0].filename,'SSD-34.jpg');
+    assert.equal(messages[0].files[0].mime,'image/jpeg');
+    assert.equal(Buffer.from(messages[0].files[0].data_b64,'base64').length,6);
+    assert.equal(canShare(Array(51).fill(files[0])),false);
+    assert.equal(canShare([{size:21*1024*1024}]),false);
+  }finally{
+    delete globalThis.__BILLMATE_NATIVE__;delete globalThis.__BILLMATE_IMAGE_SHARE__;
+    delete globalThis.BillMateNativeShare;delete globalThis.FileReader;
+  }
+});
+
+test('older Android apps request an update rather than accepting an unsupported image action',async()=>{
+  const messages=[];
+  globalThis.__BILLMATE_NATIVE__=true;
+  globalThis.BillMateNativeShare={postMessage:s=>messages.push(JSON.parse(s))};
+  try{
+    const files=[new File(['image'],'SSD-34.jpg',{type:'image/jpeg'})];
+    assert.equal(canShare(files),true,'the Share button remains available');
+    await assert.rejects(shareFiles(files),/Update BillMate/);
+    assert.deepEqual(messages,[{action:'check_update'}]);
+  }finally{delete globalThis.__BILLMATE_NATIVE__;delete globalThis.BillMateNativeShare;}
 });
 
 test('an unsupported or throwing file-share capability selects the save fallback',()=>{

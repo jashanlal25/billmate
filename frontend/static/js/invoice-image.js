@@ -6,9 +6,38 @@
   function safeName(value){
     return String(value||'invoice').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^\.+/,'')||'invoice';
   }
+  function nativeBridge(){
+    return !!(root.__BILLMATE_NATIVE__ && root.BillMateNativeShare && typeof root.BillMateNativeShare.postMessage==='function');
+  }
   function canShare(files){
+    if(nativeBridge())return files.length>0 && files.length<=50 && files.reduce((n,f)=>n+f.size,0)<=20*1024*1024;
     try{return !!(root.navigator.share && root.navigator.canShare && root.navigator.canShare({files}));}
     catch(_){return false;}
+  }
+  function imageData(file){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onerror=()=>reject(new Error('Could not read the bill image. Please try again.'));
+      reader.onload=()=>{
+        const value=String(reader.result||''), comma=value.indexOf(',');
+        if(comma<0)return reject(new Error('Invalid bill image. Please try again.'));
+        resolve({filename:file.name,mime:file.type,data_b64:value.slice(comma+1)});
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  async function shareFiles(files,title){
+    if(nativeBridge()){
+      if(!root.__BILLMATE_IMAGE_SHARE__){
+        root.BillMateNativeShare.postMessage(JSON.stringify({action:'check_update'}));
+        throw new Error('Update BillMate to enable image sharing, then reopen this bill and tap Share image.');
+      }
+      if(!canShare(files))throw new Error('These images are too large to share together. Share each page separately.');
+      const images=await Promise.all(files.map(imageData));
+      root.BillMateNativeShare.postMessage(JSON.stringify({action:'share_images',files:images}));
+      return;
+    }
+    return root.navigator.share({files,title:title||'Invoice'});
   }
   function loadRenderer(){
     if(root.html2canvas) return Promise.resolve(root.html2canvas);
@@ -134,8 +163,8 @@
           one.style.cssText='width:100%;padding:10px;border:0;border-radius:8px;background:#e6f5f0;color:#0f766e;font-weight:700;cursor:pointer';
           one.onclick=async()=>{
             one.disabled=true;
-            try{await root.navigator.share({files:[file],title:options.title||'Invoice'});}
-            catch(err){if(err && err.name!=='AbortError')status.textContent='Sharing is unavailable. Save this image and attach it in WhatsApp.';}
+            try{await shareFiles([file],options.title);}
+            catch(err){if(err && err.name!=='AbortError')status.textContent=nativeBridge()?err.message:'Sharing is unavailable. Save this image and attach it in WhatsApp.';}
             finally{one.disabled=false;}
           };
           card.appendChild(one);
@@ -143,13 +172,13 @@
         dialog.querySelector('[data-pages]').appendChild(card);
       }
       frame.remove();frame=null;
-      status.textContent=canShare(files)?`${files.length===1?'Image ready':'Images ready'}. Tap Share images and choose your customer.`:'Save the images below, then attach them in WhatsApp. Open this trial in Chrome to use the share menu.';
+      status.textContent=nativeBridge()&&!root.__BILLMATE_IMAGE_SHARE__?'Update BillMate to enable image sharing. Tap Share images to check for the update.':canShare(files)?`${files.length===1?'Image ready':'Images ready'}. Tap Share images and choose your customer.`:'Save the images below, then attach them in WhatsApp. You can also open BillMate in Chrome to use the share menu.';
       if(canShare(files)){
         share.style.display='block';
         share.onclick=async()=>{
           if(share.disabled)return;share.disabled=true;
-          try{await root.navigator.share({files,title:options.title||'Invoice'});}
-          catch(err){if(err && err.name!=='AbortError')status.textContent='Sharing is unavailable. Save the images below and attach them in WhatsApp.';}
+          try{await shareFiles(files,options.title);}
+          catch(err){if(err && err.name!=='AbortError')status.textContent=nativeBridge()?err.message:'Sharing is unavailable. Save the images below and attach them in WhatsApp.';}
           finally{share.disabled=false;}
         };
       }
@@ -161,5 +190,5 @@
     }
   }
   root.BillMateInvoiceImage={prepare};
-  if(typeof module!=='undefined' && module.exports)module.exports={safeName,canShare,paginate,canvasBlob,prepare};
+  if(typeof module!=='undefined' && module.exports)module.exports={safeName,canShare,paginate,canvasBlob,prepare,shareFiles};
 })(typeof window!=='undefined'?window:globalThis);
