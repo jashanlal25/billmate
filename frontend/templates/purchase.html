@@ -306,7 +306,8 @@ const themeIcons={light:'☀️',dim:'🌤️',dark:'🌙'};
 let _theme=localStorage.getItem('theme')||'light';
 function applyTheme(t){
   document.documentElement.setAttribute('data-theme',t==='light'?'':t);
-  document.getElementById('themeBtn').textContent=themeIcons[t];
+  const themeButton=document.querySelector('.nav .theme-btn');
+  if(themeButton)themeButton.textContent=themeIcons[t];
   localStorage.setItem('theme',t); _theme=t;
 }
 applyTheme(_theme);
