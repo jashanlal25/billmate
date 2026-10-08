@@ -42,7 +42,9 @@
       const required=/\s*lazmi\s*$/i.test(line);
       if(required)line=line.replace(/\s*lazmi\s*$/i,'').trim();
       // Multiple dots (or an ellipsis) separate quantity; a single decimal dot does not.
-      let quantity=line.match(/\s*\((\d+)\)\s*$/)||line.match(/\s*(?:\.{2,}|…+)\s*(\d+)\s*$/);
+      let quantity=line.match(/\s*\((\d+)\)\s*$/)
+        ||line.match(/[\s.\-…]+(\d+)\s*(?:pcs?|pieces?|x)\s*$/i)
+        ||line.match(/\s*(?:\.{2,}|…+|-{2,})\s*(\d+)\s*$/);
       if(quantity)line=line.slice(0,quantity.index).trim();
       else {
         // A bare leading count belongs to quantity, not medicine strength.
@@ -51,8 +53,18 @@
         if(leading&&!/^(?:mg|mcg|g|ml|iu|%)\b/i.test(line.slice(leading[0].length))){
           quantity=leading;
           line=line.slice(leading[0].length).trim();
+        }else{
+          // Only infer a bare trailing count after a form and an earlier strength.
+          // "Getryl 1" and "Dromax cap 500" remain names, not quantities.
+          const trailing=line.match(/\s+(\d+)\s*$/);
+          const name=trailing?line.slice(0,trailing.index).trim():'';
+          if(trailing&&/\d/.test(name)&&/\b(?:caps?|capsules?|tabs?|tablets?|syp|syrup|susp|suspension|inj|injection|drops?|cream|sachets?|inhaler)\.?$/i.test(name)){
+            quantity=trailing;
+            line=name;
+          }
         }
       }
+      if(quantity)line=line.replace(/[.\-…]+\s*$/,'').trim();
       if(!line||!/[a-z]/i.test(line))throw Error('A demand item name is missing.');
       rows.push({name:line,qty:quantity?quantity[1]:'',required,code:'',box:'',pcs:''});
       if(rows.length>2000)throw Error('Please split this demand into files of no more than 2,000 items.');
