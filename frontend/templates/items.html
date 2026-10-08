@@ -140,7 +140,7 @@ input[type=number]{-moz-appearance:textfield}
     <h1>💊 Item Catalog <span id="itemCount" style="font-size:.55em;font-weight:500;color:rgba(255,255,255,.5);margin-left:6px"></span></h1>
     <input class="search-box" id="searchBox" placeholder="Search items..." oninput="search(this.value)">
     <div class="vendor-multi" id="vendorMulti">
-      <button type="button" class="vendor-btn" id="vendorBtn" onclick="toggleVendorPanel(event)" title="Filter by vendor">🏷 All Vendors ▾</button>
+      <button type="button" class="vendor-btn" id="vendorBtn" onclick="toggleVendorPanel(event)" title="Filter by vendor">🏷 Select vendor ▾</button>
       <div class="vendor-panel" id="vendorPanel"></div>
     </div>
     <button class="btn" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="{% if is_guest %}_guestClearItems(){% else %}openBulkDeleteModal(){% endif %}">🗑 Clear Items</button>
@@ -445,49 +445,58 @@ function _applyLoadedItems(serverItems){
   }else{
     allItems=serverItems;
   }
-  populateVendorFilter();
   applyFilters();
 }
+let vendorSummary = [];
+let catalogCounts = {private:0, global:0};
+let _itemsRequest = 0;
 async function loadItems(q=''){
+  const requestId = ++_itemsRequest;
   q = String(q || '').trim();
-  if(!q){
-    const localItems = IS_GUEST ? _guestItems() : [];
-    allItems = localItems;
-    populateVendorFilter();
-    render([]);
-    try{
-      const r=await fetch('/api/items/count');
-      if(r.ok){
-        const counts=await r.json();
-        const countEl=document.getElementById('itemCount');
-        countEl.textContent = `${counts.private} private · ${counts.global} global`;
-      }
-    }catch(e){}
-    return;
-  }
+  allItems = [];
+  render([]);
   try{
-    const r=await fetch('/api/items?q='+encodeURIComponent(q));
+    const summaryResponse = await fetch('/api/items/count');
+    if(!summaryResponse.ok) throw new Error('Vendor summary request failed');
+    const counts = await summaryResponse.json();
+    if(requestId !== _itemsRequest) return;
+    catalogCounts = counts;
+    const summary = new Map((counts.vendors || []).map(v=>[v.name,v.count]));
+    if(IS_GUEST){
+      const local = _guestItems();
+      catalogCounts.private += local.length;
+      local.forEach(i=>{
+        const name = (i.vendor || '').trim();
+        summary.set(name, (summary.get(name) || 0) + 1);
+      });
+    }
+    vendorSummary = [...summary].map(([name,count])=>({name,count})).sort((a,b)=>a.name.localeCompare(b.name));
+    populateVendorFilter();
+    if(!selectedVendors.size){ render([]); return; }
+    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="8"><div class="empty">Loading selected vendor items…</div></td></tr>';
+    const params = new URLSearchParams({q});
+    selectedVendors.forEach(v=>params.append('vendor',v));
+    const r=await fetch('/api/items?'+params);
     if(!r.ok) throw new Error('Items request failed');
     const serverItems=await r.json();
+    if(requestId !== _itemsRequest) return;
     _applyLoadedItems(serverItems);
-    const countEl=document.getElementById('itemCount');
-    countEl.textContent = `${serverItems.length} record${serverItems.length===1?'':'s'} for "${q}"`;
   }catch(e){
-    render([]);
-    toast('Could not load items',true);
+    if(requestId !== _itemsRequest) return;
+    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="8"><div class="empty">Could not load catalog. Please try again.</div></td></tr>';
+    toast('Could not load catalog',true);
   }
 }
 
 function render(items){
   const body = document.getElementById('itemsBody');
   const countEl = document.getElementById('itemCount');
-  const mine = allItems.filter(i=>!i.is_global).length;
-  const global = allItems.filter(i=>i.is_global).length;
-  countEl.textContent = items.length !== allItems.length
-    ? `${items.length} of ${allItems.length} shown`
-    : `${mine} private · ${global} global`;
+  countEl.textContent = `${catalogCounts.private} private · ${catalogCounts.global} global`;
   if(!items.length){
-    body.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">💊</div>No items found.<br>Click "+ Add Item" to get started.</div></td></tr>`;
+    const message = selectedVendors.size
+      ? 'No items match the selected vendors and search.'
+      : 'Select a vendor to view its items.';
+    body.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">💊</div>${message}</div></td></tr>`;
     return;
   }
   body.innerHTML = items.map(i => {
@@ -517,7 +526,7 @@ function render(items){
   }).join('');
 }
 
-let selectedVendors = new Set();  // empty = show all vendors
+let selectedVendors = new Set();  // empty = keep items unloaded
 
 let _searchTimer=0;
 function search(value){
@@ -528,16 +537,16 @@ function search(value){
 
 // Combined filter: item name search AND any of the ticked vendors
 function applyFilters(){
-  const q = (document.getElementById('searchBox').value || '').toLowerCase();
-  let filtered = allItems;
+  const q = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+  let filtered = selectedVendors.size ? allItems : [];
   if(selectedVendors.size) filtered = filtered.filter(i => selectedVendors.has((i.vendor || '').trim()));
-  if(q) filtered = filtered.filter(i => (i.name+' '+(i.code||'')).toLowerCase().includes(q));
+  if(q) filtered = filtered.filter(i => (i.name+' '+(i.code||'')+' '+(i.vendor_code||'')).toLowerCase().includes(q));
   render(filtered);
 }
 
-// Rebuild the vendor checkbox panel from the vendors present in allItems, keeping ticks
+// Vendor choices come from the full lightweight summary, never search results.
 function populateVendorFilter(){
-  const vendors = [...new Set(allItems.map(i => (i.vendor || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const vendors = vendorSummary.map(v=>v.name);
   // drop any ticked vendor that no longer exists
   selectedVendors = new Set([...selectedVendors].filter(v => vendors.includes(v)));
   const panel = document.getElementById('vendorPanel');
@@ -547,13 +556,13 @@ function populateVendorFilter(){
   }
   panel.innerHTML =
     '<div class="vendor-opt-head"><a onclick="setAllVendors(true)">Select all</a><a onclick="setAllVendors(false)">Clear</a></div>' +
-    vendors.map(v=>`<label class="vendor-opt"><input type="checkbox" value="${esc(v)}" ${selectedVendors.has(v)?'checked':''} onchange="onVendorCheck(this)">🏷 ${esc(v)}</label>`).join('');
+    vendors.map(v=>`<label class="vendor-opt"><input type="checkbox" value="${esc(v)}" ${selectedVendors.has(v)?'checked':''} onchange="onVendorCheck(this)">🏷 ${esc(v || 'No vendor')} <span style="margin-left:auto;white-space:nowrap;color:var(--sub)">${vendorSummary.find(row=>row.name===v).count} items</span></label>`).join('');
   updateVendorBtn();
 }
 
 function onVendorCheck(cb){
   if(cb.checked) selectedVendors.add(cb.value); else selectedVendors.delete(cb.value);
-  updateVendorBtn(); applyFilters();
+  updateVendorBtn(); loadItems(document.getElementById('searchBox').value);
 }
 
 function setAllVendors(on){
@@ -561,12 +570,12 @@ function setAllVendors(on){
   document.querySelectorAll('#vendorPanel input[type=checkbox]').forEach(cb=>{
     cb.checked = on; if(on) selectedVendors.add(cb.value);
   });
-  updateVendorBtn(); applyFilters();
+  updateVendorBtn(); loadItems(document.getElementById('searchBox').value);
 }
 
 function updateVendorBtn(){
   const n = selectedVendors.size;
-  const label = n===0 ? '🏷 All Vendors' : n===1 ? '🏷 '+[...selectedVendors][0] : `🏷 ${n} vendors`;
+  const label = n===0 ? '🏷 Select vendor' : n===1 ? '🏷 '+([...selectedVendors][0] || 'No vendor') : `🏷 ${n} vendors`;
   document.getElementById('vendorBtn').textContent = label + ' ▾';
 }
 
@@ -702,7 +711,7 @@ document.addEventListener('click',e=>{
 function openBulkDeleteModal(){
   document.getElementById('bulkDeleteModal').classList.add('open');
   // Populate the vendor dropdown from the SAME source the catalog vendor
-  // filter uses (allItems) — same trim, dedupe, sort, casing.
+  // filter uses — independently of the loaded items.
   _refreshBulkVendorOptions();
 }
 function closeBulkDeleteModal(){ document.getElementById('bulkDeleteModal').classList.remove('open'); }
@@ -717,7 +726,7 @@ function _onBulkVendorChosen(){
 function _refreshBulkVendorOptions(){
   const sel = document.getElementById('bulkVendorSelect');
   if(!sel) return;
-  const vendors = [...new Set(allItems.map(i => (i.vendor || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const vendors = vendorSummary.map(v=>v.name).filter(Boolean);
   const prev = sel.value;
   sel.innerHTML = '<option value="">— select a vendor —</option>' +
     vendors.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
