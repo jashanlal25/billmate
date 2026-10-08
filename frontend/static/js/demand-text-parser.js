@@ -41,7 +41,8 @@
       if(!/[a-z]/i.test(line))throw Error(`Invalid demand item: ${line.slice(0,60)}`);
       const required=/\s*lazmi\s*$/i.test(line);
       if(required)line=line.replace(/\s*lazmi\s*$/i,'').trim();
-      let quantity=line.match(/\s*\((\d+)\)\s*$/);
+      // Multiple dots (or an ellipsis) separate quantity; a single decimal dot does not.
+      let quantity=line.match(/\s*\((\d+)\)\s*$/)||line.match(/\s*(?:\.{2,}|…+)\s*(\d+)\s*$/);
       if(quantity)line=line.slice(0,quantity.index).trim();
       else {
         // A bare leading count belongs to quantity, not medicine strength.
