@@ -41,8 +41,17 @@
       if(!/[a-z]/i.test(line))throw Error(`Invalid demand item: ${line.slice(0,60)}`);
       const required=/\s*lazmi\s*$/i.test(line);
       if(required)line=line.replace(/\s*lazmi\s*$/i,'').trim();
-      const quantity=line.match(/\s*\((\d+)\)\s*$/);
+      let quantity=line.match(/\s*\((\d+)\)\s*$/);
       if(quantity)line=line.slice(0,quantity.index).trim();
+      else {
+        // A bare leading count belongs to quantity, not medicine strength.
+        // Keep strength-first names such as "20 mg Medicine" intact.
+        const leading=line.match(/^(\d+)\s+(?=[a-z])/i);
+        if(leading&&!/^(?:mg|mcg|g|ml|iu|%)\b/i.test(line.slice(leading[0].length))){
+          quantity=leading;
+          line=line.slice(leading[0].length).trim();
+        }
+      }
       if(!line||!/[a-z]/i.test(line))throw Error('A demand item name is missing.');
       rows.push({name:line,qty:quantity?quantity[1]:'',required,code:'',box:'',pcs:''});
       if(rows.length>2000)throw Error('Please split this demand into files of no more than 2,000 items.');
