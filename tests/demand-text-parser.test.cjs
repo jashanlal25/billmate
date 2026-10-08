@@ -57,3 +57,53 @@ test('large order message retains one row per ITM entry',()=>{
  assert.equal(rows.length,64);
  assert.deepEqual([rows[63].code,rows[63].qty,rows[63].name],['64','1','Medicine 64']);
 });
+
+test('quantity-first demand keeps all 19 names, quantities and duplicate lines',()=>{
+ const input="1 feldene 20mg\n1 bynevol 2.5mg\n2 diabold 4mg\n4 acne soft bar\n3 fonaz cap\n3 calcee plus sachet\n1 barizold 600mg\n2 bifomyk cream\n2 bynevol 2.5mg\n1 calamox syp\n2 cefim sp\n2 kinz 20mg inj\n1 leflox 250mg\n4 nubral fort\n10 panadol drops\n6 rigix syp\n2 sofvasc 5mg\n1 talopex 5mg\n2 tobracin d drop";
+ const rows=parse(input);
+ assert.equal(rows.length,19);
+ const expected=input.split('\n').map(line=>{const split=line.indexOf(' ');return [line.slice(split+1),line.slice(0,split)];});
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),expected);
+ assert.deepEqual(rows.filter(r=>r.name==='bynevol 2.5mg').map(r=>r.qty),['1','2']);
+ const inventory=matcher.prepare(expected.map(([name],i)=>({id:i,name,vendor:'TEST'})));
+ for(const row of rows)assert(matcher.match(row,inventory).offers.some(o=>o.item.name===row.name),row.name);
+ const stock=matcher.prepare([{name:'FELDENE 20MG',vendor:'correct'},{name:'FELDENE 10MG',vendor:'wrong'}]);
+ assert.deepEqual(matcher.match(rows[0],stock).offers.map(o=>o.item.vendor),['correct']);
+});
+test('prefix quantities coexist with bullets, numbering, lazmi and strength-first names',()=>{
+ assert.deepEqual(parse('1. 2 Bynevol 2.5mg\n- 6 Rigix syp lazmi').map(r=>[r.name,r.qty,r.required]),[['Bynevol 2.5mg','2',false],['Rigix syp','6',true]]);
+ assert.deepEqual(parse('20 mg Medicine\n5 ml Solution\n5 Fluorouracil (2)').map(r=>[r.name,r.qty]),[['20 mg Medicine',''],['5 ml Solution',''],['5 Fluorouracil','2']]);
+});
+
+test('dot-separated demand quantities preserve strengths and medicine forms',()=>{
+ const rows=parse('Dromax 500 cap...1\nGetryl 1 ...2\nAzomax 500...2\nCarveda 6.25...2\nCovam 5/160...2\nSalbo inhaler...2\nZezot syp ..1');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),[
+  ['Dromax 500 cap','1'],['Getryl 1','2'],['Azomax 500','2'],
+  ['Carveda 6.25','2'],['Covam 5/160','2'],['Salbo inhaler','2'],['Zezot syp','1']
+ ]);
+ const stock=matcher.prepare([{name:'COVAM 5/160',vendor:'correct'},{name:'COVAM 5/80',vendor:'wrong'}]);
+ assert.deepEqual(matcher.match(rows[4],stock).offers.map(o=>o.item.vendor),['correct']);
+});
+test('mixed formats, ellipsis and lazmi work without consuming decimal strengths',()=>{
+ const rows=parse('Carveda 6.25\nBynevol 2.5mg\nCovam 5/160\nZezot syp … 1 lazmi\n2 Rigix syp\nPanadol drops (10)\nCarveda 6.25... 2');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty,r.required]),[
+  ['Carveda 6.25','',false],['Bynevol 2.5mg','',false],['Covam 5/160','',false],
+  ['Zezot syp','1',true],['Rigix syp','2',false],['Panadol drops','10',false],['Carveda 6.25','2',false]
+ ]);
+});
+
+test('trailing x, pc, separators and bare counts after strength and form',()=>{
+ const rows=parse('dromax 500 cap.    2x\ndromax 500 cap 2\ndromax 500 cap------2pc\ndromax 500.   2pc\ndromax 500 cap  2pc');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),[
+  ['dromax 500 cap','2'],['dromax 500 cap','2'],['dromax 500 cap','2'],['dromax 500','2'],['dromax 500 cap','2']
+ ]);
+ assert.deepEqual(parse('Carveda 6.25 -- 2PCS\nCovam 5/160. 2x lazmi\nDromax 500 cap---2').map(r=>[r.name,r.qty,r.required]),[
+  ['Carveda 6.25','2',false],['Covam 5/160','2',true],['Dromax 500 cap','2',false]
+ ]);
+});
+test('bare strengths and pack notation are not mistaken for trailing quantities',()=>{
+ for(const name of ['Getryl 1','Azomax 500','Carveda 6.25','Covam 5/160','Dromax cap 500','Medicine 10x2','Medicine 500mg 10x2']){
+  assert.deepEqual(parse(name).map(r=>[r.name,r.qty]),[[name,'']]);
+ }
+ assert.deepEqual(parse('1 feldene 20mg\n2 bynevol 2.5mg').map(r=>[r.name,r.qty]),[['feldene 20mg','1'],['bynevol 2.5mg','2']]);
+});
