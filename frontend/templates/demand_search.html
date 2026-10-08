@@ -95,7 +95,7 @@
   <p class="muted">Upload an HTM, HTML, TXT, or PDF demand file, review the items, then search all vendors in your inventory. Your demand stays here until you load a new one or tap Clear.</p>
   <label for="pastedDemand"><strong>Or paste a text list</strong></label>
   <textarea id="pastedDemand" placeholder="Methachlor drop (10)&#10;Nexum 40 (3)&#10;Truva 10 (2) lazmi" aria-describedby="textDemandHint"></textarea>
-  <p id="textDemandHint" class="muted note">Paste one item per line with quantity first (2 Bynevol 2.5mg) in parentheses (Bynevol 2.5mg (2)), or after dots (Dromax 500 cap...1), or paste a full order message with Code, QTY and ITM fields. “Lazmi” is kept as a note. Text demand lists are for searching, not adding to Inventory.</p>
+  <p id="textDemandHint" class="muted note">Paste one item per line with quantity first (2 Bynevol 2.5mg) in parentheses (Bynevol 2.5mg (2)), after dots (Dromax 500 cap...1), or with a trailing count (Dromax 500 cap 2, 2pc, or 2x), or paste a full order message with Code, QTY and ITM fields. “Lazmi” is kept as a note. Text demand lists are for searching, not adding to Inventory.</p>
   <button id="loadTextDemand" class="btn btn-outline" disabled>Load text demand</button>
   <div class="controls"><label><input id="ignoreShelf" type="checkbox" checked> Ignore trailing shelf codes (such as C-55) when comparing names. Uncheck if these are part of the product name.</label></div>
   <p id="demandStatus" role="status" aria-live="polite">No demand loaded.</p>
@@ -145,7 +145,7 @@
 {% endblock %}
 {% block scripts %}
 <script src="/static/share-store.js"></script>
-<script src="/static/js/demand-text-parser.js?v=20261008-dotted-qty"></script>
+<script src="/static/js/demand-text-parser.js?v=20261008-trailing-qty"></script>
 <script src="/static/js/demand-matcher.js"></script>
 <script src="/static/js/demand-billing-target.js"></script>
 <script src="/static/js/demand-search.js?v=20261008-bonus-card-1"></script>
