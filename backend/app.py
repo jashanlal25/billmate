@@ -2025,7 +2025,7 @@ def get_items():
     uid = session.get('user_id')
     if session.get('is_superadmin') or session.get('is_guest'):
         uid = None
-    return jsonify(agent_inventory(uid, q))
+    return jsonify(agent_inventory(uid, q, request.args.getlist('vendor') or None))
 
 @app.route('/api/items/history', methods=['GET'])
 def get_billed_items():
@@ -2070,14 +2070,16 @@ def get_billed_items():
             break
     return jsonify(result)
 
-def agent_inventory(uid, q=''):
-    # Superadmin + guests see only global items; regular users see own + global
+def _visible_items(uid):
+    query = Item.query.filter_by(is_active=True)
     if not uid:
-        query = Item.query.filter_by(is_active=True, is_global=True)
-    else:
-        query = Item.query.filter_by(is_active=True).filter(
-            db.or_(Item.user_id == uid, Item.is_global == True)
-        )
+        return query.filter_by(is_global=True)
+    return query.filter(db.or_(Item.user_id == uid, Item.is_global == True))
+
+def agent_inventory(uid, q='', vendors=None):
+    query = _visible_items(uid)
+    if vendors is not None:
+        query = query.filter(func.trim(func.coalesce(Item.vendor, '')).in_(vendors))
     if q:
         query = query.filter(sa.or_(Item.name.ilike(f'%{q}%'), Item.vendor_code.ilike(f'%{q}%'), Item.code.ilike(f'%{q}%')))
     items = query.order_by(Item.name).all()
@@ -2114,7 +2116,10 @@ def get_items_count():
     else:
         private_count = Item.query.filter_by(is_active=True, user_id=uid, is_global=False).count()
         global_count = Item.query.filter_by(is_active=True, is_global=True).count()
-    return jsonify({'private': private_count, 'global': global_count, 'total': private_count + global_count})
+    vendor = func.trim(func.coalesce(Item.vendor, ''))
+    vendors = _visible_items(uid).with_entities(vendor, func.count(Item.id)).group_by(vendor).order_by(vendor).all()
+    return jsonify({'private': private_count, 'global': global_count, 'total': private_count + global_count,
+                    'vendors': [{'name': name, 'count': count} for name, count in vendors]})
 
 @app.route('/api/items', methods=['POST'])
 def add_item():
