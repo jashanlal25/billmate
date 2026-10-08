@@ -91,3 +91,19 @@ test('mixed formats, ellipsis and lazmi work without consuming decimal strengths
   ['Zezot syp','1',true],['Rigix syp','2',false],['Panadol drops','10',false],['Carveda 6.25','2',false]
  ]);
 });
+
+test('trailing x, pc, separators and bare counts after strength and form',()=>{
+ const rows=parse('dromax 500 cap.    2x\ndromax 500 cap 2\ndromax 500 cap------2pc\ndromax 500.   2pc\ndromax 500 cap  2pc');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),[
+  ['dromax 500 cap','2'],['dromax 500 cap','2'],['dromax 500 cap','2'],['dromax 500','2'],['dromax 500 cap','2']
+ ]);
+ assert.deepEqual(parse('Carveda 6.25 -- 2PCS\nCovam 5/160. 2x lazmi\nDromax 500 cap---2').map(r=>[r.name,r.qty,r.required]),[
+  ['Carveda 6.25','2',false],['Covam 5/160','2',true],['Dromax 500 cap','2',false]
+ ]);
+});
+test('bare strengths and pack notation are not mistaken for trailing quantities',()=>{
+ for(const name of ['Getryl 1','Azomax 500','Carveda 6.25','Covam 5/160','Dromax cap 500','Medicine 10x2','Medicine 500mg 10x2']){
+  assert.deepEqual(parse(name).map(r=>[r.name,r.qty]),[[name,'']]);
+ }
+ assert.deepEqual(parse('1 feldene 20mg\n2 bynevol 2.5mg').map(r=>[r.name,r.qty]),[['feldene 20mg','1'],['bynevol 2.5mg','2']]);
+});
