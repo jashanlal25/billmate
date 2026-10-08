@@ -74,3 +74,20 @@ test('prefix quantities coexist with bullets, numbering, lazmi and strength-firs
  assert.deepEqual(parse('1. 2 Bynevol 2.5mg\n- 6 Rigix syp lazmi').map(r=>[r.name,r.qty,r.required]),[['Bynevol 2.5mg','2',false],['Rigix syp','6',true]]);
  assert.deepEqual(parse('20 mg Medicine\n5 ml Solution\n5 Fluorouracil (2)').map(r=>[r.name,r.qty]),[['20 mg Medicine',''],['5 ml Solution',''],['5 Fluorouracil','2']]);
 });
+
+test('dot-separated demand quantities preserve strengths and medicine forms',()=>{
+ const rows=parse('Dromax 500 cap...1\nGetryl 1 ...2\nAzomax 500...2\nCarveda 6.25...2\nCovam 5/160...2\nSalbo inhaler...2\nZezot syp ..1');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),[
+  ['Dromax 500 cap','1'],['Getryl 1','2'],['Azomax 500','2'],
+  ['Carveda 6.25','2'],['Covam 5/160','2'],['Salbo inhaler','2'],['Zezot syp','1']
+ ]);
+ const stock=matcher.prepare([{name:'COVAM 5/160',vendor:'correct'},{name:'COVAM 5/80',vendor:'wrong'}]);
+ assert.deepEqual(matcher.match(rows[4],stock).offers.map(o=>o.item.vendor),['correct']);
+});
+test('mixed formats, ellipsis and lazmi work without consuming decimal strengths',()=>{
+ const rows=parse('Carveda 6.25\nBynevol 2.5mg\nCovam 5/160\nZezot syp … 1 lazmi\n2 Rigix syp\nPanadol drops (10)\nCarveda 6.25... 2');
+ assert.deepEqual(rows.map(r=>[r.name,r.qty,r.required]),[
+  ['Carveda 6.25','',false],['Bynevol 2.5mg','',false],['Covam 5/160','',false],
+  ['Zezot syp','1',true],['Rigix syp','2',false],['Panadol drops','10',false],['Carveda 6.25','2',false]
+ ]);
+});
