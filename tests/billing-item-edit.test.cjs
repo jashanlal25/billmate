@@ -73,10 +73,12 @@ test('search groups historical matches after current offers with one labelled di
  t.context._fetchItems=async()=>[previous,offer];
  t.run('openItemEdit(0)');await search();
  const html=t.nodes.ie_results.innerHTML;
- assert(html.indexOf('selectItemEdit(0)')<html.indexOf('role="separator"'));
- assert(html.indexOf('role="separator"')<html.indexOf('Previous bill SSD-0013'));
+ assert(html.indexOf('selectItemEdit(0)')<html.indexOf('<summary'));
+ assert(html.indexOf('<summary')<html.indexOf('Previous bill SSD-0013'));
  assert.match(html,/Not in current vendor list/);assert.match(html,/Saved TP: 100.00/);
- assert.equal((html.match(/role="separator"/g)||[]).length,1);
+ assert.equal((html.match(/<summary/g)||[]).length,1);
+ assert.match(html,/<details class="ie-history-group" open>/);
+ assert.match(html,/class="ie-history-arrow" aria-hidden="true">v</);
 });
 test('editing an existing historical row does not request replacement confirmation',()=>{
  const t=setup();t.row.historical=true;t.row.previous_invoice='SSD-0001';
