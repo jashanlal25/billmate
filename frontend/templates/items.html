@@ -940,6 +940,32 @@ async function doImport(){
 
 // Use page-owned suggestions: native Android datalist popups can lose their background.
 let supplierNames = [];
+function matchingSupplierNames(value){
+  const words = text => text.normalize('NFKC').toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  const queryWords = words(value);
+  const query = queryWords.join('');
+  if(!query) return supplierNames.slice();
+  // Ignore generic business suffixes only for the shared-name fallback.
+  const genericWords = new Set(['trader','traders','trading','company','co','and','medical','medicos','pharmaceutical','pharmaceuticals']);
+  return supplierNames.map((name, index) => {
+    const nameWords = words(name);
+    const compact = nameWords.join('');
+    let score = 0;
+    if(compact === query) score = 400;
+    else if(compact.includes(query)) score = 300;
+    else if(queryWords.every(part => nameWords.some(word => word.startsWith(part)))) score = 200;
+    else {
+      // A filename can have extra words that the saved supplier name omits.
+      const shared = queryWords.filter(part => part.length >= 3 && !genericWords.has(part) &&
+        nameWords.some(word => word.length >= 3 && !genericWords.has(word) &&
+          (word.includes(part) || part.includes(word))));
+      if(shared.length) score = 100 + shared.length;
+    }
+    return {name, index, score};
+  }).filter(match => match.score > 0)
+    .sort((a,b) => b.score - a.score || a.index - b.index)
+    .map(match => match.name);
+}
 const vendorPickers = ['f_vendor', 'importVendor'].map(id => {
   const input = document.getElementById(id);
   const list = document.createElement('div');
@@ -968,8 +994,7 @@ const vendorPickers = ['f_vendor', 'importVendor'].map(id => {
     close();
   }
   function render(){
-    const query = input.value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-    const matches = supplierNames.filter(name => name.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '').includes(query));
+    const matches = matchingSupplierNames(input.value);
     list.replaceChildren();
     active = -1;
     input.removeAttribute('aria-activedescendant');
