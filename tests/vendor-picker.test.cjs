@@ -93,3 +93,26 @@ test('complete HAnzla plus trailing spaces keeps HAnzla Majid visible without de
     assert.equal(input.list.hidden,true);
   }
 });
+
+
+test('screenshot spellings HANZALA, HANZAL and HANZA find saved HANZLA',()=>{
+  const {inputs,fire}=setup(['QATRA PHARMA IBRAHIM','MAJIZ HANZLA TRADER','OTHER ENTERPRISES']);
+  for(const input of Object.values(inputs)){
+    for(const query of ['HANZALA','HANZALA ','HANZALA Tra','HANZALA ENTERPRISES','HANZAL','HANZA','HANZ']){
+      input.value=query; fire(input,'input');
+      assert.deepEqual(input.list.children.map(option=>option.textContent),['MAJIZ HANZLA TRADER'],query);
+      assert.equal(input.value,query,'matching must not rename or auto-select the supplier');
+    }
+  }
+});
+test('exact vendor spellings rank above similar spellings and suffixes do not match',()=>{
+  const {inputs,fire}=setup(['MAJIZ HANZLA TRADER','HANZALA ENTERPRISES','QATRA PHARMA IBRAHIM']);
+  const input=inputs.importVendor;
+  input.value='HANZALA'; fire(input,'input');
+  assert.deepEqual(input.list.children.map(option=>option.textContent),['HANZALA ENTERPRISES','MAJIZ HANZLA TRADER']);
+  for(const query of ['Tra','OTHER Tra','XYZ ENTERPRISES']){
+    input.value=query; fire(input,'input');
+    assert.ok(!input.list.children.some(option=>option.textContent==='QATRA PHARMA IBRAHIM'),query);
+    if(query !== 'Tra') assert.equal(input.list.children.length,0,query);
+  }
+});

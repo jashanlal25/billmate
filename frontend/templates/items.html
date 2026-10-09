@@ -940,26 +940,47 @@ async function doImport(){
 
 // Use page-owned suggestions: native Android datalist popups can lose their background.
 let supplierNames = [];
+// One insertion, omission, substitution or adjacent transposition, for suggestions only.
+function vendorNearWord(query, word){
+  if(query.length < 4 || word.length < 4 || query[0] !== word[0]) return false;
+  function oneEdit(a,b){
+    if(Math.abs(a.length-b.length) > 1) return false;
+    let i=0;
+    while(i < Math.min(a.length,b.length) && a[i] === b[i]) i++;
+    if(i === Math.min(a.length,b.length)) return true;
+    if(a.length > b.length) return a.slice(i+1) === b.slice(i);
+    if(b.length > a.length) return a.slice(i) === b.slice(i+1);
+    return a.slice(i+1) === b.slice(i+1) ||
+      (a[i] === b[i+1] && a[i+1] === b[i] && a.slice(i+2) === b.slice(i+2));
+  }
+  // Compare a partial query with a word prefix as well as the full word.
+  return [query.length-1,query.length,query.length+1].some(length =>
+    length >= 4 && oneEdit(query,word.slice(0,length)));
+}
 function matchingSupplierNames(value){
   const words = text => text.normalize('NFKC').toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
   const queryWords = words(value);
   const query = queryWords.join('');
   if(!query) return supplierNames.slice();
-  // Ignore generic business suffixes only for the shared-name fallback.
-  const genericWords = new Set(['trader','traders','trading','company','co','and','medical','medicos','pharmaceutical','pharmaceuticals']);
+  const genericWords = ['trader','traders','trading','enterprise','enterprises','company','co','and','medical','medicos','pharmaceutical','pharmaceuticals'];
+  const distinctive = word => word.length >= 3 && !genericWords.some(generic => generic.startsWith(word));
   return supplierNames.map((name, index) => {
     const nameWords = words(name);
     const compact = nameWords.join('');
     let score = 0;
     if(compact === query) score = 400;
-    else if(compact.includes(query)) score = 300;
+    // Start at a word boundary: Tra must not match the end of QATRA.
+    else if(nameWords.some((_,i) => nameWords.slice(i).join('').startsWith(query))) score = 300;
     else if(queryWords.every(part => nameWords.some(word => word.startsWith(part)))) score = 200;
     else {
-      // A filename can have extra words that the saved supplier name omits.
-      const shared = queryWords.filter(part => part.length >= 3 && !genericWords.has(part) &&
-        nameWords.some(word => word.length >= 3 && !genericWords.has(word) &&
-          (word.includes(part) || part.includes(word))));
+      const parts = queryWords.filter(distinctive);
+      const candidates = nameWords.filter(distinctive);
+      const shared = parts.filter(part => candidates.some(word => word.startsWith(part)));
       if(shared.length) score = 100 + shared.length;
+      else {
+        const similar = parts.filter(part => candidates.some(word => vendorNearWord(part,word)));
+        if(similar.length) score = 50 + similar.length;
+      }
     }
     return {name, index, score};
   }).filter(match => match.score > 0)
