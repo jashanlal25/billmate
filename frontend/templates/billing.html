@@ -1801,6 +1801,7 @@ async function _guestSave(isDraft){
   lastSavedIsEdit=isEdit;
   if(isDraft){
     toast('Draft saved — '+inv.invoice_number);
+    closeSummary();
     newBill();loadHistory();
   } else {
     document.getElementById('psmTitle').textContent=isEdit?'Invoice Updated!':'Invoice Saved!';
@@ -2045,6 +2046,7 @@ async function saveDraft(){
     const inv = await r.json();
     if(r.ok){
       toast('Draft saved — '+inv.invoice_number);
+      closeSummary();
       newBill();
       loadHistory();
     } else{if(!_checkLocked(inv))toast(inv.error||'Error saving',true);}
@@ -2447,7 +2449,7 @@ function newBill(){
 }
 
 async function cancelBill(){
-  if(!lines.length && !customer) return;
+  if(!lines.length && !customer){closeSummary();return;}
   if(!(await BMConfirm('Cancel this invoice? All items will be cleared.','Cancel invoice?'))) return;
   // Delete auto-draft from server if one was created
   if(_autoDraftId){
