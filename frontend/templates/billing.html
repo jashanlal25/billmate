@@ -1684,7 +1684,7 @@ function fillItemEdit(){
 function renderItemEditOffers(){
   const firstHistorical=_ieOffers.findIndex(item=>item.historical);
   document.getElementById('ie_results').innerHTML=_ieOffers.length?_ieOffers.map((item,i)=>{
-    const divider=i===firstHistorical?'<details class="ie-history-group" open><summary class="dd-history-divider"><span>Previously billed items</span><span class="ie-history-arrow" aria-hidden="true">v</span></summary>':'';
+    const divider=i===firstHistorical?'<details class="ie-history-group"><summary class="dd-history-divider"><span>Previously billed items</span><span class="ie-history-arrow" aria-hidden="true">v</span></summary>':'';
     const previous=item.historical?`<br><strong>Previous bill ${esc(item.previous_invoice||'')}</strong><br><span style="color:#b45309">Not in current vendor list — availability unverified</span>`:'';
     return `${divider}<button type="button" onclick="selectItemEdit(${i})" style="display:block;width:100%;text-align:left;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin:5px 0"><strong>${esc(item.name)}</strong>${previous}<br>${esc(item.vendor||'No vendor')} · ${esc(item.code||'')}${item.vendor_list_no?' · List '+esc(item.vendor_list_no):''}<br>${item.historical?'Saved TP':'TP'}: ${Number(item.tp).toFixed(2)} · Supplier: ${item.vendor_discount_pct==null?'—':esc(item.vendor_discount_pct)+'%'} · Customer: ${esc(item.discount_pct)}%</button>`;
   }).join('')+(firstHistorical>=0?'</details>':''):'No items found. Try a shorter name or item code.';

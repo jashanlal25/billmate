@@ -77,7 +77,7 @@ test('search groups historical matches after current offers with one labelled di
  assert(html.indexOf('<summary')<html.indexOf('Previous bill SSD-0013'));
  assert.match(html,/Not in current vendor list/);assert.match(html,/Saved TP: 100.00/);
  assert.equal((html.match(/<summary/g)||[]).length,1);
- assert.match(html,/<details class="ie-history-group" open>/);
+ assert.match(html,/<details class="ie-history-group">/);
  assert.match(html,/class="ie-history-arrow" aria-hidden="true">v</);
 });
 test('editing an existing historical row does not request replacement confirmation',()=>{
