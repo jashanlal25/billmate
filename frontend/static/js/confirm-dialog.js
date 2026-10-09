@@ -48,7 +48,7 @@
     return overlay;
   }
 
-  window.BMConfirm=function(message,title='Please confirm'){
+  window.BMConfirm=function(message,title='Please confirm',options={}){
     const overlay=getOverlay();
     if(activeResolve) overlay._finish(false);
     lastFocus=document.activeElement;
@@ -56,6 +56,8 @@
     overlay.querySelector('#bmConfirmMessage').textContent=message;
     overlay.classList.add('open');
     const ok=overlay.querySelector('.bm-confirm-ok');
+    ok.textContent=options.okText||'OK';
+    overlay.querySelector('.bm-confirm-cancel').textContent=options.cancelText||'Cancel';
     setTimeout(()=>ok.focus(),0);
     return new Promise(resolve=>{activeResolve=resolve;});
   };

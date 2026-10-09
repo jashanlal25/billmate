@@ -31,7 +31,7 @@ test('previous bill suggestion is selectable without replacing another manual li
   const manual={item_id:null,item_name:'OTHER MANUAL ITEM',vendor:'',qty:1};
   const searchInput={value:'Famospin 20'};
   const dropdown={classList:{remove(){}}};
-  const context={IS_GUEST:false,lines:[manual],itemTimer:0,lastQuery:'',
+  const context={IS_GUEST:false,lines:[manual],savedInvoiceId:null,itemTimer:0,lastQuery:'',BMConfirm:async()=>true,
     fetch:async url=>({ok:true,json:async()=>url.includes('/history?')?[previous]:[]}),
     document:{getElementById:id=>id==='itemSearch'?searchInput:dropdown},
     clearTimeout(){},setTimeout(){},calcLine(l){l.lineNet=l.qty*l.tp*(1-l.disc/100);},
@@ -41,10 +41,42 @@ test('previous bill suggestion is selectable without replacing another manual li
   const found=await context._fetchItems('Famospin 20');
   assert.equal(found.length,1);
   assert.equal(found[0].historical,true);
-  context.addLine(found[0]);
+  await context.addLine(found[0]);
   assert.equal(context.lines.length,2);
   assert.equal(manual.qty,1);
   assert.equal(context.lines[1].item_name,'FAMOSPIN 20');
   assert.equal(context.lines[1].disc,11);
   assert.equal(context.lines[1].tax,4);
+});
+
+function billingAddSetup(confirm){
+  const input={value:'myteka'};
+  const dropdown={classList:{remove(){}}};
+  const context={lines:[],savedInvoiceId:null,itemTimer:0,lastQuery:'myteka',
+    document:{getElementById:id=>id==='itemSearch'?input:dropdown},BMConfirm:confirm,
+    clearTimeout(){},setTimeout(){},calcLine(l){l.lineNet=l.qty*l.tp;},renderLines(){},recalc(){},_focusCartField(){}};
+  vm.createContext(context);vm.runInContext(add,context);return{context,input};
+}
+const oldOffer={id:null,name:'MYTEKA SACHETS',vendor:'SKR',tp:421.6,discount_pct:1,tax_pct:0,retail_price:500,historical:true,previous_invoice:'SSD-0039'};
+test('main Billing rejects historical selection on Cancel and retains the search',async()=>{
+  let prompt;const t=billingAddSetup(async(...args)=>{prompt=args;return false;});
+  await t.context.addLine(oldOffer);
+  assert.equal(t.context.lines.length,0);assert.equal(t.input.value,'myteka');
+  assert.match(prompt[0],/Previous bill: SSD-0039/);assert.equal(prompt[2].okText,'Use previous details');
+});
+test('main Billing adds history only after confirmation and keeps source invoice metadata',async()=>{
+  let resolve;const t=billingAddSetup(()=>new Promise(r=>{resolve=r;}));
+  const pending=t.context.addLine(oldOffer);assert.equal(t.context.lines.length,0);
+  resolve(true);await pending;
+  assert.equal(t.context.lines.length,1);assert.equal(t.context.lines[0].previous_invoice,'SSD-0039');
+  assert.equal(t.context.lines[0].historical,true);assert.equal(t.input.value,'');
+});
+test('a confirmation for a different bill cannot append history to the new bill',async()=>{
+  let resolve;const t=billingAddSetup(()=>new Promise(r=>{resolve=r;}));
+  const pending=t.context.addLine(oldOffer);t.context.lines=[];t.context.savedInvoiceId=42;
+  resolve(true);await pending;assert.equal(t.context.lines.length,0);
+});
+test('current catalog selections do not ask for historical confirmation',()=>{
+  const t=billingAddSetup(()=>{throw Error('Current offer should not prompt');});
+  t.context.addLine({...oldOffer,id:7,historical:false});assert.equal(t.context.lines.length,1);
 });
