@@ -159,8 +159,8 @@ input[type=number]{-moz-appearance:textfield}
   .layout{grid-template-columns:1fr}
   .summary-card{position:static}
 }
-/* Quick-view summary drawer (mobile only) */
-.sum-drawer{position:fixed;top:0;right:0;bottom:0;width:88vw;max-width:340px;background:var(--card);border-radius:20px 0 0 20px;overflow-y:auto;padding:20px 20px 30px 28px;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:600;box-shadow:-8px 0 40px rgba(0,0,0,.2);display:none}
+/* Quick-view summary drawer (mobile only). Clear the fixed header (bottom: 84–88px). */
+.sum-drawer{position:fixed;top:96px;right:0;bottom:0;width:88vw;max-width:340px;background:var(--card);border-radius:20px 0 0 20px;overflow-y:auto;padding:20px 20px 30px 28px;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:600;box-shadow:-8px 0 40px rgba(0,0,0,.2);display:none}
 .sum-drawer.open{transform:translateX(0)}
 .sum-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:599}
 .sum-overlay.open{display:block}
