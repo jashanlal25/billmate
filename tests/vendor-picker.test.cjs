@@ -77,3 +77,19 @@ test('full filename and reordered words find the shorter saved vendor',()=>{
     assert.equal(names[0],'MAJID HANZLA TRADER');
   }
 });
+
+test('complete HAnzla plus trailing spaces keeps HAnzla Majid visible without deletion',()=>{
+  const {inputs,fire}=setup(['HAnzla Majid','MAJID HANZLA TRADER','OTHER SUPPLIER']);
+  for(const input of Object.values(inputs)){
+    for(const query of ['HAnzla','HAnzla ','HAnzla  ',' HAnzla ','HAnzla\u00a0']){
+      input.value=query; fire(input,'input');
+      assert.deepEqual(input.list.children.map(option=>option.textContent),['HAnzla Majid','MAJID HANZLA TRADER'],JSON.stringify(query));
+      assert.equal(input.list.hidden,false);
+      assert.equal(input.attrs['aria-expanded'],'true');
+      assert.equal(input.value,query,'preserve the typed name and spaces');
+    }
+    fire(input.list.children[0],'click');
+    assert.equal(input.value,'HAnzla Majid');
+    assert.equal(input.list.hidden,true);
+  }
+});
