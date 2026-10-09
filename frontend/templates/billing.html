@@ -568,6 +568,7 @@ function setTaxBreakdown(enabled){
     <input id="ie_search" type="search" autocomplete="off" placeholder="Item name or code" oninput="searchItemEdit()" style="width:100%;padding:12px;margin:6px 0;border:1px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text)">
     <div id="ie_results" style="max-height:200px;overflow:auto" aria-live="polite"></div>
     <div id="ie_vendor_info" style="font-size:.9em;color:var(--accent);margin:10px 0"></div>
+    <div id="ie_history_notice" role="status" hidden style="padding:10px 12px;margin:10px 0;border:1px solid #d97706;border-radius:8px;background:rgba(217,119,6,.1);color:var(--text);font-size:.9em"></div>
     <div style="margin-bottom:12px">
       <label style="font-size:.75em;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">Item Name</label>
       <input id="ie_name" type="text" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:var(--inp);color:var(--text);font-size:.92em;outline:none">
@@ -1636,7 +1637,7 @@ function toggleLineMenu(i, e){
   document.getElementById('lmenu_'+i).classList.toggle('open');
 }
 
-let _ieOriginal = null, _ieDraft = null, _ieOffers = [], _ieSearchId = 0, _ieTimer;
+let _ieOriginal = null, _ieDraft = null, _ieOffers = [], _ieSearchId = 0, _ieSelectionId = 0, _ieTimer;
 function openItemEdit(lineIdx){
   document.querySelectorAll('.line-menu.open').forEach(m=>m.classList.remove('open'));
   _ieOriginal = lines[lineIdx];
@@ -1658,6 +1659,17 @@ function fillItemEdit(){
   document.getElementById('ie_vendor_info').textContent = [l.vendor||'No vendor',
     l.vendor_code ? 'Code '+l.vendor_code : '', l.vendor_list_no ? 'List '+l.vendor_list_no : '',
     l.vendor_discount_pct != null ? 'Supplier discount '+l.vendor_discount_pct+'%' : ''].filter(Boolean).join(' · ');
+  const historyNotice=document.getElementById('ie_history_notice');
+  historyNotice.hidden=!l.historical;
+  historyNotice.textContent=l.historical?`Previous bill details${l.previous_invoice?' · '+l.previous_invoice:''}. Not in current vendor list — availability unverified. Check the saved vendor and price before applying.`:'';
+}
+function renderItemEditOffers(){
+  const firstHistorical=_ieOffers.findIndex(item=>item.historical);
+  document.getElementById('ie_results').innerHTML=_ieOffers.length?_ieOffers.map((item,i)=>{
+    const divider=i===firstHistorical?'<div class="dd-history-divider" role="separator" aria-label="Previously billed items">Previously billed items</div>':'';
+    const previous=item.historical?`<br><strong>Previous bill ${esc(item.previous_invoice||'')}</strong><br><span style="color:#b45309">Not in current vendor list — availability unverified</span>`:'';
+    return `${divider}<button type="button" onclick="selectItemEdit(${i})" style="display:block;width:100%;text-align:left;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin:5px 0"><strong>${esc(item.name)}</strong>${previous}<br>${esc(item.vendor||'No vendor')} · ${esc(item.code||'')}${item.vendor_list_no?' · List '+esc(item.vendor_list_no):''}<br>${item.historical?'Saved TP':'TP'}: ${Number(item.tp).toFixed(2)} · Supplier: ${item.vendor_discount_pct==null?'—':esc(item.vendor_discount_pct)+'%'} · Customer: ${esc(item.discount_pct)}%</button>`;
+  }).join(''):'No items found. Try a shorter name or item code.';
 }
 function searchItemEdit(){
   clearTimeout(_ieTimer);
@@ -1671,27 +1683,33 @@ function searchItemEdit(){
       const offers = await _fetchItems(q);
       if(requestId!==_ieSearchId || !_ieDraft) return;
       if(!Array.isArray(offers)) throw Error('Could not load items');
-      _ieOffers = offers;
-      box.innerHTML = offers.length ? offers.map((item,i)=>`<button type="button" onclick="selectItemEdit(${i})" style="display:block;width:100%;text-align:left;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);margin:5px 0"><strong>${esc(item.name)}</strong><br>${esc(item.vendor||'No vendor')} · ${esc(item.code||'')}${item.vendor_list_no?' · List '+esc(item.vendor_list_no):''}<br>TP: ${Number(item.tp).toFixed(2)} · Supplier: ${item.vendor_discount_pct==null?'—':esc(item.vendor_discount_pct)+'%'} · Customer: ${esc(item.discount_pct)}%</button>`).join('') : 'No items found. Try a shorter name or item code.';
+      _ieOffers = offers.filter(item=>!item.historical).concat(offers.filter(item=>item.historical));
+      renderItemEditOffers();
     }catch(e){ if(requestId===_ieSearchId) box.textContent='Could not load items. Type again to retry.'; }
   },200);
 }
-function selectItemEdit(index){
+async function selectItemEdit(index){
   const item = _ieOffers[index];
   if(!item || !_ieOriginal) return;
+  const original=_ieOriginal,searchId=_ieSearchId,selectionId=++_ieSelectionId;
+  if(item.historical){
+    const message=`${item.name}\nPrevious bill: ${item.previous_invoice||'Unknown'}\nSaved vendor: ${item.vendor||'No vendor'}\nSaved TP: Rs.${Number(item.tp).toFixed(2)}\n\nThis offer is not in the current vendor list. Availability and the saved price are unverified. Use these previous bill details?`;
+    if(!(await BMConfirm(message,'Use previous bill details?',{okText:'Use previous details'})))return;
+    if(original!==_ieOriginal||searchId!==_ieSearchId||selectionId!==_ieSelectionId||_ieOffers[index]!==item||!lines.includes(original))return;
+  }
   _ieDraft = {
     item_id:item.id,item_name:item.name,item_code:item.code,qty:_ieOriginal.qty,
     retail:Number(item.retail_price)||0,tp:Number(item.tp)||0,disc:Number(item.discount_pct)||0,
     bonus:_ieOriginal.bonus||'',supplierBonus:item.bonus_text||'',tax:Number(item.tax_pct)||0,rate_source:item.rate_source||'',
     vendor:item.vendor||'',vendor_code:item.vendor_code||'',vendor_name:item.vendor_name||'',
     vendor_list_no:item.vendor_list_no||'',vendor_discount_pct:item.vendor_discount_pct??null,
-    is_global:!!item.is_global,lineNet:0
+    is_global:!!item.is_global,historical:!!item.historical,previous_invoice:item.historical?item.previous_invoice||'':'',lineNet:0
   };
   fillItemEdit();
-  document.getElementById('ie_results').textContent='Offer selected. Review below and apply to the bill.';
+  document.getElementById('ie_results').textContent=item.historical?'Previous bill details selected. Review the saved vendor and price below before applying.':'Offer selected. Review below and apply to the bill.';
 }
 function closeItemEdit(){
-  clearTimeout(_ieTimer); ++_ieSearchId;
+  clearTimeout(_ieTimer); ++_ieSearchId; ++_ieSelectionId;
   _ieOriginal = _ieDraft = null; _ieOffers = [];
   document.getElementById('itemEditModal').classList.remove('open');
 }
