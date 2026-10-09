@@ -92,8 +92,9 @@ tr:hover td{background:var(--row-hover)}
 .modal{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
 .modal h2{color:var(--text);font-size:1.2em;margin-bottom:20px}
 .form-group{margin-bottom:16px}
-.vendor-options{max-height:180px;overflow-y:auto;overscroll-behavior:contain;margin-top:4px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text)}
-.vendor-options[hidden]{display:none}
+/* Reserve suggestion space even when empty/closed so filtering cannot re-center the modal. */
+.vendor-options{height:180px;min-height:180px;max-height:180px;scrollbar-gutter:stable;overflow-y:auto;overscroll-behavior:contain;margin-top:4px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text)}
+.vendor-options[hidden]{display:block;visibility:hidden;pointer-events:none}
 .vendor-option{display:block;width:100%;min-height:44px;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--card);color:var(--text);text-align:left;font:inherit;overflow-wrap:anywhere;cursor:pointer}
 .vendor-option:hover,.vendor-option[aria-selected=true]{background:var(--row-hover)}
 label{display:block;font-size:.82em;font-weight:600;color:var(--sub);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
@@ -1017,6 +1018,7 @@ const vendorPickers = ['f_vendor', 'importVendor'].map(id => {
   function render(){
     const matches = matchingSupplierNames(input.value);
     list.replaceChildren();
+    list.scrollTop = 0;
     active = -1;
     input.removeAttribute('aria-activedescendant');
     matches.forEach((name, index) => {
