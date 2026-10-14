@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>Item Catalog</title>
+<script>
+// Apply the saved appearance before painting, including shared-file entry points.
+try{
+  const savedTheme = localStorage.getItem('theme');
+  const initialTheme = ['light','dim','dark'].includes(savedTheme) ? savedTheme
+    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', initialTheme === 'light' ? '' : initialTheme);
+}catch(e){}
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
 :root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row:#f9f9f9;--row-hover:#f0f0ff}
@@ -133,6 +142,28 @@ input[type=number]{-moz-appearance:textfield}
   .btn-sm{padding:9px 14px;font-size:.82em}
   body{padding-top:80px}
 }
+
+/* Keep the import dialog inside the visible viewport, including the keyboard. */
+#importModal{inset:auto 0 auto 0;top:var(--import-top,0px);height:var(--import-height,100dvh);padding:12px;align-items:flex-start;overflow:hidden}
+#importModal .import-dialog{display:flex;flex-direction:column;max-width:460px;height:min(520px,100%);max-height:100%;padding:0;overflow:hidden;background:var(--card);color:var(--text)}
+#importModal h2{flex:none;margin:0;padding:16px 18px 12px;font-size:1.1em;border-bottom:1px solid var(--border)}
+.import-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 18px;scroll-padding:12px}
+.import-help{font-size:.8em;color:var(--sub);margin-bottom:12px;line-height:1.4}
+.import-help summary{cursor:pointer;font-weight:600}
+.import-help p{margin-top:6px}
+#importDropZone{border:2px dashed var(--border);border-radius:12px;padding:18px 12px;text-align:center;cursor:pointer;background:var(--inp)}
+.import-file-icon{font-size:1.8em;margin-bottom:4px}
+#importModal.has-file #importDropZone{padding:10px 12px}
+#importModal.has-file .import-file-icon{display:none}
+#importFileName{overflow-wrap:anywhere}
+#importModal .vendor-options{height:96px;min-height:96px;max-height:96px}
+#importModal .vendor-options[hidden]{display:none}
+#importModal #importVendorRow{margin-bottom:0}
+#importModal .modal-footer{flex:none;margin:0;padding:10px 18px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--card)}
+#importModal .modal-footer .btn{min-height:44px}
+#importModal input{font-size:16px}
+@media(min-width:601px){ #importModal{align-items:center}}
+
 </style>
 <link rel="stylesheet" href="/static/css/common.css?v=20261003-header">
 <link rel="stylesheet" href="/static/css/confirm-dialog.css?v=20261003">
@@ -279,24 +310,26 @@ input[type=number]{-moz-appearance:textfield}
 
 <!-- Import Modal -->
 <div class="overlay" id="importModal" onclick="closeImportOnBg(event)">
-  <div class="modal" style="max-width:460px">
-    <h2>⬆ Import Items from File</h2>
-    <p style="font-size:.85em;color:var(--sub);margin-bottom:{% if is_guest %}10{% else %}18{% endif %}px">A supplier list replaces that supplier’s previous list: matching item codes are updated, new items added, and missing items archived. Items with stock balances stay available. Saved invoices and purchases are preserved. Own-stock imports remain separate.</p>
+  <div class="modal import-dialog" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+    <h2 id="importTitle">⬆ Import Items from File</h2>
+    <div class="import-content">
+    <details class="import-help"><summary>How supplier imports work</summary><p>A supplier list replaces that supplier’s previous list: matching item codes are updated, new items added, and missing items archived. Items with stock balances stay available. Saved invoices and purchases are preserved. Own-stock imports remain separate.</p></details>
     {% if is_guest %}<div id="guestQuotaNote" style="font-size:.8em;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#92400e;font-weight:600"></div>{% endif %}
-    <div id="importDropZone" style="border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--inp)" onclick="document.getElementById('importFileInput').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
-      <div style="font-size:2.5em;margin-bottom:8px">📂</div>
+    <div id="importDropZone" onclick="document.getElementById('importFileInput').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
+      <div class="import-file-icon">📂</div>
       <div style="font-weight:700;color:var(--text);font-size:.95em">Click to choose file or drag &amp; drop</div>
       <div style="font-size:.8em;color:var(--sub);margin-top:4px">HTM / HTML offer-list or stock-list files</div>
       <div id="importFileName" style="margin-top:10px;font-size:.85em;color:var(--accent);font-weight:600"></div>
     </div>
     <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
-      <label>Vendor for these items</label>
+      <label for="importVendor">Vendor for these items</label>
       <input id="importVendor" autocomplete="off" placeholder="e.g. dosani" maxlength="50">
       <div style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
     </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
-    <div class="modal-footer" style="margin-top:16px">
+    </div>
+    <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeImportModal()">Cancel</button>
       <button class="btn" id="importBtn" onclick="doImport()" disabled style="opacity:.5">Import</button>
     </div>
@@ -384,7 +417,7 @@ function _cacheClear(){
 }
 const _themes = ['light','dim','dark'];
 const _themeIcons = {light:'☀️',dim:'🌤️',dark:'🌙'};
-let _theme = localStorage.getItem('theme') || 'light';
+let _theme = document.documentElement.getAttribute('data-theme') || 'light';
 function _applyItemsTheme(t){
   document.documentElement.setAttribute('data-theme', t === 'light' ? '' : t);
   const btn=document.querySelector('.theme-btn');
@@ -393,6 +426,9 @@ function _applyItemsTheme(t){
   _theme=t;
 }
 _applyItemsTheme(_theme);
+window.addEventListener('storage', event=>{
+  if(event.key === 'theme' && _themes.includes(event.newValue)) _applyItemsTheme(event.newValue);
+});
 function toggleTheme(){ _applyItemsTheme(_themes[(_themes.indexOf(_theme)+1)%_themes.length]); }
 
 let allItems = [];
@@ -796,6 +832,30 @@ async function doBulkDelete(scope){
 // ── Import Modal ─────────────────────────────────────────────────────────────
 let _importFile = null;
 
+// VisualViewport follows Android/iOS keyboards even when layout height stays fixed.
+function syncImportViewport(){
+  const overlay = document.getElementById('importModal');
+  if(!overlay.classList.contains('open')) return;
+  const viewport = window.visualViewport;
+  overlay.style.setProperty('--import-top', (viewport ? viewport.offsetTop : 0) + 'px');
+  overlay.style.setProperty('--import-height', (viewport ? viewport.height : window.innerHeight) + 'px');
+  if(document.activeElement === document.getElementById('importVendor')){
+    requestAnimationFrame(()=>{
+      const content = overlay.querySelector('.import-content');
+      const field = document.getElementById('importVendor').getBoundingClientRect();
+      const bounds = content.getBoundingClientRect();
+      if(field.bottom > bounds.bottom - 12) content.scrollTop += field.bottom - bounds.bottom + 12;
+      else if(field.top < bounds.top + 12) content.scrollTop -= bounds.top + 12 - field.top;
+    });
+  }
+}
+window.addEventListener('resize', syncImportViewport);
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', syncImportViewport);
+  window.visualViewport.addEventListener('scroll', syncImportViewport);
+}
+document.getElementById('importVendor').addEventListener('focus', syncImportViewport);
+
 // Vendor = first word of the filename (e.g. "dosani OfferList.html" → "dosani")
 function _vendorFromFilename(fn){
   return (fn || '').replace(/\.[^.]+$/,'').trim().split(/\s+/)[0].slice(0,50);
@@ -827,12 +887,18 @@ function openImportModal(){
   } else {
     btn.disabled = true; btn.style.opacity = '.5';
   }
-  document.getElementById('importModal').classList.add('open');
+  const overlay = document.getElementById('importModal');
+  overlay.classList.remove('has-file');
+  overlay.classList.add('open');
+  syncImportViewport();
+  overlay.querySelector('.import-content').scrollTop = 0;
 }
 // Closing the modal (Cancel / background click) discards a pending
 // WhatsApp-shared file — it must not reappear on the next Items page load.
 function closeImportModal(){
-  document.getElementById('importModal').classList.remove('open');
+  const overlay = document.getElementById('importModal');
+  if(overlay.contains(document.activeElement)) document.activeElement.blur();
+  overlay.classList.remove('open');
   if(window.ShareStore) ShareStore.clearPendingSharedFile();
 }
 function closeImportOnBg(e){ if(e.target === document.getElementById('importModal')) closeImportModal(); }
@@ -846,6 +912,7 @@ function importFileChosen(input){
 // so vendor inference and validation behave identically for all three.
 function prepareImportFile(file){
   _importFile = file || null;
+  document.getElementById('importModal').classList.toggle('has-file', !!_importFile);
   document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
   _setImportVendor(_importFile ? _importFile.name : '');
   const btn = document.getElementById('importBtn');
