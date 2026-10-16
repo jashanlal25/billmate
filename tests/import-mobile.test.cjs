@@ -6,14 +6,14 @@ const html=fs.readFileSync('frontend/templates/items.html','utf8');
 test('import viewport follows keyboard height and pans the vendor inside the scroll area',()=>{
   const props={};const content={scrollTop:0,getBoundingClientRect:()=>({top:60,bottom:300})};
   const field={getBoundingClientRect:()=>({top:320,bottom:364})};
-  const overlay={classList:{contains:()=>true},style:{setProperty:(k,v)=>props[k]=v},querySelector:()=>content};
-  const ctx={window:{visualViewport:{height:400,offsetTop:24}},requestAnimationFrame:fn=>fn(),document:{activeElement:field,getElementById:id=>id==='importModal'?overlay:field}};
+  const overlay={classList:{contains:()=>true,toggle:(name,on)=>props[name]=on},style:{setProperty:(k,v)=>props[k]=v},querySelector:()=>content};
+  const ctx={window:{visualViewport:{height:400,offsetTop:24}},requestAnimationFrame:fn=>fn(),document:{activeElement:field,getElementById:id=>id==='importModal'?overlay:id==='importVendorRow'?{contains:el=>el===field}:field}};
   vm.createContext(ctx);
   vm.runInContext(html.slice(html.indexOf('function syncImportViewport(){'),html.indexOf("window.addEventListener('resize', syncImportViewport)")),ctx);
   ctx.syncImportViewport();
-  assert.equal(props['--import-height'],'400px');assert.equal(props['--import-top'],'24px');assert.equal(content.scrollTop,76);
+  assert.equal(props['--import-height'],'400px');assert.equal(props['--import-top'],'24px');assert.equal(content.scrollTop,228);
   ctx.document.activeElement=null;ctx.window.visualViewport={height:800,offsetTop:0};ctx.syncImportViewport();
-  assert.equal(props['--import-height'],'800px');assert.equal(content.scrollTop,76);
+  assert.equal(props['vendor-editing'],false);assert.equal(props['--import-height'],'800px');assert.equal(content.scrollTop,228);
 });
 test('initial appearance honours saved dark/light/dim and otherwise uses device dark mode',()=>{
   const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];

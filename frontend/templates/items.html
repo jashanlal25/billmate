@@ -162,6 +162,14 @@ input[type=number]{-moz-appearance:textfield}
 #importModal .modal-footer{flex:none;margin:0;padding:10px 18px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--card)}
 #importModal .modal-footer .btn{min-height:44px}
 #importModal input{font-size:16px}
+@media(max-width:600px){
+  #importModal.vendor-editing .import-help{display:none}
+  #importModal.vendor-editing #importDropZone{padding:6px 10px}
+  #importModal.vendor-editing #importDropZone > div:not(#importFileName){display:none}
+  #importModal.vendor-editing #importFileName{margin-top:0 !important}
+  #importModal.vendor-editing #importVendorRow{margin-top:8px !important}
+  #importModal.vendor-editing .import-content{padding-bottom:140px}
+}
 @media(min-width:601px){ #importModal{align-items:center}}
 
 </style>
@@ -839,13 +847,16 @@ function syncImportViewport(){
   const viewport = window.visualViewport;
   overlay.style.setProperty('--import-top', (viewport ? viewport.offsetTop : 0) + 'px');
   overlay.style.setProperty('--import-height', (viewport ? viewport.height : window.innerHeight) + 'px');
-  if(document.activeElement === document.getElementById('importVendor')){
+  const editing = document.getElementById('importVendorRow').contains(document.activeElement);
+  overlay.classList.toggle('vendor-editing', editing);
+  if(editing){
     requestAnimationFrame(()=>{
       const content = overlay.querySelector('.import-content');
       const field = document.getElementById('importVendor').getBoundingClientRect();
       const bounds = content.getBoundingClientRect();
-      if(field.bottom > bounds.bottom - 12) content.scrollTop += field.bottom - bounds.bottom + 12;
-      else if(field.top < bounds.top + 12) content.scrollTop -= bounds.top + 12 - field.top;
+      // Lift the field near the top, reserving space below for vendor names.
+      // Keep its label visible as well as the suggestion list.
+      content.scrollTop += field.top - bounds.top - 32;
     });
   }
 }
@@ -855,6 +866,7 @@ if(window.visualViewport){
   window.visualViewport.addEventListener('scroll', syncImportViewport);
 }
 document.getElementById('importVendor').addEventListener('focus', syncImportViewport);
+document.getElementById('importVendorRow').addEventListener('focusout', ()=>requestAnimationFrame(syncImportViewport));
 
 // Vendor = first word of the filename (e.g. "dosani OfferList.html" → "dosani")
 function _vendorFromFilename(fn){
@@ -1104,6 +1116,7 @@ const vendorPickers = ['f_vendor', 'importVendor'].map(id => {
     });
     list.hidden = !matches.length;
     input.setAttribute('aria-expanded', String(matches.length > 0));
+    if(id === 'importVendor' && typeof syncImportViewport === 'function') syncImportViewport();
   }
   input.addEventListener('focus', render);
   input.addEventListener('click', render);
