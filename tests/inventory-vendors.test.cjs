@@ -29,6 +29,8 @@ test('summary loads without fetching items; vendor selection fetches only that v
   assert.match(elements.vendorPanel.innerHTML,/JANGDA/);
   assert.equal(run('selectedVendors.has("DOSANI")'),true);
   run('selectedVendors.clear()');calls.length=0;await context.loadItems('missing');
+  assert.equal(calls.at(-1),'/api/items?q=missing');
+  elements.searchBox.value='';calls.length=0;await context.loadItems('');
   assert.deepEqual(calls,['/api/items/count']);
 });
 test('late item response cannot overwrite cleared selection',async()=>{
@@ -40,4 +42,22 @@ test('late item response cannot overwrite cleared selection',async()=>{
   run('selectedVendors.clear()');await context.loadItems('');
   finish({ok:true,json:async()=>[{id:1,name:'STALE',vendor:'DOSANI'}]});await pending;
   assert.match(elements.itemsBody.innerHTML,/Select a vendor/);assert.doesNotMatch(elements.itemsBody.innerHTML,/STALE/);
+});
+
+test('search without a vendor renders matches from multiple vendors and clear hides them',async()=>{
+  const {context,elements,calls}=setup();
+  const original=context.fetch;
+  context.fetch=async url=>{
+    if(url==='/api/items/count') return original(url);
+    calls.push(url);
+    return {ok:true,json:async()=>['DOSANI','JANGDA'].map((vendor,id)=>({id,name:'Risek 20',vendor,qty:0,tp:10,retail_price:12}))};
+  };
+  elements.searchBox={value:'risek'};
+  await context.loadItems('risek');
+  assert.equal(calls.at(-1),'/api/items?q=risek');
+  assert.match(elements.itemsBody.innerHTML,/DOSANI/);
+  assert.match(elements.itemsBody.innerHTML,/JANGDA/);
+  elements.searchBox.value='';calls.length=0;await context.loadItems('');
+  assert.deepEqual(calls,['/api/items/count']);
+  assert.doesNotMatch(elements.itemsBody.innerHTML,/Risek/);
 });

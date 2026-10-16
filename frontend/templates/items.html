@@ -521,8 +521,8 @@ async function loadItems(q=''){
     }
     vendorSummary = [...summary].map(([name,count])=>({name,count})).sort((a,b)=>a.name.localeCompare(b.name));
     populateVendorFilter();
-    if(!selectedVendors.size){ render([]); return; }
-    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="8"><div class="empty">Loading selected vendor items…</div></td></tr>';
+    if(!selectedVendors.size && !q){ render([]); return; }
+    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="8"><div class="empty">Loading matching items…</div></td></tr>';
     const params = new URLSearchParams({q});
     selectedVendors.forEach(v=>params.append('vendor',v));
     const r=await fetch('/api/items?'+params);
@@ -542,9 +542,10 @@ function render(items){
   const countEl = document.getElementById('itemCount');
   countEl.textContent = `${catalogCounts.private} private · ${catalogCounts.global} global`;
   if(!items.length){
-    const message = selectedVendors.size
-      ? 'No items match the selected vendors and search.'
-      : 'Select a vendor to view its items.';
+    const searching = (document.getElementById('searchBox').value || '').trim();
+    const message = selectedVendors.size || searching
+      ? 'No items match your search or selected vendors.'
+      : 'Select a vendor or search to view items.';
     body.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">💊</div>${message}</div></td></tr>`;
     return;
   }
@@ -575,7 +576,7 @@ function render(items){
   }).join('');
 }
 
-let selectedVendors = new Set();  // empty = keep items unloaded
+let selectedVendors = new Set();  // empty = search all vendors; no search = keep items unloaded
 
 let _searchTimer=0;
 function search(value){
@@ -587,7 +588,7 @@ function search(value){
 // Combined filter: item name search AND any of the ticked vendors
 function applyFilters(){
   const q = (document.getElementById('searchBox').value || '').trim().toLowerCase();
-  let filtered = selectedVendors.size ? allItems : [];
+  let filtered = selectedVendors.size || q ? allItems : [];
   if(selectedVendors.size) filtered = filtered.filter(i => selectedVendors.has((i.vendor || '').trim()));
   if(q) filtered = filtered.filter(i => (i.name+' '+(i.code||'')+' '+(i.vendor_code||'')).toLowerCase().includes(q));
   render(filtered);
