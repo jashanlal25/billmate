@@ -156,7 +156,8 @@ input[type=number]{-moz-appearance:textfield}
 #importModal.has-file #importDropZone{padding:10px 12px}
 #importModal.has-file .import-file-icon{display:none}
 #importFileName{overflow-wrap:anywhere}
-#importModal .vendor-options{height:96px;min-height:96px;max-height:96px}
+#importModal .vendor-options{height:var(--import-vendors-height,192px);min-height:0;max-height:var(--import-vendors-height,192px)}
+#importModal.vendor-editing .import-vendor-hint{display:none}
 #importModal .vendor-options[hidden]{display:none}
 #importModal #importVendorRow{margin-bottom:0}
 #importModal .modal-footer{flex:none;margin:0;padding:10px 18px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--card)}
@@ -333,7 +334,7 @@ input[type=number]{-moz-appearance:textfield}
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
       <label for="importVendor">Vendor for these items</label>
       <input id="importVendor" autocomplete="off" placeholder="e.g. dosani" maxlength="50">
-      <div style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
+      <div class="import-vendor-hint" style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
     </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
     </div>
@@ -857,6 +858,12 @@ function syncImportViewport(){
       // Lift the field near the top, reserving space below for vendor names.
       // Keep its label visible as well as the suggestion list.
       content.scrollTop += field.top - bounds.top - 32;
+      const list = document.getElementById('importVendor-options');
+      if(list && !list.hidden){
+        // Use the space down to the fixed footer, instead of limiting names to two rows.
+        const available = Math.max(44, Math.floor(bounds.bottom - list.getBoundingClientRect().top - 8));
+        overlay.style.setProperty('--import-vendors-height', available + 'px');
+      }
     });
   }
 }
