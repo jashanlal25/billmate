@@ -12,7 +12,7 @@ from models import db, Invoice, InvoiceLine, Purchase, PurchaseLine
 def read_profit_bills(user_id, end):
     purchase_columns = {column['name'] for column in sa.inspect(db.engine).get_columns('purchases')}
     has_links = 'source_invoice_id' in purchase_columns
-    source = Purchase.source_invoice_id if has_links else sa.literal(None)
+    source = Purchase.source_invoice_id if has_links else sa.cast(sa.null(), sa.Integer)
     valid_sources = sa.select(Invoice.id).where(
         Invoice.user_id == user_id, Invoice.status.in_(('posted', 'finalised')),
         Invoice.invoice_date <= end)
