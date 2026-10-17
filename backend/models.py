@@ -551,3 +551,34 @@ class SupplierPayment(db.Model):
             'notes': self.notes or '',
             'created_at': self.created_at.isoformat(),
         }
+
+
+class POSPurchase(db.Model):
+    """Historical supplier bills; stock and balances arrive via the POS snapshot.
+
+    Kept separate from fresh receipts to avoid adding historical stock or debt
+    twice. source_key is stable across repeated ZIPs; details retain POS values.
+    """
+    __tablename__ = 'pos_purchase_history'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    source_key = db.Column(db.String(64), nullable=False)
+    invoice_number = db.Column(db.String(40), nullable=False)
+    purchase_date = db.Column(db.Date, nullable=False, index=True)
+    supplier_code = db.Column(db.String(40), nullable=False)
+    supplier_name = db.Column(db.String(150), nullable=False)
+    total_cost = db.Column(db.Numeric(14, 2), nullable=False)
+    cancelled = db.Column(db.Boolean, nullable=False, default=False)
+    details = db.Column(db.JSON, nullable=False)
+    digest = db.Column(db.String(64), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'source_key', name='uq_pos_purchase_user_source'),)
+
+    def to_dict(self):
+        lines = self.details or []
+        return dict(id=self.id, purchase_number=self.invoice_number,
+            purchase_date=self.purchase_date.isoformat(), supplier_name=self.supplier_name,
+            supplier_id=None, supplier_code=self.supplier_code, total_cost=float(self.total_cost),
+            source='pos', read_only=True, cancelled=self.cancelled, lines=lines,
+            line_count=len(lines), adjustment=round(float(self.total_cost)-sum(float(l['line_total']) for l in lines),2),
+            source_invoice_id=None, source_invoice_number='', source_invoice_vendor='')
