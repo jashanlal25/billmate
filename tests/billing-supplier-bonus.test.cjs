@@ -31,3 +31,20 @@ test('supplier message never substitutes customer bonus for a missing supplier b
  assert.ok(!msg.includes('CUSTOMER ONLY'));
  assert.match(msg,/\*Bonus\*: \n/);
 });
+const restore=html.slice(html.indexOf('async function restoreSupplierBonuses('),html.indexOf('async function importDemandSelection('));
+for(const accept of [true,false])test(`old invoice repair ${accept?'removes confirmed':'retains declined'} matching supplier bonus`,async()=>{
+ const line={item_id:363,vendor:'JANGDA',bonus:'10PCS 10%'};
+ const different={item_id:364,vendor:'JANGDA',bonus:'CUSTOMER BONUS'};
+ const context={lines:[line,different],async _fetchItems(){return [{id:363,vendor:'JANGDA',bonus_text:'10PCS 10%'},{id:364,vendor:'JANGDA',bonus_text:'SUPPLIER ONLY'}];},async BMConfirm(){return accept;},renderLines(){}};
+ vm.createContext(context);vm.runInContext(restore,context);
+ await context.restoreSupplierBonuses(true);
+ assert.equal(line.bonus,accept?'':'10PCS 10%');
+ assert.equal(line.supplierBonus,'10PCS 10%');
+ assert.equal(different.bonus,'CUSTOMER BONUS');
+});
+test('new invoice restore never removes an entered customer bonus',async()=>{
+ const line={item_id:363,vendor:'JANGDA',bonus:'10PCS 10%'};
+ const context={lines:[line],async _fetchItems(){return [{id:363,vendor:'JANGDA',bonus_text:'10PCS 10%'}];},BMConfirm(){throw Error('unexpected prompt');},renderLines(){}};
+ vm.createContext(context);vm.runInContext(restore,context);
+ await context.restoreSupplierBonuses();assert.equal(line.bonus,'10PCS 10%');
+});
