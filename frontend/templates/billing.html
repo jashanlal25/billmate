@@ -1454,6 +1454,7 @@ function renderLines(){
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
         ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
+        ${l.supplierBonusCorrection && l.bonus===l.supplierBonusCorrection?`<button type="button" onclick="correctOldInvoiceBonus(${i})" style="margin-top:6px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font-size:.75em">Remove supplier bonus from customer bill</button>`:''}
       </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
@@ -1534,6 +1535,15 @@ function updateTax(i,val){
   lines[i].tax=Math.max(0,parseFloat(val)||0);
   renderLines();
   recalc();
+}
+
+function correctOldInvoiceBonus(i){
+  const line=lines[i];
+  if(!line || !line.supplierBonusCorrection || line.bonus!==line.supplierBonusCorrection)return;
+  line.bonus='';
+  delete line.supplierBonusCorrection;
+  renderLines();
+  toast('Customer bonus removed — save the invoice to keep this correction');
 }
 
 function updateBonus(i,val){
@@ -1951,16 +1961,8 @@ async function restoreSupplierBonuses(repairOldInvoice=false){
     if(repairOldInvoice){
       const matches=pending.filter(line=>lines.includes(line) && line.bonus && line.supplierBonus &&
         String(line.bonus).trim()===String(line.supplierBonus).trim());
-      if(matches.length){
-        const originals=matches.map(line=>line.bonus);
-        const remove=await BMConfirm(
-          `${matches.length} saved item(s) have customer bonus text identical to the supplier bonus. Remove this text from the customer bill? Supplier bonuses stay available for supplier orders. Save the invoice afterwards to keep the correction.`,
-          'Correct old invoice bonuses?');
-        if(remove){
-          matches.forEach((line,i)=>{if(lines.includes(line) && line.bonus===originals[i])line.bonus='';});
-          changed=true;
-        }
-      }
+      matches.forEach(line=>{line.supplierBonusCorrection=line.bonus;});
+      if(matches.length)changed=true;
     }
     if(changed)renderLines();
   }catch(e){ /* Billing remains usable if Inventory is temporarily unavailable. */ }
