@@ -2278,7 +2278,9 @@ function _vendorPhone(vendor){
 }
 function _vendorReorderUrl(group, items){
   const vendor = items[0].vendor;
-  const msg = SupplierOrder.format(settings.shop_name||'', items);
+  // Supplier messages use a separate copy; bonus_text on the invoice belongs to the customer.
+  const supplierItems = items.map(l=>({...l,bonus_text:l.supplierBonus||'',bonus:''}));
+  const msg = SupplierOrder.format(settings.shop_name||'', supplierItems);
   const ownStock = vendor.trim().toLowerCase()==='stock' && !items[0].vendor_list_no;
   const phone = ownStock ? '' : _vendorPhone(vendor);
   return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
@@ -2318,7 +2320,7 @@ async function openVendorMessage(inv){
     try{
       const needsCatalog = target.lines.some(line =>
         !line.vendor || !line.vendor_code || !line.vendor_name || !line.vendor_list_no ||
-        line.vendor_discount_pct == null || (!line.bonus_text && !line.supplierBonus)
+        line.vendor_discount_pct == null || !line.supplierBonus
       );
       if(needsCatalog){
         const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
@@ -2356,7 +2358,7 @@ async function openVendorMessage(inv){
             vendor_name: !line.vendor_name,
             vendor_list_no: !line.vendor_list_no,
             vendor_discount_pct: line.vendor_discount_pct == null,
-            bonus: !line.bonus_text && !line.supplierBonus
+            bonus: !line.supplierBonus
           };
           if(!Object.values(missingBefore).some(Boolean)) return;
 
@@ -2374,7 +2376,7 @@ async function openVendorMessage(inv){
           if(missingBefore.vendor_name && (item.vendor_name || item.name)) line.vendor_name=item.vendor_name || item.name;
           if(missingBefore.vendor_list_no && item.vendor_list_no) line.vendor_list_no=item.vendor_list_no;
           if(missingBefore.vendor_discount_pct && item.vendor_discount_pct != null) line.vendor_discount_pct=item.vendor_discount_pct;
-          if(missingBefore.bonus && item.bonus_text) line.bonus_text=item.bonus_text;
+          if(missingBefore.bonus && item.bonus_text) line.supplierBonus=item.bonus_text;
         });
       }
     }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
