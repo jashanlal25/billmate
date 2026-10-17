@@ -1454,6 +1454,7 @@ function renderLines(){
         ${l.rate_source?`<div style="font-size:.7em;color:#888">by ${esc(l.rate_source)}</div>`:''}
         ${l.vendor?`<div style="font-size:.7em;color:#6366f1;font-weight:600">🏷 ${esc(l.vendor)}${l.vendor_discount_pct!=null&&Number.isFinite(Number(l.vendor_discount_pct))?` · Supplier offer ${esc(l.vendor_discount_pct)}%`:''}</div>`:''}
         ${l.supplierBonus?`<div style="font-size:.72em;color:#0f766e;font-weight:600">Supplier bonus: ${esc(l.supplierBonus)}</div>`:''}
+        ${l.supplierBonusCorrection && l.bonus===l.supplierBonusCorrection?`<button type="button" onclick="correctOldInvoiceBonus(${i})" style="margin-top:6px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);font-size:.75em">Remove supplier bonus from customer bill</button>`:''}
       </td>
       <td class="num">
         <span class="mob-lbl">Qty</span>
@@ -1534,6 +1535,15 @@ function updateTax(i,val){
   lines[i].tax=Math.max(0,parseFloat(val)||0);
   renderLines();
   recalc();
+}
+
+function correctOldInvoiceBonus(i){
+  const line=lines[i];
+  if(!line || !line.supplierBonusCorrection || line.bonus!==line.supplierBonusCorrection)return;
+  line.bonus='';
+  delete line.supplierBonusCorrection;
+  renderLines();
+  toast('Customer bonus removed — save the invoice to keep this correction');
 }
 
 function updateBonus(i,val){
@@ -1933,7 +1943,7 @@ async function restoreAutoDraft(){
   }catch(e){ /* ignore */ }
 }
 // Supplier terms are reference information only; invoice bonus_text is the customer's bonus.
-async function restoreSupplierBonuses(){
+async function restoreSupplierBonuses(repairOldInvoice=false){
   const pending=lines.filter(l=>l.item_id!=null && !l.supplierBonus);
   if(!pending.length)return;
   try{
@@ -1947,6 +1957,12 @@ async function restoreSupplierBonuses(){
         line.supplierBonus=item.bonus_text;
         changed=true;
       }
+    }
+    if(repairOldInvoice){
+      const matches=pending.filter(line=>lines.includes(line) && line.bonus && line.supplierBonus &&
+        String(line.bonus).trim()===String(line.supplierBonus).trim());
+      matches.forEach(line=>{line.supplierBonusCorrection=line.bonus;});
+      if(matches.length)changed=true;
     }
     if(changed)renderLines();
   }catch(e){ /* Billing remains usable if Inventory is temporarily unavailable. */ }
@@ -2278,7 +2294,9 @@ function _vendorPhone(vendor){
 }
 function _vendorReorderUrl(group, items){
   const vendor = items[0].vendor;
-  const msg = SupplierOrder.format(settings.shop_name||'', items);
+  // Supplier messages use a separate copy; bonus_text on the invoice belongs to the customer.
+  const supplierItems = items.map(l=>({...l,bonus_text:l.supplierBonus||'',bonus:''}));
+  const msg = SupplierOrder.format(settings.shop_name||'', supplierItems);
   const ownStock = vendor.trim().toLowerCase()==='stock' && !items[0].vendor_list_no;
   const phone = ownStock ? '' : _vendorPhone(vendor);
   return (phone ? `https://wa.me/${phone}?text=` : 'https://wa.me/?text=') + encodeURIComponent(msg);
@@ -2318,7 +2336,7 @@ async function openVendorMessage(inv){
     try{
       const needsCatalog = target.lines.some(line =>
         !line.vendor || !line.vendor_code || !line.vendor_name || !line.vendor_list_no ||
-        line.vendor_discount_pct == null || (!line.bonus_text && !line.supplierBonus)
+        line.vendor_discount_pct == null || !line.supplierBonus
       );
       if(needsCatalog){
         const catalog = (await _fetchItems('')).filter(i=>!i.historical && i.id!=null);
@@ -2356,7 +2374,7 @@ async function openVendorMessage(inv){
             vendor_name: !line.vendor_name,
             vendor_list_no: !line.vendor_list_no,
             vendor_discount_pct: line.vendor_discount_pct == null,
-            bonus: !line.bonus_text && !line.supplierBonus
+            bonus: !line.supplierBonus
           };
           if(!Object.values(missingBefore).some(Boolean)) return;
 
@@ -2374,7 +2392,7 @@ async function openVendorMessage(inv){
           if(missingBefore.vendor_name && (item.vendor_name || item.name)) line.vendor_name=item.vendor_name || item.name;
           if(missingBefore.vendor_list_no && item.vendor_list_no) line.vendor_list_no=item.vendor_list_no;
           if(missingBefore.vendor_discount_pct && item.vendor_discount_pct != null) line.vendor_discount_pct=item.vendor_discount_pct;
-          if(missingBefore.bonus && item.bonus_text) line.bonus_text=item.bonus_text;
+          if(missingBefore.bonus && item.bonus_text) line.supplierBonus=item.bonus_text;
         });
       }
     }catch(e){ /* keep the invoice snapshot if catalog refresh fails */ }
@@ -2597,7 +2615,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
   savedInvoiceId=inv.id;
   renderLines();recalc();
-  restoreSupplierBonuses();
+  restoreSupplierBonuses(true);
   window.scrollTo({top:0,behavior:'smooth'});
   toast('Invoice loaded — make changes then save');
 }
@@ -3058,7 +3076,7 @@ function loadIntoBuilder(id){
   savedInvoiceId = inv.id;
   renderLines();
   recalc();
-  restoreSupplierBonuses();
+  restoreSupplierBonuses(true);
   const mismatch = invoiceEditMismatch(inv);
   if(mismatch)document.getElementById('savedInvInfo').textContent += ' · ' + mismatch;
   window.scrollTo({top:0, behavior:'smooth'});

@@ -86,6 +86,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft, WhatsAppPartyNumber
 db.init_app(app)
 migrate = Migrate(app, db)
+from pos_purchase_history import bp as pos_purchase_history_bp
+app.register_blueprint(pos_purchase_history_bp)
 
 # Public APK metadata + download proxy. Keeps GitHub/repository URLs out of the browser.
 ANDROID_APK_VERSION = '1.13'
@@ -1734,6 +1736,9 @@ def _backup_payload(uid):
             rows = query.filter(model.user_id == uid).all()
         data[name] = [_backup_row(row, {'user_id'}) for row in rows]
     settings = Settings.query.filter_by(user_id=uid).first()
+    from pos_purchase_history import table_exists
+    from models import POSPurchase
+    data['pos_purchase_history'] = [_backup_row(row, {'user_id'}) for row in POSPurchase.query.filter_by(user_id=uid).all()] if table_exists() else []
     data['settings'] = [_backup_row(settings, {'id', 'user_id', *_BACKUP_SECRET_FIELDS})] if settings else []
     return {
         'format': _BACKUP_FORMAT,
@@ -1773,6 +1778,8 @@ def _validate_backup(payload):
         return 'Backup is missing required data sections'
     if any(not isinstance(payload['data'].get(key), list) for key in _BACKUP_TABLES):
         return 'Backup data sections must be lists'
+    if 'pos_purchase_history' in payload['data'] and not isinstance(payload['data']['pos_purchase_history'], list):
+        return 'POS purchase history must be a list'
     return None
 
 
@@ -1821,6 +1828,10 @@ def backup_restore():
             return Decimal(str(value))
         return datetime.fromisoformat(value.replace('Z', '+00:00')) if isinstance(column.type, sa.DateTime) else date.fromisoformat(value)
 
+    # Create the optional history table before opening the restore transaction.
+    if payload['data'].get('pos_purchase_history'):
+        from models import POSPurchase
+        POSPurchase.__table__.create(bind=db.engine, checkfirst=True)
     try:
         data = payload['data']
         maps = {name: {} for name in ('categories', 'items', 'customers', 'suppliers', 'purchases', 'invoices')}
@@ -1895,6 +1906,9 @@ def backup_restore():
                                and settings_rows[0].get(c.name) is not None}
             for key, value in settings_values.items():
                 setattr(settings, key, value)
+        if data.get('pos_purchase_history'):
+            from pos_purchase_history import restore_history
+            created['pos_purchase_history'] = restore_history(uid, data['pos_purchase_history'])
         db.session.commit()
         return jsonify({'success': True, 'created': created})
     except Exception:

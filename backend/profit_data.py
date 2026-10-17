@@ -50,4 +50,5 @@ def read_profit_bills(user_id, end):
         PurchaseLine.qty, PurchaseLine.line_total
     ).where(PurchaseLine.purchase_id.in_(purchase_ids)).order_by(PurchaseLine.id)).mappings():
         purchases[row['purchase_id']].lines.append(SimpleNamespace(**row))
-    return list(purchases.values()), list(invoices.values()), has_links
+    from pos_purchase_history import profit_purchases
+    return [*purchases.values(), *profit_purchases(user_id, end)], list(invoices.values()), has_links

@@ -39,7 +39,20 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
             for line in invoice.lines:
                 demand[(invoice.id, item_key(line))] += max(number(line.qty), ZERO)
     events = []
+    pos_rates = {}
     for purchase in purchases:
+        if getattr(purchase, 'pos_history', False):
+            # Imported history is already reflected in the POS stock snapshot.
+            # Do not treat years of already-sold purchases as available FIFO lots.
+            rates = defaultdict(lambda: [ZERO, ZERO])
+            for line in purchase.lines:
+                qty = number(line.qty)
+                if qty > 0:
+                    rate = rates[item_key(line)]
+                    rate[0] += qty
+                    rate[1] += number(line.line_total)
+            events.append((purchase.purchase_date, -1, purchase.id, rates))
+            continue
         for line in purchase.lines:
             qty = number(line.qty)
             if qty <= 0:
@@ -62,9 +75,13 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
     events.sort(key=lambda e: e[:3])
     groups = {}
     summary = dict(sales=ZERO, matched_sales=ZERO, cost=ZERO, profit=ZERO,
-                   missing_qty=ZERO, qty=ZERO, purchases=sum(
+                   missing_qty=ZERO, qty=ZERO, pos_cost_qty=ZERO, purchases=sum(
                        (number(p.total_cost) for p in purchases if start <= p.purchase_date <= end), ZERO))
     for when, kind, _, bill in events:
+        if kind == -1:
+            for key, (qty, total) in bill.items():
+                pos_rates[key] = total / qty
+            continue
         if kind == 0:
             key, qty, unit_cost = bill
             stock[key].append([qty, unit_cost])
@@ -84,6 +101,11 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
                     lot[0] -= used
                     if lot[0] == 0:
                         lots.popleft()
+            pos_qty = ZERO
+            if remaining > 0 and item_key(line) in pos_rates:
+                pos_qty = remaining
+                cost += remaining * pos_rates[item_key(line)]
+                remaining = ZERO
             # Consume earlier sales even outside the selected reporting period.
             if not start <= when <= end:
                 continue
@@ -103,7 +125,7 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
             sales = net + qty * number(line.tax_pct) - discount
             matched_sales = sales * (qty - remaining) / qty
             values = dict(sales=sales, matched_sales=matched_sales, cost=cost,
-                          profit=matched_sales-cost, missing_qty=remaining, qty=qty)
+                          profit=matched_sales-cost, missing_qty=remaining, qty=qty, pos_cost_qty=pos_qty)
             if key not in groups:
                 groups[key] = dict(label=label, **{k: ZERO for k in values})
             for field, value in values.items():
@@ -111,7 +133,7 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
                 summary[field] += value
 
     def output(values):
-        result = {k: (float(v.quantize(Decimal('.001'), rounding=ROUND_HALF_UP)) if k in ('qty', 'missing_qty') else money(v)) if isinstance(v, Decimal) else v for k, v in values.items()}
+        result = {k: (float(v.quantize(Decimal('.001'), rounding=ROUND_HALF_UP)) if k in ('qty', 'missing_qty', 'pos_cost_qty') else money(v)) if isinstance(v, Decimal) else v for k, v in values.items()}
         result['complete'] = values['missing_qty'] == 0
         result['margin'] = money(values['profit'] / values['matched_sales'] * 100) if values['matched_sales'] else None
         return result
@@ -119,5 +141,5 @@ def build_profit_report(purchases, invoices, start, end, group_by='customer', qu
     rows = sorted(groups.values(), key=lambda row: row['label'].casefold())
     return dict(summary=output(summary), rows=[output(row) for row in rows],
                 group_by=group_by, start=start.isoformat(), end=end.isoformat(),
-                method='FIFO; invoice-linked purchases reserved for the source invoice',
+                method='Manual purchases: FIFO. POS history: latest dated purchase cost, including bonus and bill adjustments.',
                 purchase_scope='All purchases in the date range; search filters the sales breakdown only')
