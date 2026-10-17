@@ -1933,7 +1933,7 @@ async function restoreAutoDraft(){
   }catch(e){ /* ignore */ }
 }
 // Supplier terms are reference information only; invoice bonus_text is the customer's bonus.
-async function restoreSupplierBonuses(){
+async function restoreSupplierBonuses(repairOldInvoice=false){
   const pending=lines.filter(l=>l.item_id!=null && !l.supplierBonus);
   if(!pending.length)return;
   try{
@@ -1946,6 +1946,20 @@ async function restoreSupplierBonuses(){
       if(item && String(item.vendor||'').toLowerCase()===String(line.vendor||'').toLowerCase() && item.bonus_text){
         line.supplierBonus=item.bonus_text;
         changed=true;
+      }
+    }
+    if(repairOldInvoice){
+      const matches=pending.filter(line=>lines.includes(line) && line.bonus && line.supplierBonus &&
+        String(line.bonus).trim()===String(line.supplierBonus).trim());
+      if(matches.length){
+        const originals=matches.map(line=>line.bonus);
+        const remove=await BMConfirm(
+          `${matches.length} saved item(s) have customer bonus text identical to the supplier bonus. Remove this text from the customer bill? Supplier bonuses stay available for supplier orders. Save the invoice afterwards to keep the correction.`,
+          'Correct old invoice bonuses?');
+        if(remove){
+          matches.forEach((line,i)=>{if(lines.includes(line) && line.bonus===originals[i])line.bonus='';});
+          changed=true;
+        }
       }
     }
     if(changed)renderLines();
@@ -2599,7 +2613,7 @@ function _guestLoadIntoBuilder(id){
   document.getElementById('savedInvInfo').textContent='Editing · '+inv.invoice_number;
   savedInvoiceId=inv.id;
   renderLines();recalc();
-  restoreSupplierBonuses();
+  restoreSupplierBonuses(true);
   window.scrollTo({top:0,behavior:'smooth'});
   toast('Invoice loaded — make changes then save');
 }
@@ -3060,7 +3074,7 @@ function loadIntoBuilder(id){
   savedInvoiceId = inv.id;
   renderLines();
   recalc();
-  restoreSupplierBonuses();
+  restoreSupplierBonuses(true);
   const mismatch = invoiceEditMismatch(inv);
   if(mismatch)document.getElementById('savedInvInfo').textContent += ' · ' + mismatch;
   window.scrollTo({top:0, behavior:'smooth'});
