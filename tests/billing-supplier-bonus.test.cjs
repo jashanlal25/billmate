@@ -32,15 +32,27 @@ test('supplier message never substitutes customer bonus for a missing supplier b
  assert.match(msg,/\*Bonus\*: \n/);
 });
 const restore=html.slice(html.indexOf('async function restoreSupplierBonuses('),html.indexOf('async function importDemandSelection('));
-for(const accept of [true,false])test(`old invoice repair ${accept?'removes confirmed':'retains declined'} matching supplier bonus`,async()=>{
+const correct=html.slice(html.indexOf('function correctOldInvoiceBonus('),html.indexOf('function updateBonus('));
+test('old invoice opens without a popup and correction removes only its customer bonus',async()=>{
  const line={item_id:363,vendor:'JANGDA',bonus:'10PCS 10%'};
  const different={item_id:364,vendor:'JANGDA',bonus:'CUSTOMER BONUS'};
- const context={lines:[line,different],async _fetchItems(){return [{id:363,vendor:'JANGDA',bonus_text:'10PCS 10%'},{id:364,vendor:'JANGDA',bonus_text:'SUPPLIER ONLY'}];},async BMConfirm(){return accept;},renderLines(){}};
- vm.createContext(context);vm.runInContext(restore,context);
+ const context={lines:[line,different],async _fetchItems(){return [{id:363,vendor:'JANGDA',bonus_text:'10PCS 10%'},{id:364,vendor:'JANGDA',bonus_text:'SUPPLIER ONLY'}];},BMConfirm(){assert.fail('Must not block invoice opening');},renderLines(){},toast(){}};
+ vm.createContext(context);vm.runInContext(restore+'\n'+correct,context);
  await context.restoreSupplierBonuses(true);
- assert.equal(line.bonus,accept?'':'10PCS 10%');
+ assert.equal(line.bonus,'10PCS 10%');
+ assert.equal(line.supplierBonusCorrection,'10PCS 10%');
+ context.correctOldInvoiceBonus(0);
+ assert.equal(line.bonus,'');
  assert.equal(line.supplierBonus,'10PCS 10%');
  assert.equal(different.bonus,'CUSTOMER BONUS');
+ context.correctOldInvoiceBonus(1);
+ assert.equal(different.bonus,'CUSTOMER BONUS');
+});
+test('correction cannot remove a customer bonus edited after supplier lookup',()=>{
+ const line={bonus:'INTENTIONAL BONUS',supplierBonusCorrection:'10PCS 10%'};
+ const context={lines:[line],renderLines(){},toast(){}};
+ vm.createContext(context);vm.runInContext(correct,context);
+ context.correctOldInvoiceBonus(0);assert.equal(line.bonus,'INTENTIONAL BONUS');
 });
 test('new invoice restore never removes an entered customer bonus',async()=>{
  const line={item_id:363,vendor:'JANGDA',bonus:'10PCS 10%'};
