@@ -1914,6 +1914,53 @@ def backup_page():
 def purchase_page():
     return render_template('purchase.html')
 
+@app.route('/profit')
+def profit_page():
+    return render_template('profit.html')
+
+
+@app.route('/api/profit')
+def profit_report_api():
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered accounts only'}), 403
+    from zoneinfo import ZoneInfo
+    from sqlalchemy.orm import selectinload
+    from profit_report import build_profit_report
+    today = datetime.now(ZoneInfo('Asia/Karachi')).date()
+    try:
+        start = date.fromisoformat(request.args.get('start') or today.replace(day=1).isoformat())
+        end = date.fromisoformat(request.args.get('end') or today.isoformat())
+    except ValueError:
+        return jsonify({'error': 'Use valid dates in YYYY-MM-DD format'}), 400
+    if start > end:
+        return jsonify({'error': 'Start date must be before or equal to end date'}), 400
+    group_by = request.args.get('group_by', 'customer')
+    if group_by not in ('customer', 'item', 'day', 'month'):
+        return jsonify({'error': 'Invalid profit breakdown'}), 400
+    # Future source bills must reserve their linked stock too, so extending
+    # the date range cannot change FIFO costs already reported for earlier sales.
+    linked_source_ids = sa.select(Purchase.source_invoice_id).where(
+        Purchase.user_id == uid, Purchase.purchase_date <= end,
+        Purchase.source_invoice_id.isnot(None))
+    invoices = Invoice.query.options(selectinload(Invoice.lines)).filter(
+        Invoice.user_id == uid, Invoice.status.in_(['posted', 'finalised']),
+        sa.or_(Invoice.invoice_date <= end, Invoice.id.in_(linked_source_ids))
+    ).order_by(Invoice.invoice_date, Invoice.id).all()
+    # Include purchases entered after a sale when explicitly linked to that bill.
+    source_ids = sa.select(Invoice.id).where(
+        Invoice.user_id == uid, Invoice.status.in_(['posted', 'finalised']), Invoice.invoice_date <= end)
+    purchases = Purchase.query.options(selectinload(Purchase.lines)).filter(
+        Purchase.user_id == uid,
+        sa.or_(Purchase.purchase_date <= end, Purchase.source_invoice_id.in_(source_ids))
+    ).order_by(Purchase.purchase_date, Purchase.id).all()
+    report = build_profit_report(purchases, invoices, start, end, group_by,
+                                 request.args.get('q', '').strip()[:200])
+    response = jsonify(report)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/demand-search')
 def demand_search_page():
     return render_template('demand_search.html', is_guest=bool(session.get('is_guest')))
