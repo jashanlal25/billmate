@@ -41,7 +41,7 @@
       byId('profitSummary').innerHTML=cards.map(([label,value,note],i)=>`<div class="profit-stat"><small>${label}</small><strong class="${i===3?(value<0?'profit-negative':'profit-positive'):''}">${currency(value)}</strong><small>${esc(note)}</small></div>`).join('');
       byId('profitSummary').hidden=false;
       if(!s.complete) {
-        byId('profitWarning').textContent=`Purchase costs are missing for ${s.missing_qty} sold units. Rs. ${(s.sales-s.matched_sales).toFixed(2)} of sales is uncosted. Known gross profit includes only quantities with a matched purchase. Enter the purchase with the correct date, or create it from its sales invoice, then refresh.`;
+        byId('profitWarning').textContent=`Purchase costs are missing for ${s.missing_qty} sold units. Rs. ${(s.sales-s.matched_sales).toFixed(2)} of sales is uncosted. Known gross profit includes only quantities with a matched purchase. Enter the purchase with the correct date${data.purchase_links_available===false?'':', or create it from its sales invoice'}, then refresh.`;
         byId('profitWarning').hidden=false;
       }
       byId('profitTitle').textContent=labels[data.group_by]+' wise profit';

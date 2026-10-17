@@ -44,6 +44,34 @@ class ProfitAPITest(unittest.TestCase):
         with self.client.session_transaction() as s:s['is_guest']=True
         self.assertEqual(self.get_report().status_code,403)
 
+    def test_later_linked_purchase_is_projected_and_costed(self):
+        p=db.session.get(Purchase,1)
+        p.purchase_date=date(2026,11,1)
+        p.source_invoice_id=1
+        db.session.commit()
+        response=self.get_report()
+        self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+        self.assertEqual(response.json['summary']['profit'],70)
+        self.assertEqual(response.json['summary']['purchases'],0)
+        self.assertTrue(response.json['purchase_links_available'])
+
+    def test_legacy_database_without_optional_purchase_links(self):
+        # Reproduce the deployed database, rather than db.create_all's latest schema.
+        db.session.remove()
+        db.session.execute(db.text('DROP INDEX ix_purchases_source_invoice_id'))
+        for column in ('source_invoice_id', 'source_invoice_number', 'source_invoice_vendor'):
+            db.session.execute(db.text('ALTER TABLE purchases DROP COLUMN '+column))
+        db.session.commit()
+        for group in ('customer', 'item', 'day', 'month'):
+            response=self.get_report('&group_by='+group)
+            self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+            self.assertEqual(response.json['summary']['profit'],70)
+            self.assertFalse(response.json['purchase_links_available'])
+        # Reporting must not migrate or otherwise modify a shared database.
+        import sqlalchemy as sa
+        columns={c['name'] for c in sa.inspect(db.engine).get_columns('purchases')}
+        self.assertNotIn('source_invoice_id',columns)
+
     def test_purchase_edit_delete_recalculates_and_groups(self):
         p=db.session.get(Purchase,1)
         p.lines[0].line_total=100;p.total_cost=100;db.session.commit()

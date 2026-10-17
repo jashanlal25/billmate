@@ -35,9 +35,9 @@
     <strong>How profit is calculated</strong><br>
     Sales amount − purchase cost of the quantity sold. Bill discounts and fixed per-unit tax are included. Drafts, cancelled bills, previous balances, and payments are excluded. This is gross profit before shop expenses.<br>
     Purchase total shows all purchases in the selected dates, including unsold items. Search filters the sales breakdown only.<br>
-    Costs use the oldest available purchases first (FIFO). Purchases created from a sales invoice are reserved for that invoice, including purchases entered later. Other purchases must be dated on or before the sale. Missing purchase costs are flagged and excluded from calculated profit; current catalog prices are never substituted.<br>
+    Costs use the oldest available purchases first (FIFO). Where invoice links are available, purchases created from a sales invoice are reserved for that invoice, including purchases entered later. Other purchases must be dated on or before the sale. Missing purchase costs are flagged and excluded from calculated profit; current catalog prices are never substituted.<br>
     Reports recalculate from saved bills whenever this page loads, filters change, or you return to it. Edits to purchase bills update the report too.
   </section>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/profit.js?v=1"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/profit.js?v=2"></script>{% endblock %}
