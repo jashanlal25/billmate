@@ -2740,7 +2740,7 @@ def import_items():
         return float(m.group()) if m else 0.0
 
     added = updated = skipped = alongside_global = 0
-    archived = stock_kept = 0
+    archived = stock_kept = permanently_deleted = preserved = 0
     seen_items = set()
     supplier_map = {}
     for item in existing_items:
@@ -2883,6 +2883,24 @@ def import_items():
                     continue
                 item.is_active = False
                 archived += 1
+            # Delete only unreferenced, zero-stock supplier offers. Invoice and
+            # purchase snapshots retain their original historical values; any
+            # linked item IDs must remain intact for editing and reporting.
+            from models import InvoiceLine, PurchaseLine, UserItemDiscount, UserItemOverride
+            for item in existing_items:
+                if (_key(item.vendor) != _key(vendor) or id(item) in seen_items
+                        or item.is_active or item.qty
+                        or not (item.vendor_code or item.vendor_list_no)):
+                    continue
+                linked = (db.session.query(InvoiceLine.id).filter_by(item_id=item.id).first()
+                          or db.session.query(PurchaseLine.id).filter_by(item_id=item.id).first()
+                          or db.session.query(UserItemDiscount.id).filter_by(item_id=item.id).first()
+                          or db.session.query(UserItemOverride.id).filter_by(item_id=item.id).first())
+                if linked:
+                    preserved += 1
+                else:
+                    db.session.delete(item)
+                    permanently_deleted += 1
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -2890,7 +2908,8 @@ def import_items():
 
     return jsonify({'added': added, 'updated': updated, 'skipped': skipped,
                     'alongside_global': alongside_global, 'own_stock': own_stock,
-                    'archived': archived, 'stock_kept': stock_kept})
+                    'archived': archived, 'stock_kept': stock_kept,
+                    'permanently_deleted': permanently_deleted, 'preserved': preserved})
 
 
 # ── Customers API ─────────────────────────────────────────────────────────────
