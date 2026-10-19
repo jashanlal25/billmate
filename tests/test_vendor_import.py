@@ -48,6 +48,27 @@ class VendorImportTest(unittest.TestCase):
         i=Item.query.filter_by(vendor='A',vendor_code='0296',vendor_list_no='000052').one()
         self.assertEqual((i.to_dict()['code'],i.vendor_name,i.bonus_text),('0296','RENAMED.',''))
 
+    def test_replacement_prunes_only_obsolete_unreferenced_vendor_items(self):
+        self.upload(vendor='DOSANI', code='OLD', name='OLD MED', list_no='000069')
+        self.upload(vendor='JANGDA', code='OLD', name='OLD MED', list_no='000043')
+        result = self.upload(vendor='DOSANI', code='NEW', name='NEW MED', list_no='000070')
+        self.assertEqual(result['permanently_deleted'], 1)
+        self.assertEqual(Item.query.filter_by(vendor='DOSANI').count(), 1)
+        self.assertEqual(Item.query.filter_by(vendor='JANGDA', is_active=True).count(), 1)
+        self.assertEqual(Item.query.filter_by(vendor='DOSANI', is_active=True).one().vendor_list_no, '000070')
+
+    def test_invoiced_obsolete_item_keeps_snapshot_but_is_not_active(self):
+        self.upload(vendor='DOSANI', code='OLD', name='OLD MED', list_no='000069')
+        item = Item.query.filter_by(vendor='DOSANI').one()
+        created = self.client.post('/api/invoices', json={'lines':[
+            {'item_id': item.id, 'qty': 1, 'tp': 100, 'discount_pct': 0}]})
+        self.assertEqual(created.status_code, 201)
+        result = self.upload(vendor='DOSANI', code='NEW', name='NEW MED', list_no='000070')
+        self.assertEqual(result['preserved'], 1)
+        self.assertFalse(Item.query.get(item.id).is_active)
+        self.assertEqual(Item.query.filter_by(vendor='DOSANI', is_active=True).count(), 1)
+        self.assertEqual(created.json['lines'][0]['vendor_list_no'], '000069')
+
     def test_serial_numbers_are_not_supplier_item_codes(self):
         def send(names):
             rows=''.join(f'<tr class="item"><td>{idx}</td><td>{name}</td><td><input></td><td>10%</td><td></td><td>100</td></tr>' for idx,name in enumerate(names,1))
