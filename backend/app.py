@@ -2879,8 +2879,9 @@ def import_items():
                         or not item.is_active or not (item.vendor_code or item.vendor_list_no)):
                     continue
                 if item.qty:
+                    # Retain the stock quantity and its item ID, but the old
+                    # supplier offer must no longer be available for billing.
                     stock_kept += 1
-                    continue
                 item.is_active = False
                 archived += 1
             # Delete only unreferenced, zero-stock supplier offers. Invoice and
