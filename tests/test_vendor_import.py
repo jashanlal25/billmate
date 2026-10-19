@@ -57,6 +57,21 @@ class VendorImportTest(unittest.TestCase):
         self.assertEqual(Item.query.filter_by(vendor='JANGDA', is_active=True).count(), 1)
         self.assertEqual(Item.query.filter_by(vendor='DOSANI', is_active=True).one().vendor_list_no, '000070')
 
+    def test_obsolete_supplier_offer_with_stock_is_hidden_but_quantity_preserved(self):
+        self.upload(vendor='DOSANI', code='OLD', name='TITAN 2GM IV', list_no='000069')
+        old = Item.query.filter_by(vendor='DOSANI').one()
+        old.qty = 5
+        db.session.commit()
+        result = self.upload(vendor='DOSANI', code='NEW', name='TITAN 500 IM', list_no='000070')
+        db.session.expire_all()
+        old = Item.query.get(old.id)
+        self.assertIsNotNone(old)
+        self.assertFalse(old.is_active)
+        self.assertEqual(float(old.qty), 5)
+        self.assertEqual(result['stock_kept'], 1)
+        self.assertEqual(result['archived'], 1)
+        self.assertNotIn(old.id, [row['id'] for row in service.agent_inventory(1, 'TITAN')])
+
     def test_invoiced_obsolete_item_keeps_snapshot_but_is_not_active(self):
         self.upload(vendor='DOSANI', code='OLD', name='OLD MED', list_no='000069')
         item = Item.query.filter_by(vendor='DOSANI').one()
