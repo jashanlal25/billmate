@@ -25,7 +25,17 @@ android {
             }
         }
     }
-    buildTypes { release { signingConfig signingConfigs.release } }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.keyboardtrial'
+            versionNameSuffix '-keyboard-trial'
+            manifestPlaceholders = [appLabel: 'BillMate Keyboard Trial']
+        }
+        release {
+            signingConfig signingConfigs.release
+            manifestPlaceholders = [appLabel: 'BillMate Native']
+        }
+    }
 }
 dependencies {
     // Align transitive stdlib-jdk7/jdk8 with the merged Kotlin 1.8 stdlib.
