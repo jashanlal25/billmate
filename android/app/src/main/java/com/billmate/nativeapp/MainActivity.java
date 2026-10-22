@@ -17,6 +17,8 @@ import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.webkit.*;
 import android.view.*;
+import android.view.inputmethod.InputMethodManager;
+import androidx.core.view.WindowInsetsCompat;
 import android.widget.*;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
@@ -42,6 +44,8 @@ public final class MainActivity extends FragmentActivity {
     private String pendingName;
     private boolean busy;
     private BiometricVault biometricVault;
+    private boolean keyboardVisible, restoreBillingKeyboard, activityPaused;
+    private int keyboardPage;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
@@ -71,7 +75,23 @@ public final class MainActivity extends FragmentActivity {
         toolbar.addView(retry);
         toolbar.setVisibility(View.GONE);
 
-        web = new WebView(this);
+        web = new WebView(this) {
+            @Override public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+                if (keyCode == KeyEvent.KEYCODE_BACK) {
+                    // Back is an intentional dismissal, not an app switch.
+                    keyboardVisible = false;
+                    restoreBillingKeyboard = false;
+                }
+                return super.onKeyPreIme(keyCode, event);
+            }
+        };
+        web.setOnApplyWindowInsetsListener((view, insets) -> {
+            if (!activityPaused && hasWindowFocus()) {
+                keyboardVisible = WindowInsetsCompat.toWindowInsetsCompat(insets, view)
+                    .isVisible(WindowInsetsCompat.Type.ime());
+            }
+            return insets;
+        });
         web.setId(R.id.billmate_webview);
         web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
         biometricVault = new BiometricVault(this);
@@ -103,6 +123,16 @@ public final class MainActivity extends FragmentActivity {
             WebViewCompat.addDocumentStartJavaScript(web,
                 "window.__BILLMATE_NATIVE__=true;window.__BILLMATE_IMAGE_SHARE__=true;Object.defineProperty(navigator,'standalone',{get:()=>true});",
                 Collections.singleton(ShareUpload.ORIGIN));
+            try (InputStream input = getAssets().open("billing-keyboard.js")) {
+                ByteArrayOutputStream script = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = input.read(buffer)) != -1) script.write(buffer, 0, count);
+                WebViewCompat.addDocumentStartJavaScript(web,
+                    script.toString(StandardCharsets.UTF_8.name()), Collections.singleton(ShareUpload.ORIGIN));
+            } catch (IOException e) {
+                toast("Keyboard resume support could not load. Restart the app.");
+            }
         } else {
             new AlertDialog.Builder(this).setTitle("Update Android System WebView")
                 .setMessage("Update Android System WebView in the Play Store to enable shared-file processing in this app.")
@@ -137,6 +167,9 @@ public final class MainActivity extends FragmentActivity {
                 return true;
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                keyboardPage++;
+                restoreBillingKeyboard = false;
+                keyboardVisible = false;
                 biometricVault.cancel();
                 // Reverification belongs to fingerprint setup, not password saving.
                 boolean setup = ShareUpload.isTrusted(url) && Uri.parse(url).getPath().equals("/auth/fingerprint/setup");
@@ -308,6 +341,10 @@ public final class MainActivity extends FragmentActivity {
         try {
             JSONObject quick = new JSONObject(data);
             if ("check_update".equals(quick.optString("action"))) {
+                if (BuildConfig.DEBUG) {
+                    toast("This is the separate Keyboard Trial app. Keep your production BillMate installed.");
+                    return;
+                }
                 checkForUpdate(true);
                 return;
             }
@@ -916,7 +953,44 @@ public final class MainActivity extends FragmentActivity {
             toast("Already at BillMate home.");
         }
     }
+    private void captureBillingKeyboard() {
+        if (web == null || restoreBillingKeyboard || !keyboardVisible || !ShareUpload.isTrusted(web.getUrl())) return;
+        restoreBillingKeyboard = true;
+        web.evaluateJavascript("window.BillMateBillingKeyboard&&window.BillMateBillingKeyboard.capture()", null);
+    }
+
+    private void resumeBillingKeyboard() {
+        if (web == null || activityPaused || !hasWindowFocus() || !restoreBillingKeyboard) return;
+        restoreBillingKeyboard = false;
+        final int page = keyboardPage;
+        // Run after window focus returns. A focus() alone cannot reliably open
+        // the Android WebView IME after switching to WhatsApp and back.
+        web.post(() -> {
+            if (activityPaused || !hasWindowFocus() || page != keyboardPage || !ShareUpload.isTrusted(web.getUrl())) return;
+            web.evaluateJavascript("!!(window.BillMateBillingKeyboard&&window.BillMateBillingKeyboard.restore())", result -> {
+                if (!"true".equals(result) || activityPaused || !hasWindowFocus() || page != keyboardPage) return;
+                web.requestFocus();
+                InputMethodManager ime = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (ime != null) ime.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT);
+            });
+        });
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        if (!focused) captureBillingKeyboard();
+        super.onWindowFocusChanged(focused);
+        if (focused) resumeBillingKeyboard();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        activityPaused = false;
+        resumeBillingKeyboard();
+    }
+
     @Override protected void onPause() {
+        captureBillingKeyboard();
+        activityPaused = true;
         // WebView may keep cookies in memory for a short time. Flush them before
         // the app leaves the foreground so a recent login survives app close.
         CookieManager.getInstance().flush();
