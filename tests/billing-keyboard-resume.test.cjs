@@ -123,3 +123,40 @@ test('normal page focus without an app switch does not open search', () => {
   const s = setup(); s.window.emit('focus'); s.window.emit('pageshow'); s.tick();
   assert.equal(s.field.focuses, 1);
 });
+
+test('APK return requests the native keyboard only after restoring the item editor', () => {
+  const s = setup(); const calls = [];
+  s.window.BillMateNativeKeyboard = {postMessage(action) {
+    calls.push(action);
+    assert.equal(s.document.activeElement, s.field);
+    assert.equal(s.field.selectionStart, 3);
+  }};
+  s.window.emit('billmate:app-pause');
+  s.window.emit('billmate:app-resume'); s.tick();
+  assert.deepEqual(calls, ['show']);
+  assert.equal(s.field.value, 'panad');
+});
+
+test('APK Back dismissal prevents a native keyboard request on return', () => {
+  const s = setup(); const calls = [];
+  s.window.BillMateNativeKeyboard = {postMessage: action => calls.push(action)};
+  s.window.emit('billmate:keyboard-dismissed');
+  s.leave(); s.back();
+  assert.deepEqual(calls, []);
+});
+
+test('native bridge is never called on Demand Search even if accidentally included', () => {
+  const s = setup('/demand-search'); const calls = [];
+  s.window.BillMateNativeKeyboard = {postMessage: action => calls.push(action)};
+  s.window.emit('billmate:app-pause'); s.window.emit('billmate:app-resume'); s.tick();
+  assert.deepEqual(calls, []);
+});
+
+test('APK return does not reopen the keyboard when a dialog covers Billing', () => {
+  const s = setup(); const calls = [];
+  s.window.BillMateNativeKeyboard = {postMessage: action => calls.push(action)};
+  s.window.emit('billmate:app-pause');
+  s.document.querySelector = () => ({});
+  s.window.emit('billmate:app-resume'); s.tick();
+  assert.deepEqual(calls, []);
+});
