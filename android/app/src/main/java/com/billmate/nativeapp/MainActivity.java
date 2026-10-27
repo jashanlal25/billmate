@@ -21,6 +21,8 @@ import android.widget.*;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 import androidx.core.content.FileProvider;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.FragmentActivity;
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -42,6 +44,8 @@ public final class MainActivity extends FragmentActivity {
     private String pendingName;
     private boolean busy;
     private BiometricVault biometricVault;
+    private boolean activityResumed;
+    private int keyboardGeneration;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
@@ -71,7 +75,15 @@ public final class MainActivity extends FragmentActivity {
         toolbar.addView(retry);
         toolbar.setVisibility(View.GONE);
 
-        web = new WebView(this);
+        web = new WebView(this) {
+            @Override public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+                if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN) {
+                    keyboardGeneration++;
+                    notifyBillingKeyboard("billmate:keyboard-dismissed");
+                }
+                return super.onKeyPreIme(keyCode, event);
+            }
+        };
         web.setId(R.id.billmate_webview);
         web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_YES);
         biometricVault = new BiometricVault(this);
@@ -109,6 +121,11 @@ public final class MainActivity extends FragmentActivity {
                 .setPositiveButton("OK", null).show();
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "BillMateNativeKeyboard",
+                Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
+                    if (!mainFrame || !ShareUpload.isTrusted(origin.toString()) || !"show".equals(message.getData())) return;
+                    showBillingKeyboard();
+                });
             WebViewCompat.addWebMessageListener(web, "BillMateNativeContacts",
                 Collections.singleton(ShareUpload.ORIGIN), (view, message, origin, mainFrame, reply) -> {
                     if (!mainFrame || !ShareUpload.isTrusted(origin.toString())) return;
@@ -137,6 +154,7 @@ public final class MainActivity extends FragmentActivity {
                 return true;
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                keyboardGeneration++;
                 biometricVault.cancel();
                 // Reverification belongs to fingerprint setup, not password saving.
                 boolean setup = ShareUpload.isTrusted(url) && Uri.parse(url).getPath().equals("/auth/fingerprint/setup");
@@ -916,7 +934,51 @@ public final class MainActivity extends FragmentActivity {
             toast("Already at BillMate home.");
         }
     }
+    private void notifyBillingKeyboard(String event) {
+        if (web == null || !BillingKeyboardScope.isBilling(web.getUrl())) return;
+        web.evaluateJavascript("window.dispatchEvent(new Event(" + JSONObject.quote(event) + "))", null);
+    }
+
+    private void showBillingKeyboard() {
+        if (web == null || !BillingKeyboardScope.canShow(web.getUrl(), activityResumed, hasWindowFocus())) return;
+        final int generation = keyboardGeneration;
+        // Recheck the actual DOM editor before using Android's IME API. A
+        // delayed message must not move focus from a dialog or another field.
+        String editorCheck = "(()=>{const e=document.activeElement;return !!(e&&e.id==='itemSearch'&&e.isConnected&&!e.disabled&&!e.readOnly&&e.getClientRects().length&&!document.querySelector('.overlay.open,.sum-overlay.open,dialog[open],[aria-modal=\"true\"]'));})()";
+        web.evaluateJavascript(editorCheck, result -> {
+            if (!"true".equals(result) || generation != keyboardGeneration ||
+                !BillingKeyboardScope.canShow(web.getUrl(), activityResumed, hasWindowFocus())) return;
+            web.requestFocus();
+            // Post after WebView has connected the restored HTML editor. Never
+            // force the IME globally: manual Back dismissal stays respected.
+            web.post(() -> {
+                if (generation == keyboardGeneration && BillingKeyboardScope.canShow(web.getUrl(), activityResumed, hasWindowFocus())) {
+                    WindowCompat.getInsetsController(getWindow(), web).show(WindowInsetsCompat.Type.ime());
+                }
+            });
+        });
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (!focused) {
+            keyboardGeneration++;
+            notifyBillingKeyboard("billmate:app-pause");
+        } else if (activityResumed) {
+            notifyBillingKeyboard("billmate:app-resume");
+        }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        activityResumed = true;
+        if (hasWindowFocus()) notifyBillingKeyboard("billmate:app-resume");
+    }
+
     @Override protected void onPause() {
+        keyboardGeneration++;
+        notifyBillingKeyboard("billmate:app-pause");
+        activityResumed = false;
         // WebView may keep cookies in memory for a short time. Flush them before
         // the app leaves the foreground so a recent login survives app close.
         CookieManager.getInstance().flush();
