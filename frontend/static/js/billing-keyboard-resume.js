@@ -57,6 +57,11 @@
         state.field.setSelectionRange(state.caret[0], state.caret[1], state.caret[2]);
       }
       state.field.scrollIntoView({block: 'nearest', inline: 'nearest'});
+      // APK WebViews can retain DOM focus while refusing a JS-only IME show.
+      // Ask the scoped native bridge after restoring this exact editor.
+      if (root.BillMateNativeKeyboard && typeof root.BillMateNativeKeyboard.postMessage === 'function') {
+        try { root.BillMateNativeKeyboard.postMessage('show'); } catch (_) {}
+      }
     }, 80);
   }
   doc.addEventListener('focusin', function (event) {
@@ -85,6 +90,13 @@
   root.addEventListener('focus', resume);
   root.addEventListener('pagehide', suspend);
   root.addEventListener('pageshow', resume);
+  root.addEventListener('billmate:app-pause', suspend);
+  root.addEventListener('billmate:app-resume', resume);
+  root.addEventListener('billmate:keyboard-dismissed', function () {
+    pending = null;
+    dismissed = true;
+    cancelTimers();
+  });
   if (viewport) viewport.addEventListener('resize', function () {
     // Ignore pinch zoom and reset the baseline when rotating the phone.
     if (Math.abs(viewport.scale - 1) > 0.05) return;
