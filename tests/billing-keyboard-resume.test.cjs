@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../frontend/static/js/billing-keyboard-resume.js'), 'utf8');
 
-function setup() {
+function setup(pathname = '/billing') {
   const handlers = new Map();
   function events(target) {
     target.addEventListener = (name, callback) => {
@@ -20,7 +20,7 @@ function setup() {
   const document = events({tag: 'document', hidden: false, body: {}, documentElement: {},
     hasFocus: () => focused, querySelector: () => null});
   const viewport = events({tag: 'viewport', height: 800, width: 400, scale: 1});
-  const window = events({tag: 'window', document, visualViewport: viewport,
+  const window = events({tag: 'window', document, visualViewport: viewport, location: {pathname},
     setTimeout(fn, delay) { timers.set(++nextTimer, {fn, at: clock + delay}); return nextTimer; },
     clearTimeout(id) { timers.delete(id); }});
   const field = {id: 'itemSearch', value: 'panad', isConnected: true,
@@ -39,8 +39,28 @@ function setup() {
   function leave() { focused = false; window.emit('blur'); document.hidden = true; document.emit('visibilitychange'); }
   function back() { document.hidden = false; document.emit('visibilitychange'); focused = true; window.emit('focus'); tick(); }
   function resize(height) { viewport.height = height; viewport.emit('resize'); }
-  return {window, document, viewport, field, tick, leave, back, resize};
+  return {window, document, viewport, field, tick, leave, back, resize, handlers};
 }
+
+test('other pages attach no keyboard, visibility, resize, or focus handlers', () => {
+  for (const page of ['/', '/items', '/demand-search', '/purchase', '/payments', '/customers', '/admin/sales']) {
+    const s = setup(page);
+    assert.equal(s.handlers.size, 0, page);
+    s.leave(); s.back();
+    assert.equal(s.field.focuses, 1, page);
+  }
+});
+
+test('Billing customer and quantity fields do not trigger keyboard restoration', () => {
+  for (const id of ['custSearch', 'custPhone', 'billLineSearch', 'quantity']) {
+    const s = setup();
+    s.field.id = id;
+    s.field.focus();
+    const initial = s.field.focuses;
+    s.leave(); s.back();
+    assert.equal(s.field.focuses, initial, id);
+  }
+});
 
 test('WhatsApp round trip restores typing and caret without changing unfinished text', () => {
   const s = setup(); s.resize(450); s.leave(); s.resize(800); s.back();

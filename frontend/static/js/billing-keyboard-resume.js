@@ -2,6 +2,9 @@
    Keep this separate from cart navigation: never select all or rebuild a row. */
 (function (root) {
   'use strict';
+  // Never attach keyboard/focus handlers outside the Billing page, even if a
+  // shared layout accidentally includes this helper in the future.
+  if (!/^\/billing\/?$/.test(root.location.pathname)) return;
   const doc = root.document;
   const viewport = root.visualViewport;
   let field = null, caret = null, pending = null;
