@@ -3,11 +3,12 @@
 {% block nav_pos_import %}active{% endblock %}
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="/static/js/pos-purchases.js?v=1"></script>
 <div class="container" style="padding-top:24px">
 <div class="section-header"><div class="section-title">🔄 POS Backup Import</div></div>
 <div class="card" style="padding:28px;max-width:720px">
  <div style="font-size:1.05em;font-weight:700;color:var(--text);margin-bottom:8px">Synchronize POS Backup</div>
- <p style="font-size:.86em;color:var(--sub);line-height:1.65;margin-bottom:18px">Upload the original POS backup ZIP. Customers and receivables, suppliers and payables, and stock found in the backup are created or refreshed. POS values replace matching BillMate values. BillMate-only records are not changed or deleted.</p>
+ <p style="font-size:.86em;color:var(--sub);line-height:1.65;margin-bottom:18px">Upload the original POS backup ZIP. Customers and receivables, suppliers and payables, stock, and supplier purchase bills found in the backup are created or refreshed. POS values replace matching BillMate values. BillMate-only records are not changed or deleted. Imported purchase history appears on the Purchase page and supplies purchase costs for Profit. Historical bills do not add stock or payable balances a second time.</p>
  <div style="padding:16px;border:1.5px solid var(--border);border-radius:14px;background:var(--inp);margin-bottom:16px"><input id="posBackupFile" type="file" accept=".zip,application/zip" style="width:100%;color:var(--text)"></div>
  <button id="posBackupBtn" onclick="syncPosBackup()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.95em;font-weight:700;cursor:pointer">Upload & Sync POS Backup</button>
  <div id="posBackupResult" style="font-size:.84em;color:var(--sub);margin-top:16px;line-height:1.7"></div>
@@ -134,20 +135,25 @@ async function syncPosBackup(){
  b.disabled=true;b.textContent='Reading backup…';out.textContent='Extracting POS backup locally on this device…';
  try{
   const zip=await JSZip.loadAsync(f.files[0]);
-  const [itemRows,mastRows,stockLedger]=await Promise.all([
-   _readDbf(zip,'ITEM.DBF'),_readDbf(zip,'MAST.DBF'),_readDbf(zip,'OPSRB.DBF')
+  let [itemRows,mastRows,stockLedger,purchaseHeaders,purchaseLines]=await Promise.all([
+   _readDbf(zip,'ITEM.DBF'),_readDbf(zip,'MAST.DBF'),_readDbf(zip,'OPSRB.DBF'),
+   _readDbf(zip,'PUR1.DBF'),_readDbf(zip,'PUR2.DBF')
   ]);
   const customers=_posCustomers(mastRows),suppliers=_posSuppliers(mastRows);
   if(!suppliers.length)throw new Error('No supplier accounts found in MAST.DBF; no data has been sent.');
   if(!customers.length)throw new Error('No current customers found in MAST.DBF. Check the POS backup; no data has been sent.');
-  const items=itemRows.length?itemRows:mastRows;
+  let items=itemRows.length?itemRows:mastRows;
   if(!customers.length&&!suppliers.length&&!items.length)throw new Error('POS customer, supplier and stock DBF files were not found');
   out.textContent='Extracted locally: '+customers.length+' customers, '+suppliers.length+' suppliers, '+items.length+' catalogue items. Filtering stock…';
 
+  if(purchaseHeaders.length&&!purchaseLines.length)throw new Error('PUR2.DBF purchase details are missing; no data has been sent.');
+  const purchaseData=POSPurchases.prepare(purchaseHeaders,purchaseLines,items,mastRows);
   const slimCustomers=customers,slimSuppliers=suppliers;
   // Import only POS items that actually have stock. ITEM/MAST contains the
   // whole historical catalogue, which can be thousands of zero-stock records.
   const slimItems=_posStock(items,stockLedger);
+  // Release decoded DBF rows before sequential uploads on memory-limited phones.
+  itemRows=mastRows=stockLedger=purchaseHeaders=purchaseLines=items=null;
   const groups=[['customers',slimCustomers],['suppliers',slimSuppliers],['items',slimItems]];
   const totals={customers_created:0,customers_updated:0,suppliers_created:0,suppliers_updated:0,items_created:0,items_updated:0};
   let sent=0,total=groups.reduce((n,g)=>n+g[1].length,0);
@@ -161,9 +167,10 @@ async function syncPosBackup(){
     sent+=part.length;
    }
   }
+  const purchaseTotals=await POSPurchases.sync(purchaseData.bills,text=>out.textContent=text);
   const ct=totals.customers_created+totals.customers_updated,st=totals.suppliers_created+totals.suppliers_updated,it=totals.items_created+totals.items_updated;
   try{Object.keys(localStorage).filter(k=>k.startsWith('items_cache_')).forEach(k=>localStorage.removeItem(k));}catch(_){}
-  out.innerHTML='<b style="color:#10b981">✅ Sync complete</b><br>Customers: '+ct+' ('+totals.customers_created+' new, '+totals.customers_updated+' updated)<br>Suppliers: '+st+' ('+totals.suppliers_created+' new, '+totals.suppliers_updated+' updated)<br>Stock items: '+it+' ('+totals.items_created+' new, '+totals.items_updated+' updated)<br><b>BillMate-only records were untouched.</b>';
+  out.innerHTML='<b style="color:#10b981">✅ Sync complete</b><br>Customers: '+ct+' ('+totals.customers_created+' new, '+totals.customers_updated+' updated)<br>Suppliers: '+st+' ('+totals.suppliers_created+' new, '+totals.suppliers_updated+' updated)<br>Stock items: '+it+' ('+totals.items_created+' new, '+totals.items_updated+' updated)<br>Purchase bills: '+purchaseTotals.created+' new, '+purchaseTotals.updated+' updated, '+purchaseTotals.unchanged+' unchanged.<br>'+purchaseData.unresolved+' historical item names unavailable; these costs remain unmatched.<br><a href="/purchase">View Purchase history</a> · <a href="/profit">View Profit</a><br><b>BillMate-only records were untouched. Historical purchases did not add stock or balances again.</b>';
  }catch(e){out.textContent='❌ '+e.message}finally{b.disabled=false;b.textContent='Upload & Sync POS Backup'}
 }
 </script>
