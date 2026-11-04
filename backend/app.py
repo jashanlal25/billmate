@@ -1478,7 +1478,7 @@ def superadmin_import_items():
         visible = soup.get_text(' ', strip=True)
         list_match = re.search(r'List\s*No\s*:?\s*([A-Za-z0-9+/_-]+)', visible, re.I)
         vendor_list_no = list_match.group(1) if list_match else ''
-        new_rows = soup.find_all('tr', class_='item-row')
+        new_rows = [] if url else soup.find_all('tr', class_='item-row')
         if new_rows:
             for row in new_rows:
                 tds = row.find_all('td')
@@ -1494,7 +1494,7 @@ def superadmin_import_items():
                 _upsert(name, tp, retail, disc_pct, bonus, tax_pct, rate_source,
                         vendor_code=tds[0].get_text().strip())
         else:
-            for row in soup.find_all('tr', class_='item'):
+            for row in (link_rows if url else soup.find_all('tr', class_='item')):
                 tds = row.find_all('td')
                 if len(tds) < 4:
                     continue
@@ -2656,35 +2656,90 @@ def bulk_delete_items():
     })
 
 
+def _fetch_supplier_offer(url):
+    from http.client import HTTPSConnection, HTTPException
+
+    match = re.fullmatch(
+        r'https://tehseentraders\.com/offer-upload/index\.php\?open=([A-Za-z0-9_-]{1,200})', url)
+    if not match:
+        raise ValueError('Use a Tehseen Traders HTTPS offer link.')
+    limit = 8 * 1024 * 1024
+    connection = HTTPSConnection('tehseentraders.com', timeout=12)
+    try:
+        connection.request('GET', '/offer-upload/index.php?open=' + match[1])
+        with connection.getresponse() as response:
+            if response.status != 200 or response.headers.get_content_type() != 'text/html':
+                raise ValueError('The supplier link did not return an offer page.')
+            html = response.read(limit + 1)
+            if len(html) > limit:
+                raise ValueError('The supplier page exceeds the 8 MB link limit.')
+    except (OSError, HTTPException):
+        raise ValueError('Could not download the supplier list. Try again.') from None
+    finally:
+        connection.close()
+    soup = _get_bs4().BeautifulSoup(html.decode('utf-8', errors='replace'), 'html.parser')
+    table = soup.find('tbody', id='myTable')
+    if not table or not html.rstrip(b' \r\n\t\x1a').lower().endswith(b'</html>'):
+        raise ValueError('The supplier page is incomplete or has no offer table.')
+    return soup, table.find_all('tr', class_='item', recursive=False)
+
+
 @app.route('/api/items/import', methods=['POST'])
 def import_items():
     if session.get('is_guest'):
         return jsonify({'error': 'Guests cannot import items.'}), 403
     if not session.get('user_id'):
         return jsonify({'error': 'Login required'}), 401
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    f = request.files['file']
-    if not f.filename:
-        return jsonify({'error': 'Empty filename'}), 400
-    allowed_ext = {'.html', '.htm', '.csv', '.txt'}
-    ext = os.path.splitext(f.filename)[1].lower()
-    if ext not in allowed_ext:
-        return jsonify({'error': 'Only .html, .htm, .csv, .txt files are allowed'}), 400
-    f.seek(0, 2)
-    size = f.tell()
-    f.seek(0)
-    if size > 4 * 1024 * 1024:  # 4 MB cap
-        return jsonify({'error': 'File too large (max 4 MB)'}), 400
+    url = request.form.get('offer_url', '').strip()
+    link_rows = []
+    if url:
+        import hashlib
 
-    try:
-        html = f.read().decode('utf-8', errors='replace')
-    except Exception:
-        return jsonify({'error': 'Could not read file'}), 400
+        vendor = request.form.get('vendor', '').strip()[:50]
+        if not vendor or vendor.casefold() == 'stock':
+            return jsonify({'error': 'Choose a supplier other than STOCK.'}), 400
+        try:
+            soup, link_rows = _fetch_supplier_offer(url)
+            rows = [[td.get_text(' ', strip=True) for td in row.find_all('td', recursive=False)]
+                    for row in link_rows]
+            if not rows or any(len(row) != 6 or not row[1] for row in rows):
+                raise ValueError('The supplier table contains no items or has incomplete rows.')
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
+        signature = hashlib.sha256(json.dumps([url, vendor, rows]).encode()).hexdigest()
+        if request.form.get('preview') == '1':
+            sample = []
+            for _, name, _, offer, bonus, price in rows[:4]:
+                parsed = _parse_offer_cell(offer)
+                sample.append({'name': name, 'offer': offer, 'bonus': bonus,
+                               'tp': parsed['tp_override'] if parsed['tp_override'] is not None else price})
+            return jsonify({'count': len(rows), 'sample': sample, 'signature': signature})
+        if request.form.get('signature') != signature:
+            return jsonify({'error': 'The supplier list changed. Preview it again before importing.'}), 409
+    else:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'Empty filename'}), 400
+        allowed_ext = {'.html', '.htm', '.csv', '.txt'}
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in allowed_ext:
+            return jsonify({'error': 'Only .html, .htm, .csv, .txt files are allowed'}), 400
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(0)
+        if size > 4 * 1024 * 1024:  # 4 MB cap
+            return jsonify({'error': 'File too large (max 4 MB)'}), 400
 
-    soup = _get_bs4().BeautifulSoup(html, 'html.parser')
+        try:
+            html = f.read().decode('utf-8', errors='replace')
+        except Exception:
+            return jsonify({'error': 'Could not read file'}), 400
+
+        soup = _get_bs4().BeautifulSoup(html, 'html.parser')
     # A Stock List export describes the shop's own inventory, not a supplier.
-    own_stock = (bool(soup.title and re.search(r'\bstock\s+list\b', soup.title.get_text(' ', strip=True), re.I))
+    own_stock = (not url and bool(soup.title and re.search(r'\bstock\s+list\b', soup.title.get_text(' ', strip=True), re.I))
                  and any(len(row.find_all('td')) >= 9 for row in soup.find_all('tr', class_='item')))
     uid = session.get('user_id')
     # Vendor (business the file came from) — sent by the import dialog,

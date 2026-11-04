@@ -320,7 +320,7 @@ input[type=number]{-moz-appearance:textfield}
 <!-- Import Modal -->
 <div class="overlay" id="importModal" onclick="closeImportOnBg(event)">
   <div class="modal import-dialog" role="dialog" aria-modal="true" aria-labelledby="importTitle">
-    <h2 id="importTitle">⬆ Import Items from File</h2>
+    <h2 id="importTitle">⬆ Import Items</h2>
     <div class="import-content">
     <details class="import-help"><summary>How supplier imports work</summary><p>A supplier list replaces that supplier’s previous list: matching item codes are updated, new items added, and missing items archived. Items with stock balances stay available. Saved invoices and purchases are preserved. Own-stock imports remain separate.</p></details>
     {% if is_guest %}<div id="guestQuotaNote" style="font-size:.8em;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#92400e;font-weight:600"></div>{% endif %}
@@ -331,6 +331,12 @@ input[type=number]{-moz-appearance:textfield}
       <div id="importFileName" style="margin-top:10px;font-size:.85em;color:var(--accent);font-weight:600"></div>
     </div>
     <input type="file" id="importFileInput" accept=".htm,.html" style="display:none" onchange="importFileChosen(this)">
+    {% if not is_guest %}
+    <div class="form-group" style="margin-top:14px">
+      <label for="importOfferUrl">Or paste a Tehseen Traders offer link</label>
+      <input type="url" id="importOfferUrl" placeholder="https://tehseentraders.com/…" autocomplete="off" oninput="prepareOfferLink()">
+    </div>
+    {% endif %}
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
       <label for="importVendor">Vendor for these items</label>
       <input id="importVendor" autocomplete="off" placeholder="e.g. dosani" maxlength="50">
@@ -889,11 +895,13 @@ function _setImportVendor(fn){
 
 function openImportModal(){
   _importFile = null;
+  if(!IS_GUEST) document.getElementById('importOfferUrl').value = '';
   document.getElementById('importFileName').textContent = '';
   document.getElementById('importResult').style.display = 'none';
   document.getElementById('importFileInput').value = '';
   _setImportVendor('');
   const btn = document.getElementById('importBtn');
+  btn.textContent = 'Import';
   if(IS_GUEST){
     const used = _importQuotaUsed();
     const rem = Math.max(0, 2 - used);
@@ -930,12 +938,29 @@ function importFileChosen(input){
 // Central entry point for giving the import modal a file — used by manual
 // file selection, drag & drop, AND WhatsApp-shared files (Web Share Target),
 // so vendor inference and validation behave identically for all three.
+function prepareOfferLink(){
+  const url = document.getElementById('importOfferUrl').value.trim();
+  if(!url){ prepareImportFile(null); return; }
+  _importFile = null;
+  document.getElementById('importFileInput').value = '';
+  document.getElementById('importFileName').textContent = '';
+  document.getElementById('importModal').classList.remove('has-file');
+  document.getElementById('importVendorRow').style.display = 'block';
+  document.getElementById('importResult').style.display = 'none';
+  const btn = document.getElementById('importBtn');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.textContent = 'Preview Import';
+}
+
 function prepareImportFile(file){
+  if(!IS_GUEST) document.getElementById('importOfferUrl').value = '';
   _importFile = file || null;
   document.getElementById('importModal').classList.toggle('has-file', !!_importFile);
   document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
   _setImportVendor(_importFile ? _importFile.name : '');
   const btn = document.getElementById('importBtn');
+  btn.textContent = 'Import';
   btn.disabled = !_importFile;
   btn.style.opacity = _importFile ? '1' : '.5';
   document.getElementById('importResult').style.display = 'none';
@@ -963,9 +988,11 @@ function _showImportResult(ok, msg){
 }
 
 async function doImport(){
-  if(!_importFile) return;
+  const url = IS_GUEST ? '' : document.getElementById('importOfferUrl').value.trim();
+  if(!_importFile && !url) return;
   const btn = document.getElementById('importBtn');
-  const vendor = (document.getElementById('importVendor').value || '').trim() || _vendorFromFilename(_importFile.name);
+  const vendor = (document.getElementById('importVendor').value || '').trim() || (_importFile ? _vendorFromFilename(_importFile.name) : '');
+  if(url && !vendor){ _showImportResult(false, 'Choose a vendor before previewing.'); return; }
 
   // ── Guest: parse client-side, save to localStorage ──────────────────────────
   if(IS_GUEST){
@@ -1009,9 +1036,25 @@ async function doImport(){
   // ── Registered user: upload to server ───────────────────────────────────────
   btn.disabled = true; btn.textContent = 'Importing…';
   const fd = new FormData();
-  fd.append('file', _importFile);
+  if(url) fd.append('offer_url', url);
+  else fd.append('file', _importFile);
   fd.append('vendor', vendor);
   try{
+    if(url){
+      fd.set('preview', '1');
+      const preview = await fetch('/api/items/import', {method:'POST', body:fd});
+      const data = await preview.json();
+      if(!preview.ok) throw new Error(data.error || 'Could not preview the supplier list.');
+      if(!document.getElementById('importModal').classList.contains('open') ||
+         document.getElementById('importOfferUrl').value.trim() !== url ||
+         document.getElementById('importVendor').value.trim() !== vendor) return;
+      const sample = data.sample.map(item =>
+        `${item.name} · T.P. ${item.tp} · ${item.offer || 'No offer'}${item.bonus ? ' · Bonus ' + item.bonus : ''}`
+      ).join('\n');
+      if(!window.confirm(`Import ${data.count} offer rows for ${vendor}? This replaces its previous offer list.\n\n${sample}`)) return;
+      fd.delete('preview');
+      fd.set('signature', data.signature);
+    }
     const r = await fetch('/api/items/import', {method:'POST', body: fd});
     const res = await r.json();
     if(r.ok){
@@ -1022,8 +1065,11 @@ async function doImport(){
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);
     } else { _showImportResult(false, res.error || 'Import failed'); }
-  } catch(e){ _showImportResult(false, 'Network error'); }
-  btn.disabled = false; btn.textContent = 'Import';
+  } catch(e){ _showImportResult(false, url ? e.message : 'Network error'); }
+  finally {
+    btn.disabled = !_importFile && !document.getElementById('importOfferUrl').value.trim();
+    btn.textContent = document.getElementById('importOfferUrl').value.trim() ? 'Preview Import' : 'Import';
+  }
 }
 
 // Use page-owned suggestions: native Android datalist popups can lose their background.
