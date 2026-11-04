@@ -2704,9 +2704,12 @@ def import_items():
     if url:
         import hashlib
 
-        vendor = request.form.get('vendor', '').strip()[:50]
-        if not vendor or vendor.casefold() == 'stock':
-            return jsonify({'error': 'Choose a supplier other than STOCK.'}), 400
+        supplier_name = request.form.get('vendor', '').strip()
+        supplier = Supplier.query.filter_by(
+            user_id=session['user_id'], is_active=True, name=supplier_name).first()
+        if not supplier or supplier.name.strip().casefold() == 'stock':
+            return jsonify({'error': 'Choose an existing supplier from your Billmate list.'}), 400
+        vendor = supplier.name.strip()[:50]
         try:
             soup, link_rows = _fetch_supplier_offer(url)
             rows = [[td.get_text(' ', strip=True) for td in row.find_all('td', recursive=False)]
@@ -2717,7 +2720,7 @@ def import_items():
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
         signature = hashlib.sha256(json.dumps(
-            [url, vendor, rows, [row.attrs for row in link_rows]]).encode()).hexdigest()
+            [url, supplier.id, vendor, rows, [row.attrs for row in link_rows]]).encode()).hexdigest()
         if request.form.get('preview') == '1':
             sample = []
             for _, name, _, offer, bonus, price, *rest in rows[:4]:
@@ -2763,7 +2766,7 @@ def import_items():
     # Serialize imports for this account; list numbers describe versions, not identity.
     User.query.filter_by(id=uid).with_for_update().first()
     # Make sure a supplier record exists for this vendor so it can be messaged later.
-    if vendor and not own_stock:
+    if vendor and not own_stock and not url:
         _ensure_supplier(vendor, uid)
     existing_items = Item.query.filter_by(user_id=uid, is_global=False).all()
     def _key(value):

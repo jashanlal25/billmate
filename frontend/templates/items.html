@@ -340,7 +340,7 @@ input[type=number]{-moz-appearance:textfield}
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
       <label for="importVendor">Vendor for these items</label>
       <input id="importVendor" autocomplete="off" placeholder="e.g. dosani" maxlength="50">
-      <div class="import-vendor-hint" style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
+      <div class="import-vendor-hint" id="importVendorHint" style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
     </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
     </div>
@@ -889,6 +889,7 @@ function _vendorFromFilename(fn){
 function _setImportVendor(fn){
   const row = document.getElementById('importVendorRow');
   const inp = document.getElementById('importVendor');
+  document.getElementById('importVendorHint').textContent = 'Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.';
   if(fn){ inp.value = _vendorFromFilename(fn); row.style.display = 'block'; }
   else  { inp.value = ''; row.style.display = 'none'; }
 }
@@ -946,6 +947,7 @@ function prepareOfferLink(){
   document.getElementById('importFileName').textContent = '';
   document.getElementById('importModal').classList.remove('has-file');
   document.getElementById('importVendorRow').style.display = 'block';
+  document.getElementById('importVendorHint').textContent = 'Choose a supplier already saved in Billmate.';
   document.getElementById('importResult').style.display = 'none';
   const btn = document.getElementById('importBtn');
   btn.disabled = false;
@@ -992,7 +994,7 @@ async function doImport(){
   if(!_importFile && !url) return;
   const btn = document.getElementById('importBtn');
   const vendor = (document.getElementById('importVendor').value || '').trim() || (_importFile ? _vendorFromFilename(_importFile.name) : '');
-  if(url && !vendor){ _showImportResult(false, 'Choose a vendor before previewing.'); return; }
+  if(url && !supplierNames.includes(vendor)){ _showImportResult(false, 'Choose an existing supplier before previewing.'); return; }
 
   // ── Guest: parse client-side, save to localStorage ──────────────────────────
   if(IS_GUEST){
