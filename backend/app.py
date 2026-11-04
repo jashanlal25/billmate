@@ -1478,7 +1478,7 @@ def superadmin_import_items():
         visible = soup.get_text(' ', strip=True)
         list_match = re.search(r'List\s*No\s*:?\s*([A-Za-z0-9+/_-]+)', visible, re.I)
         vendor_list_no = list_match.group(1) if list_match else ''
-        new_rows = [] if url else soup.find_all('tr', class_='item-row')
+        new_rows = (link_rows if anas_format else []) if url else soup.find_all('tr', class_='item-row')
         if new_rows:
             for row in new_rows:
                 tds = row.find_all('td')
@@ -2659,15 +2659,24 @@ def bulk_delete_items():
 def _fetch_supplier_offer(url):
     from http.client import HTTPSConnection, HTTPException
 
-    match = re.fullmatch(
-        r'https://tehseentraders\.com/offer-upload/index\.php\?open=([A-Za-z0-9_-]{1,200})', url)
-    if not match:
-        raise ValueError('Use a Tehseen Traders HTTPS offer link.')
+    providers = (
+        ('tehseentraders.com', r'/offer-upload/index\.php\?open=[A-Za-z0-9_-]{1,200}', 'myTable', 'item'),
+        ('anas-system.com', r'/clients/view/[0-9]{1,20}/[A-Fa-f0-9]{32}\?expires=[0-9]{1,12}', 'itemsBody', 'item-row'),
+    )
+    for host, path_pattern, table_id, row_class in providers:
+        origin = 'https://' + host
+        path = url.removeprefix(origin)
+        if url.startswith(origin) and re.fullmatch(path_pattern, path):
+            break
+    else:
+        raise ValueError('Use a supported Tehseen Traders or Anas System HTTPS offer link.')
     limit = 8 * 1024 * 1024
-    connection = HTTPSConnection('tehseentraders.com', timeout=12)
+    connection = HTTPSConnection(host, timeout=20)
     try:
-        connection.request('GET', '/offer-upload/index.php?open=' + match[1])
+        connection.request('GET', path, headers={'User-Agent': 'Mozilla/5.0 (compatible; Billmate Offer Import)'})
         with connection.getresponse() as response:
+            if host == 'anas-system.com' and response.status in (401, 403, 410):
+                raise ValueError('Anas System denied access. Ask your vendor for a fresh offer link.')
             if response.status != 200 or response.headers.get_content_type() != 'text/html':
                 raise ValueError('The supplier link did not return an offer page.')
             html = response.read(limit + 1)
@@ -2678,10 +2687,10 @@ def _fetch_supplier_offer(url):
     finally:
         connection.close()
     soup = _get_bs4().BeautifulSoup(html.decode('utf-8', errors='replace'), 'html.parser')
-    table = soup.find('tbody', id='myTable')
+    table = soup.find('tbody', id=table_id)
     if not table or not html.rstrip(b' \r\n\t\x1a').lower().endswith(b'</html>'):
         raise ValueError('The supplier page is incomplete or has no offer table.')
-    return soup, table.find_all('tr', class_='item', recursive=False)
+    return soup, table.find_all('tr', class_=row_class, recursive=False)
 
 
 @app.route('/api/items/import', methods=['POST'])
@@ -2702,14 +2711,16 @@ def import_items():
             soup, link_rows = _fetch_supplier_offer(url)
             rows = [[td.get_text(' ', strip=True) for td in row.find_all('td', recursive=False)]
                     for row in link_rows]
-            if not rows or any(len(row) != 6 or not row[1] for row in rows):
+            anas_format = bool(link_rows and 'item-row' in link_rows[0].get('class', []))
+            if not rows or any(len(row) != (7 if anas_format else 6) or not row[1] for row in rows):
                 raise ValueError('The supplier table contains no items or has incomplete rows.')
         except ValueError as error:
             return jsonify({'error': str(error)}), 400
-        signature = hashlib.sha256(json.dumps([url, vendor, rows]).encode()).hexdigest()
+        signature = hashlib.sha256(json.dumps(
+            [url, vendor, rows, [row.attrs for row in link_rows]]).encode()).hexdigest()
         if request.form.get('preview') == '1':
             sample = []
-            for _, name, _, offer, bonus, price in rows[:4]:
+            for _, name, _, offer, bonus, price, *rest in rows[:4]:
                 parsed = _parse_offer_cell(offer)
                 sample.append({'name': name, 'offer': offer, 'bonus': bonus,
                                'tp': parsed['tp_override'] if parsed['tp_override'] is not None else price})
