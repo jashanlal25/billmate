@@ -6,13 +6,22 @@
     syp:'syrup', syr:'syrup', syrup:'syrup',
     cap:'capsule', caps:'capsule', capsule:'capsule', capsules:'capsule',
     susp:'suspension', suspension:'suspension', inj:'injection', injection:'injection',
-    drop:'drops', drops:'drops', drp:'drops', sachet:'sachet', sachets:'sachet', satch:'sachet',
-    cream:'cream', crm:'cream', oint:'ointment', ointment:'ointment', gel:'gel',
-    lotion:'lotion', shampoo:'shampoo', solution:'solution', sol:'solution', spray:'spray'
+    drop:'drops', drops:'drops', drp:'drops', sachet:'sachet', sachets:'sachet', sache:'sachet', satch:'sachet',
+    cream:'cream', crm:'cream', oint:'ointment', ointment:'ointment', gel:'gel', emulgel:'gel',
+    lotion:'lotion', shampoo:'shampoo', shampo:'shampoo', solution:'solution', sol:'solution', spray:'spray'
   };
   function profile(name, ignoreShelf=false){
     let text=String(name||'').toLowerCase().normalize('NFKC');
     if(ignoreShelf) text=text.replace(/\s+[a-z]-\d+\s*$/i,'');
+    const notes=[];
+    const formCorrections=[];
+    text=text.replace(/\binjectionn+\b/g, value=>{formCorrections.push(value);return 'injection';});
+    text=text.replace(/\b\d+(?:\.\d+)?\s+retail\b/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\((pharmevo|searle)\)/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\bmerck\s*$/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\bneww*\s*$/g, value=>{notes.push(value);return ' ';});
+    const ambiguousLiquid=/^\s*sup\.?\s+/i.test(text);
+    text=text.replace(/^\s*sup\.?\s+/i,'');
     text=text.replace(/^\s*sp\.(?=\s)/,'syp');
     text=text.replace(/(\d)\s+(mg|mcg|g|ml|iu)\b/g,'$1$2')
       .replace(/(\d),(?=\d{3}\b)/g,'$1').replace(/(\d)\s*[x×]\s*(\d)/g,'$1x$2');
@@ -28,7 +37,7 @@
     }
     const combinedStrength=(text.match(/\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g)||[])
       .map(value=>value.replace(/\s+/g,'')).sort();
-    return {form,numbers,specs,words,combinedStrength,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
+    return {form,numbers,specs,words,combinedStrength,notes,formCorrections,ambiguousLiquid,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
   }
   function distance(a,b){
     let prev=Array.from({length:b.length+1},(_,i)=>i);
@@ -42,6 +51,8 @@
   const same=(a,b)=>a.join('|')===b.join('|');
   function compare(d,v){
     // An explicit conflicting form or strength/pack never becomes an offer.
+    if(d.ambiguousLiquid&&v.form.some(f=>!['syrup','suspension'].includes(f)))return null;
+    if(v.ambiguousLiquid&&d.form.some(f=>!['syrup','suspension'].includes(f)))return null;
     if(d.form.length&&v.form.length&&!same(d.form,v.form)) return null;
     if(!same(d.combinedStrength,v.combinedStrength))return null;
     if(d.numbers.length&&v.numbers.length){
@@ -70,9 +81,12 @@
         if(Math.min(a.length,b.length)<5||a[0]!==b[0]) return null;
         edits+=distance(a,b);
       }
-      if(edits>1) return null;
+      if(edits>1 && !(edits===2&&d.words.every((word,i)=>word===v.words[i]||Math.min(word.length,v.words[i].length)>=7))) return null;
     }
     const reasons=[];
+    if(d.formCorrections.length||v.formCorrections.length)reasons.push('Form spelling corrected: '+[...d.formCorrections,...v.formCorrections].join(', '));
+    if(d.notes.length||v.notes.length)reasons.push('Vendor annotation differs: '+[...d.notes,...v.notes].join(', '));
+    if(d.ambiguousLiquid||v.ambiguousLiquid)reasons.push('Sup abbreviation: verify syrup or suspension');
     if(!exactWords) reasons.push('Spelling differs');
     if(!d.form.length) reasons.push('Choose / verify form');
     else if(!v.form.length) reasons.push('Vendor form missing');

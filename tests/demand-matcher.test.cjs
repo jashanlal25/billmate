@@ -48,3 +48,55 @@ test('unknown products do not acquire unrelated offers; no inventory mutations',
  assert.equal(JSON.stringify(source),before);assert.equal(m.price(source[0]),180);
  assert.equal(m.price({tp:null}),null);assert.equal(m.price({tp:200,discount_pct:110}),null);
 });
+test('Estar vendor annotations retain all three offers without admitting 5mg',()=>{
+ const names=['ESTAR 10 MG TAB 389 RETAIL','ESTAR 10 TAB (PHARMEVO)','ESTAR 10 TAB.','ESTAR 5MG TAB.'];
+ const result=m.match({name:'Tab estar 10mg'},m.prepare(names.map((n,i)=>offer(n,String(i)))));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['0','1','2']);
+ assert(result.offers.every(o=>o.status==='review'));
+});
+test('Nuberol NEW annotation is a review offer, variants and unknown parentheses stay protected',()=>{
+ const names=['NUBEROL FORTE NEW','NUBEROL FORTE TAB','NUBEROL FORTE TAB.','NUBEROL TAB','NUBEROL FORTE (PLUS)'];
+ const result=m.match({name:'Tab nubrol forte'},m.prepare(names.map((n,i)=>offer(n,String(i)))));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['0','1','2']);
+ assert(result.offers.every(o=>o.status==='review'));
+ assert.equal(m.compare(m.profile('ESTAR 10MG TAB'),m.profile('ESTAR 5MG TAB 389 RETAIL')),null);
+});
+test('Sup is an ambiguous liquid request and cannot match tablets or drops',()=>{
+ const names=['ONSET SYP','ONSET SUSP','ONSET TAB','ONSET DROPS'];
+ const result=m.match({name:'Sup onset'},m.prepare(names.map(n=>offer(n,'A'))));
+ assert.deepEqual(result.offers.map(o=>o.item.name),names.slice(0,2));
+ assert(result.offers.every(o=>o.status==='review'));
+});
+test('common form spellings match but strengths and short brand names stay strict',()=>{
+ for(const [a,b] of [['Calcee sache','Calcee sachet'],['Doctor shampo','Doctor shampoo'],['Voltral emulgel','Voltral gel']]){
+  assert(m.compare(m.profile(a),m.profile(b)));
+ }
+ assert.equal(m.compare(m.profile('ESTAR 10 TAB'),m.profile('EXTOR 10 TAB')),null);
+ assert.equal(m.compare(m.profile('EXTOR 5/80'),m.profile('EXTOR 5/160')),null);
+});
+
+test('screenshot: Neoprox 500 retains K.K manufacturer suffix and excludes 250',()=>{
+ const items=[offer('NEOPROX 500 TAB MERCK','K.K TRADERS'),offer('NEOPROX 250 TAB MERCK','K.K TRADERS')];
+ const result=m.match({name:'Tab neoprox 500mg'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.name),['NEOPROX 500 TAB MERCK']);
+ assert.equal(result.offers[0].status,'review');
+ assert.match(result.offers[0].reason,/annotation/);
+});
+test('screenshot: DOSANI malformed injection is a review candidate with unknown strength',()=>{
+ const items=[offer('ONSET INJECTIONNNNN','DOSANI MEDICOS'),offer('ONSET INJ.','JANGDA MEDICOS AHSAN'),offer('ONSET SYP','A'),offer('ONSET INJECTIONNNNN 4MG','B')];
+ const result=m.match({name:'Inj onset 8mg'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['DOSANI MEDICOS','JANGDA MEDICOS AHSAN']);
+ assert.equal(result.offers[0].status,'review');
+ assert.match(result.offers[0].reason,/Form spelling corrected/);
+ assert.match(result.offers[0].reason,/strength/);
+});
+test('screenshot: Panadol STOCK drops remain separate from Extra',()=>{
+ const items=[{...offer('PANADOL DROP. NEWW','STOCK'),qty:23,tp:79.56,discount_pct:30},offer('PANADOL DROP DROP','K.K TRADERS'),offer('PANADOL EXTRA','G.H MEDICAL'),offer('PANADOL-(EXTRA).','NOMAN IMPEX'),offer('PANADOL EXTRA DROP NEWW','A'),offer('PANADOL TAB NEWW','B')];
+ const before=JSON.stringify(items);
+ const result=m.match({name:'Panadol drop'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['STOCK','K.K TRADERS']);
+ assert.equal(result.offers[0].status,'review');
+ assert.equal(result.offers[0].item.qty,23);
+ assert.equal(result.offers[0].item.discount_pct,30);
+ assert.equal(JSON.stringify(items),before);
+});
