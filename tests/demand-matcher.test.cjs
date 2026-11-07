@@ -48,3 +48,29 @@ test('unknown products do not acquire unrelated offers; no inventory mutations',
  assert.equal(JSON.stringify(source),before);assert.equal(m.price(source[0]),180);
  assert.equal(m.price({tp:null}),null);assert.equal(m.price({tp:200,discount_pct:110}),null);
 });
+test('Estar vendor annotations retain all three offers without admitting 5mg',()=>{
+ const names=['ESTAR 10 MG TAB 389 RETAIL','ESTAR 10 TAB (PHARMEVO)','ESTAR 10 TAB.','ESTAR 5MG TAB.'];
+ const result=m.match({name:'Tab estar 10mg'},m.prepare(names.map((n,i)=>offer(n,String(i)))));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['0','1','2']);
+ assert(result.offers.every(o=>o.status==='review'));
+});
+test('Nuberol NEW annotation is a review offer, variants and unknown parentheses stay protected',()=>{
+ const names=['NUBEROL FORTE NEW','NUBEROL FORTE TAB','NUBEROL FORTE TAB.','NUBEROL TAB','NUBEROL FORTE (PLUS)'];
+ const result=m.match({name:'Tab nubrol forte'},m.prepare(names.map((n,i)=>offer(n,String(i)))));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['0','1','2']);
+ assert(result.offers.every(o=>o.status==='review'));
+ assert.equal(m.compare(m.profile('ESTAR 10MG TAB'),m.profile('ESTAR 5MG TAB 389 RETAIL')),null);
+});
+test('Sup is an ambiguous liquid request and cannot match tablets or drops',()=>{
+ const names=['ONSET SYP','ONSET SUSP','ONSET TAB','ONSET DROPS'];
+ const result=m.match({name:'Sup onset'},m.prepare(names.map(n=>offer(n,'A'))));
+ assert.deepEqual(result.offers.map(o=>o.item.name),names.slice(0,2));
+ assert(result.offers.every(o=>o.status==='review'));
+});
+test('common form spellings match but strengths and short brand names stay strict',()=>{
+ for(const [a,b] of [['Calcee sache','Calcee sachet'],['Doctor shampo','Doctor shampoo'],['Voltral emulgel','Voltral gel']]){
+  assert(m.compare(m.profile(a),m.profile(b)));
+ }
+ assert.equal(m.compare(m.profile('ESTAR 10 TAB'),m.profile('EXTOR 10 TAB')),null);
+ assert.equal(m.compare(m.profile('EXTOR 5/80'),m.profile('EXTOR 5/160')),null);
+});
