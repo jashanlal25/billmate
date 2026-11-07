@@ -32,6 +32,10 @@
 .demand input[type=file]{max-width:100%;font-size:16px}
 .demand .selected-file{overflow-wrap:anywhere;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--inp)}
 .demand .copy-offer{display:block;margin-top:7px;padding:5px 10px;border:1px solid var(--border);border-radius:7px;background:var(--inp);color:var(--text);font-size:13px;cursor:pointer}
+.demand .offer-discount-controls{margin-top:8px;font-size:12px;font-weight:400}
+.demand .offer-discount-controls>div{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
+.demand .offer-discount-controls button{min-width:32px;min-height:44px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:7px;font-size:20px;cursor:pointer}
+.demand .offer-discount-controls output{flex:1 0 100%;font-size:15px;font-weight:700}
 .demand .mark-col{display:none;width:65px;text-align:center}
 .demand.selecting .mark-col{display:table-cell}
 .demand .mark-offer{width:20px;height:20px;accent-color:var(--accent)}
@@ -112,9 +116,10 @@
   <div class="mark-actions">
     <a id="jumpToMarked" href="#selectedOffersPanel" class="btn btn-outline" hidden>Review marked items ↓</a>
     <div id="markedCopyOptions" hidden>
+      <label class="mark-toggle"><input id="adjustOfferDiscounts" type="checkbox"><span>Adjust discount per vendor offer (show −/+)</span></label>
       <label for="markedCopyReduction">Decrease copied discount by (%)</label>
       <input id="markedCopyReduction" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" placeholder="0" aria-describedby="markedCopyExample" style="width:100%;max-width:220px;box-sizing:border-box;padding:10px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px">
-      <p id="markedCopyExample" class="muted note">Enter any amount, such as 0.5 or 3. Leave blank or 0 for as-is. Only copied text changes; minimum 0%.</p>
+      <p id="markedCopyExample" class="muted note">Enter any amount, such as 0.5 or 3. Leave blank or 0 for as-is. Only copied text changes; minimum 0%. Changing this amount resets individual adjustments.</p>
     </div>
     <button id="copyMarkedOffers" type="button" class="btn btn-outline" disabled hidden>Copy marked items</button>
   </div>
@@ -153,5 +158,5 @@
 <script src="/static/js/demand-text-parser.js?v=20261107-bottle-qty"></script>
 <script src="/static/js/demand-matcher.js?v=20261107-vendor-notes-2"></script>
 <script src="/static/js/demand-billing-target.js"></script>
-<script src="/static/js/demand-search.js?v=20261107-copy-custom-discount"></script>
+<script src="/static/js/demand-search.js?v=20261107-copy-per-offer"></script>
 {% endblock %}
