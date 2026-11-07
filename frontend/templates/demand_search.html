@@ -112,9 +112,9 @@
   <div class="mark-actions">
     <a id="jumpToMarked" href="#selectedOffersPanel" class="btn btn-outline" hidden>Review marked items ↓</a>
     <div id="markedCopyOptions" hidden>
-      <label for="markedCopyReduction">Discount in copied text</label>
-      <select id="markedCopyReduction" aria-describedby="markedCopyExample"><option value="0" selected>As-is (vendor discount)</option><option value="1">−1% (subtract 1 point)</option><option value="2">−2% (subtract 2 points)</option></select>
-      <p id="markedCopyExample" class="muted note">Example: vendor 4% → copied 4%. Only copied text changes; minimum 0%.</p>
+      <label for="markedCopyReduction">Decrease copied discount by (%)</label>
+      <input id="markedCopyReduction" type="number" inputmode="decimal" min="0" max="100" step="any" value="0" placeholder="0" aria-describedby="markedCopyExample" style="width:100%;max-width:220px;box-sizing:border-box;padding:10px;background:var(--inp);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:16px">
+      <p id="markedCopyExample" class="muted note">Enter any amount, such as 0.5 or 3. Leave blank or 0 for as-is. Only copied text changes; minimum 0%.</p>
     </div>
     <button id="copyMarkedOffers" type="button" class="btn btn-outline" disabled hidden>Copy marked items</button>
   </div>
@@ -153,5 +153,5 @@
 <script src="/static/js/demand-text-parser.js?v=20261107-bottle-qty"></script>
 <script src="/static/js/demand-matcher.js?v=20261107-vendor-notes-2"></script>
 <script src="/static/js/demand-billing-target.js"></script>
-<script src="/static/js/demand-search.js?v=20261107-copy-discount"></script>
+<script src="/static/js/demand-search.js?v=20261107-copy-custom-discount"></script>
 {% endblock %}
