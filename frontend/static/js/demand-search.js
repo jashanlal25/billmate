@@ -3,6 +3,7 @@
   const $=id=>document.getElementById(id);
   let demands=[],results=[],currentFile=null,currentPasted=false,version=0,busy=false;
   let copyOffers=[];
+  const offerDiscounts=new Map();
   const selectedOffers=new Map(),vendorPhones=new Map();
   let suppliers=[];
   const billingTransferKey='billmate-demand-billing-selection';
@@ -50,6 +51,7 @@
   }
   async function load(file,pasted=false,restored=false){
     const ticket=++version;
+    offerDiscounts.clear();
     demands=[];results=[];currentFile=file||null;currentPasted=pasted;
     selectedOffers.clear();updateSelectionPanel();
     $('selectedDemandFile').hidden=!file;
@@ -118,7 +120,7 @@
   });
   $('runDemand').addEventListener('click',async()=>{
     if(busy||!demands.length)return;
-    busy=true;controls();results=[];$('demandResults').hidden=true;
+    busy=true;controls();offerDiscounts.clear();results=[];$('demandResults').hidden=true;
     selectedOffers.clear();updateSelectionPanel();
     status('Loading all vendor inventory…');
     try{
@@ -148,8 +150,26 @@
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
   const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
   const demandQty=d=>[d.qty,d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`,d.required&&'Lazmi'].filter(Boolean).join(' · ')||'—';
-  const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
-  const offerCopyText=offer=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct)}`;
+  const markedCopyReduction=()=>{
+    const raw=$('markedCopyReduction').value.trim();
+    const value=raw===''?0:Number(raw);
+    return Number.isFinite(value)&&value>=0&&value<=100?value:null;
+  };
+  const discountForCopy=(v,reduction=0)=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(Math.max(0,Number(v)-reduction).toFixed(4))}%`;
+  const offerCopyText=(offer,reduction=0)=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct,reduction)}`;
+  const perOfferDiscountsEnabled=()=>$('enableDemandMarks').checked&&$('adjustOfferDiscounts').checked;
+  function copyReductionFor(offer,key){
+    const reduction=markedCopyReduction()??0;
+    const original=Number(offer.item.discount_pct);
+    return perOfferDiscountsEnabled()&&offerDiscounts.has(key)
+      ?original-offerDiscounts.get(key):reduction;
+  }
+  function offerDiscountControls(offer,key){
+    const raw=offer.item.discount_pct,original=Number(raw);
+    if(!perOfferDiscountsEnabled()||raw==null||raw===''||!Number.isFinite(original)||original<0||original>100)return '';
+    const value=Number(Math.max(0,original-copyReductionFor(offer,key)).toFixed(4));
+    return `<div class="offer-discount-controls"><span>Copied discount</span><div><button type="button" data-discount-key="${key}" data-discount-step="-1" aria-label="Decrease copied discount for ${esc(offer.item.name)} from ${esc(offer.item.vendor||'unspecified vendor')}" ${value<=0?'disabled':''}>−</button><output aria-live="polite">${value}%</output><button type="button" data-discount-key="${key}" data-discount-step="1" aria-label="Increase copied discount for ${esc(offer.item.name)} from ${esc(offer.item.vendor||'unspecified vendor')}" ${value>=original?'disabled':''}>+</button></div></div>`;
+  }
   const missingOffer=demand=>({status:'missing',item:{name:demand.name,vendor:'',discount_pct:null}});
   function selectionKeys(kind){
     return results.flatMap((result,dIndex)=>result.offers.length
@@ -209,9 +229,9 @@
         rows.push(`<tr class="group-start"><td class="mark-col" data-label="Mark"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(result.demand.name)} as not in Inventory" ${selectedOffers.has(key)?'checked':''}></td><td class="offer-number" data-label="No.">${visibleItems}</td><td class="names" data-label="Demand item name">${esc(result.demand.name)}</td><td class="names" data-label="Vendor item name">Not found</td><td class="offer-vendor" data-label="Vendor">—</td><td class="offer-discount" data-label="Supplier discount %">—</td><td class="offer-bonus" data-label="Bonus">—</td><td class="offer-tp" data-label="TP">${money(result.demand.tp)}</td><td class="offer-qty" data-label="Demand qty">${esc(demandQty(result.demand))}</td><td class="offer-verification" data-label="Verification">Use supplied code and price in Billing</td></tr>`);continue;
       }
       offers.forEach((o,i)=>{
-        const copyIndex=copyOffers.push(offerCopyText(o))-1;
         const key=`${dIndex}:${result.offers.indexOf(o)}`;
-        rows.push(`<tr class="${i===0?'group-start':''}"><td class="mark-col" data-label="Mark"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(o.item.name)} from ${esc(o.item.vendor||'unspecified vendor')}" ${selectedOffers.has(key)?'checked':''}></td><td class="offer-number" data-label="No.">${visibleItems}.${offerLetter(i)}</td><td class="names" data-label="Demand item name">${esc(result.demand.name)}</td><td class="names" data-label="Vendor item name">${esc(o.item.name)}<button type="button" class="copy-offer" data-copy-offer="${copyIndex}" aria-label="Copy ${esc(o.item.name)} and discount">Copy</button></td><td class="offer-vendor" data-label="Vendor">${esc(o.item.vendor||'Not specified')}</td><td class="offer-discount" data-label="Supplier discount %">${money(o.item.discount_pct)}</td><td class="offer-bonus" data-label="Bonus">${esc(o.item.bonus_text||'—')}</td><td class="offer-tp" data-label="TP">${money(o.item.tp)}</td><td class="offer-qty" data-label="Demand qty">${esc(demandQty(result.demand))}</td><td class="offer-verification" data-label="Verification"><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note bonus-detail">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`);
+        const copyIndex=copyOffers.push(offerCopyText(o,perOfferDiscountsEnabled()?copyReductionFor(o,key):0))-1;
+        rows.push(`<tr class="${i===0?'group-start':''}"><td class="mark-col" data-label="Mark"><input class="mark-offer" type="checkbox" data-offer-key="${key}" aria-label="Mark ${esc(o.item.name)} from ${esc(o.item.vendor||'unspecified vendor')}" ${selectedOffers.has(key)?'checked':''}></td><td class="offer-number" data-label="No.">${visibleItems}.${offerLetter(i)}</td><td class="names" data-label="Demand item name">${esc(result.demand.name)}</td><td class="names" data-label="Vendor item name">${esc(o.item.name)}<button type="button" class="copy-offer" data-copy-offer="${copyIndex}" aria-label="Copy ${esc(o.item.name)} and discount">Copy</button>${offerDiscountControls(o,key)}</td><td class="offer-vendor" data-label="Vendor">${esc(o.item.vendor||'Not specified')}</td><td class="offer-discount" data-label="Supplier discount %">${money(o.item.discount_pct)}</td><td class="offer-bonus" data-label="Bonus">${esc(o.item.bonus_text||'—')}</td><td class="offer-tp" data-label="TP">${money(o.item.tp)}</td><td class="offer-qty" data-label="Demand qty">${esc(demandQty(result.demand))}</td><td class="offer-verification" data-label="Verification"><div class="${o.status==='review'?'review':''}"><strong>${o.status==='review'?'Needs review':'Matching details'}</strong><p class="note">${esc(o.reason)}</p>${o.item.bonus_text?`<p class="note bonus-detail">Bonus: ${esc(o.item.bonus_text)}</p>`:''}</div></td></tr>`);
       });
     }
     $('visibleResultCount').textContent=`Showing ${visibleItems} demand item${visibleItems===1?'':'s'}${visibleOffers?` and ${visibleOffers} vendor offer${visibleOffers===1?'':'s'}`:''} below.`;
@@ -237,8 +257,9 @@
       input.indeterminate=checked>0&&checked<keys.length;
       input.nextElementSibling.textContent=`Select all ${label} (${keys.length})`;
     }
+    $('markedCopyOptions').hidden=!enabled;
     $('copyMarkedOffers').hidden=!enabled;
-    $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size;
+    $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size||markedCopyReduction()===null;
     if(!enabled)return;
     const entries=[...selectedOffers.entries()];
     const missing=entries.filter(([,s])=>s.offer.status==='missing').length;
@@ -255,7 +276,7 @@
     $('selectedVendorList').innerHTML=[...groups].map(([vendor,list])=>`<div class="vendor-send"><strong>${esc(vendor)} · ${list.length} item${list.length===1?'':'s'}</strong><p class="muted note">WhatsApp message will include these items and their selected quantities.</p><div class="controls"><label>Vendor phone (optional) <input type="tel" inputmode="tel" placeholder="Country code + number" data-vendor-phone="${esc(vendor)}" value="${esc(vendorPhones.get(vendor)||'')}"></label><button type="button" class="btn btn-outline" data-copy-vendor="${esc(vendor)}" ${list.some(s=>!validQty(s.qty))?'disabled':''}>Copy order text</button><button type="button" class="btn btn-outline" data-send-vendor="${esc(vendor)}" ${list.some(s=>!validQty(s.qty))?'disabled':''}>WhatsApp this vendor</button></div></div>`).join('');
   }
   $('enableDemandMarks').addEventListener('change',()=>{
-    if(!$('enableDemandMarks').checked)selectedOffers.clear();
+    if(!$('enableDemandMarks').checked){selectedOffers.clear();offerDiscounts.clear();$('adjustOfferDiscounts').checked=false;}
     updateSelectionPanel();render();
     if($('enableDemandMarks').checked){
       fetch('/api/suppliers').then(r=>r.ok?r.json():[]).then(list=>{
@@ -351,18 +372,32 @@
       }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
     });
   });
+  $('adjustOfferDiscounts').addEventListener('change',()=>{
+    offerDiscounts.clear();
+    render();
+  });
+  $('markedCopyReduction').addEventListener('input',()=>{
+    offerDiscounts.clear();
+    const reduction=markedCopyReduction();
+    $('copyMarkedOffers').disabled=!$('enableDemandMarks').checked||!selectedOffers.size||reduction===null;
+    $('markedCopyReduction').setAttribute('aria-invalid',String(reduction===null));
+    $('markedCopyExample').textContent=reduction===null?'Enter a reduction from 0 to 100.':`Example: vendor 4% → copied ${Number(Math.max(0,4-reduction).toFixed(4))}%. Only copied text changes; minimum 0%.`;
+    render();
+  });
   $('copyMarkedOffers').addEventListener('click',async()=>{
     if(!$('enableDemandMarks').checked||!selectedOffers.size)return;
     const entries=[...selectedOffers.entries()].sort(([a],[b])=>{
       const [ad,ao]=a.split(':'),[bd,bo]=b.split(':');
       return Number(ad)-Number(bd)||(ao==='missing'?-1:bd==='missing'?1:Number(ao)-Number(bo));
     });
-    const value=entries.map(([,selected])=>offerCopyText(selected.offer)).join('\n');
+    const reduction=markedCopyReduction();
+    if(reduction===null)return;
+    const value=entries.map(([key,selected])=>offerCopyText(selected.offer,copyReductionFor(selected.offer,key))).join('\n');
     const button=$('copyMarkedOffers');
     try{
       if(!await copyText(value))throw Error('Copy failed');
       button.textContent=`Copied ${entries.length} offer${entries.length===1?'':'s'}!`;
-      $('copyFeedback').textContent=`Copied ${entries.length} marked item${entries.length===1?'':'s'} to paste into WhatsApp.`;
+      $('copyFeedback').textContent=`Copied ${entries.length} marked item${entries.length===1?'':'s'}${perOfferDiscountsEnabled()?' with your per-offer copied discounts':reduction?` with discount reduced by ${reduction} percentage point${reduction===1?'':'s'}`:' with vendor discounts as-is'} to paste into WhatsApp.`;
       setTimeout(()=>{button.textContent='Copy marked items';},2000);
     }catch(e){$('copyFeedback').textContent='Could not copy marked items. Please try again.';}
   });
@@ -377,6 +412,19 @@
     try{return document.execCommand('copy');}finally{input.remove();}
   }
   $('resultRows').addEventListener('click',async e=>{
+    const adjustment=e.target.closest('button[data-discount-key]');
+    if(adjustment){
+      const key=adjustment.dataset.discountKey;
+      const [dIndex,oIndex]=key.split(':').map(Number);
+      const offer=results[dIndex]?.offers[oIndex];
+      if(!offer||!perOfferDiscountsEnabled()||markedCopyReduction()===null)return;
+      const original=Number(offer.item.discount_pct);
+      const current=Math.max(0,original-copyReductionFor(offer,key));
+      const value=Number(Math.min(original,Math.max(0,current+Number(adjustment.dataset.discountStep))).toFixed(4));
+      offerDiscounts.set(key,value);
+      render();
+      return;
+    }
     const button=e.target.closest('button[data-copy-offer]');
     if(!button)return;
     const value=copyOffers[Number(button.dataset.copyOffer)];
