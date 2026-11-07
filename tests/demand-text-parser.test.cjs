@@ -107,3 +107,8 @@ test('bare strengths and pack notation are not mistaken for trailing quantities'
  }
  assert.deepEqual(parse('1 feldene 20mg\n2 bynevol 2.5mg').map(r=>[r.name,r.qty]),[['feldene 20mg','1'],['bynevol 2.5mg','2']]);
 });
+test('descriptive bottle quantities retain requested size',()=>{
+ assert.deepEqual(parse('Liquid parafin (3 bottle small )').map(r=>[r.name,r.qty]),[['Liquid parafin small bottle','3']]);
+ assert.deepEqual(parse('Liquid parafin (2 bottles)').map(r=>[r.name,r.qty]),[['Liquid parafin bottle','2']]);
+ assert.equal(parse('Medicine (500 mg)')[0].qty,'');
+});
