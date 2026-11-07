@@ -14,9 +14,12 @@
     let text=String(name||'').toLowerCase().normalize('NFKC');
     if(ignoreShelf) text=text.replace(/\s+[a-z]-\d+\s*$/i,'');
     const notes=[];
+    const formCorrections=[];
+    text=text.replace(/\binjectionn+\b/g, value=>{formCorrections.push(value);return 'injection';});
     text=text.replace(/\b\d+(?:\.\d+)?\s+retail\b/g, value=>{notes.push(value);return ' ';});
     text=text.replace(/\((pharmevo|searle)\)/g, value=>{notes.push(value);return ' ';});
-    text=text.replace(/\bnew\s*$/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\bmerck\s*$/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\bneww*\s*$/g, value=>{notes.push(value);return ' ';});
     const ambiguousLiquid=/^\s*sup\.?\s+/i.test(text);
     text=text.replace(/^\s*sup\.?\s+/i,'');
     text=text.replace(/^\s*sp\.(?=\s)/,'syp');
@@ -34,7 +37,7 @@
     }
     const combinedStrength=(text.match(/\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g)||[])
       .map(value=>value.replace(/\s+/g,'')).sort();
-    return {form,numbers,specs,words,combinedStrength,notes,ambiguousLiquid,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
+    return {form,numbers,specs,words,combinedStrength,notes,formCorrections,ambiguousLiquid,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
   }
   function distance(a,b){
     let prev=Array.from({length:b.length+1},(_,i)=>i);
@@ -81,6 +84,7 @@
       if(edits>1 && !(edits===2&&d.words.every((word,i)=>word===v.words[i]||Math.min(word.length,v.words[i].length)>=7))) return null;
     }
     const reasons=[];
+    if(d.formCorrections.length||v.formCorrections.length)reasons.push('Form spelling corrected: '+[...d.formCorrections,...v.formCorrections].join(', '));
     if(d.notes.length||v.notes.length)reasons.push('Vendor annotation differs: '+[...d.notes,...v.notes].join(', '));
     if(d.ambiguousLiquid||v.ambiguousLiquid)reasons.push('Sup abbreviation: verify syrup or suspension');
     if(!exactWords) reasons.push('Spelling differs');
