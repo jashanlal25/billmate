@@ -111,6 +111,11 @@
   </div>
   <div class="mark-actions">
     <a id="jumpToMarked" href="#selectedOffersPanel" class="btn btn-outline" hidden>Review marked items ↓</a>
+    <div id="markedCopyOptions" hidden>
+      <label for="markedCopyReduction">Discount in copied text</label>
+      <select id="markedCopyReduction" aria-describedby="markedCopyExample"><option value="0" selected>As-is (vendor discount)</option><option value="1">−1% (subtract 1 point)</option><option value="2">−2% (subtract 2 points)</option></select>
+      <p id="markedCopyExample" class="muted note">Example: vendor 4% → copied 4%. Only copied text changes; minimum 0%.</p>
+    </div>
     <button id="copyMarkedOffers" type="button" class="btn btn-outline" disabled hidden>Copy marked items</button>
   </div>
   <div class="controls"><label for="resultFilter">Show</label><select id="resultFilter"><option value="found">Found offers</option><option value="all">All demand items</option><option value="match">Matching offers</option><option value="review">Needs review</option><option value="missing">Not found</option></select><label for="resultSort">Sort offers</label><select id="resultSort"><option value="tp">Lowest TP</option><option value="discount">Highest discount</option><option value="vendor">Vendor name</option></select></div>
@@ -148,5 +153,5 @@
 <script src="/static/js/demand-text-parser.js?v=20261107-bottle-qty"></script>
 <script src="/static/js/demand-matcher.js?v=20261107-vendor-notes-2"></script>
 <script src="/static/js/demand-billing-target.js"></script>
-<script src="/static/js/demand-search.js?v=20261008-bonus-card-1"></script>
+<script src="/static/js/demand-search.js?v=20261107-copy-discount"></script>
 {% endblock %}
