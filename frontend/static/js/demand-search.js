@@ -148,8 +148,8 @@
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
   const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
   const demandQty=d=>[d.qty,d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`,d.required&&'Lazmi'].filter(Boolean).join(' · ')||'—';
-  const discountForCopy=v=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(v)}%`;
-  const offerCopyText=offer=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct)}`;
+  const discountForCopy=(v,reduction=0)=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(Math.max(0,Number(v)-reduction).toFixed(4))}%`;
+  const offerCopyText=(offer,reduction=0)=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct,reduction)}`;
   const missingOffer=demand=>({status:'missing',item:{name:demand.name,vendor:'',discount_pct:null}});
   function selectionKeys(kind){
     return results.flatMap((result,dIndex)=>result.offers.length
@@ -237,6 +237,7 @@
       input.indeterminate=checked>0&&checked<keys.length;
       input.nextElementSibling.textContent=`Select all ${label} (${keys.length})`;
     }
+    $('markedCopyOptions').hidden=!enabled;
     $('copyMarkedOffers').hidden=!enabled;
     $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size;
     if(!enabled)return;
@@ -351,18 +352,24 @@
       }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
     });
   });
+  $('markedCopyReduction').addEventListener('change',()=>{
+    const reduction=Number($('markedCopyReduction').value)||0;
+    $('markedCopyExample').textContent=`Example: vendor 4% → copied ${Math.max(0,4-reduction)}%. Only copied text changes; minimum 0%.`;
+    $('copyFeedback').textContent='';
+  });
   $('copyMarkedOffers').addEventListener('click',async()=>{
     if(!$('enableDemandMarks').checked||!selectedOffers.size)return;
     const entries=[...selectedOffers.entries()].sort(([a],[b])=>{
       const [ad,ao]=a.split(':'),[bd,bo]=b.split(':');
       return Number(ad)-Number(bd)||(ao==='missing'?-1:bd==='missing'?1:Number(ao)-Number(bo));
     });
-    const value=entries.map(([,selected])=>offerCopyText(selected.offer)).join('\n');
+    const reduction=[1,2].includes(Number($('markedCopyReduction').value))?Number($('markedCopyReduction').value):0;
+    const value=entries.map(([,selected])=>offerCopyText(selected.offer,reduction)).join('\n');
     const button=$('copyMarkedOffers');
     try{
       if(!await copyText(value))throw Error('Copy failed');
       button.textContent=`Copied ${entries.length} offer${entries.length===1?'':'s'}!`;
-      $('copyFeedback').textContent=`Copied ${entries.length} marked item${entries.length===1?'':'s'} to paste into WhatsApp.`;
+      $('copyFeedback').textContent=`Copied ${entries.length} marked item${entries.length===1?'':'s'}${reduction?` with discount reduced by ${reduction} percentage point${reduction===1?'':'s'}`:' with vendor discounts as-is'} to paste into WhatsApp.`;
       setTimeout(()=>{button.textContent='Copy marked items';},2000);
     }catch(e){$('copyFeedback').textContent='Could not copy marked items. Please try again.';}
   });
