@@ -74,3 +74,29 @@ test('common form spellings match but strengths and short brand names stay stric
  assert.equal(m.compare(m.profile('ESTAR 10 TAB'),m.profile('EXTOR 10 TAB')),null);
  assert.equal(m.compare(m.profile('EXTOR 5/80'),m.profile('EXTOR 5/160')),null);
 });
+
+test('screenshot: Neoprox 500 retains K.K manufacturer suffix and excludes 250',()=>{
+ const items=[offer('NEOPROX 500 TAB MERCK','K.K TRADERS'),offer('NEOPROX 250 TAB MERCK','K.K TRADERS')];
+ const result=m.match({name:'Tab neoprox 500mg'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.name),['NEOPROX 500 TAB MERCK']);
+ assert.equal(result.offers[0].status,'review');
+ assert.match(result.offers[0].reason,/annotation/);
+});
+test('screenshot: DOSANI malformed injection is a review candidate with unknown strength',()=>{
+ const items=[offer('ONSET INJECTIONNNNN','DOSANI MEDICOS'),offer('ONSET INJ.','JANGDA MEDICOS AHSAN'),offer('ONSET SYP','A'),offer('ONSET INJECTIONNNNN 4MG','B')];
+ const result=m.match({name:'Inj onset 8mg'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['DOSANI MEDICOS','JANGDA MEDICOS AHSAN']);
+ assert.equal(result.offers[0].status,'review');
+ assert.match(result.offers[0].reason,/Form spelling corrected/);
+ assert.match(result.offers[0].reason,/strength/);
+});
+test('screenshot: Panadol STOCK drops remain separate from Extra',()=>{
+ const items=[{...offer('PANADOL DROP. NEWW','STOCK'),qty:23,tp:79.56,discount_pct:30},offer('PANADOL DROP DROP','K.K TRADERS'),offer('PANADOL EXTRA','G.H MEDICAL'),offer('PANADOL-(EXTRA).','NOMAN IMPEX'),offer('PANADOL EXTRA DROP NEWW','A'),offer('PANADOL TAB NEWW','B')];
+ const before=JSON.stringify(items);
+ const result=m.match({name:'Panadol drop'},m.prepare(items));
+ assert.deepEqual(result.offers.map(o=>o.item.vendor),['STOCK','K.K TRADERS']);
+ assert.equal(result.offers[0].status,'review');
+ assert.equal(result.offers[0].item.qty,23);
+ assert.equal(result.offers[0].item.discount_pct,30);
+ assert.equal(JSON.stringify(items),before);
+});
