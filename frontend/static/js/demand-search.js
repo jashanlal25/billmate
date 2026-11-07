@@ -148,6 +148,11 @@
   const money=v=>v==null||!Number.isFinite(Number(v))?'—':Number(v).toFixed(2);
   const tpValue=v=>v==null||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
   const demandQty=d=>[d.qty,d.box&&`${d.box} box`,d.pcs&&`${d.pcs} pcs`,d.required&&'Lazmi'].filter(Boolean).join(' · ')||'—';
+  const markedCopyReduction=()=>{
+    const raw=$('markedCopyReduction').value.trim();
+    const value=raw===''?0:Number(raw);
+    return Number.isFinite(value)&&value>=0&&value<=100?value:null;
+  };
   const discountForCopy=(v,reduction=0)=>v==null||v===''||!Number.isFinite(Number(v))?'Discount not specified':`${Number(Math.max(0,Number(v)-reduction).toFixed(4))}%`;
   const offerCopyText=(offer,reduction=0)=>`${String(offer.item.name||'').trim()}-----${discountForCopy(offer.item.discount_pct,reduction)}`;
   const missingOffer=demand=>({status:'missing',item:{name:demand.name,vendor:'',discount_pct:null}});
@@ -239,7 +244,7 @@
     }
     $('markedCopyOptions').hidden=!enabled;
     $('copyMarkedOffers').hidden=!enabled;
-    $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size;
+    $('copyMarkedOffers').disabled=!enabled||!selectedOffers.size||markedCopyReduction()===null;
     if(!enabled)return;
     const entries=[...selectedOffers.entries()];
     const missing=entries.filter(([,s])=>s.offer.status==='missing').length;
@@ -352,9 +357,11 @@
       }catch(e){$('selectedOffersCount').textContent='Could not prepare Billing on this device. Please try again.';}
     });
   });
-  $('markedCopyReduction').addEventListener('change',()=>{
-    const reduction=Number($('markedCopyReduction').value)||0;
-    $('markedCopyExample').textContent=`Example: vendor 4% → copied ${Math.max(0,4-reduction)}%. Only copied text changes; minimum 0%.`;
+  $('markedCopyReduction').addEventListener('input',()=>{
+    const reduction=markedCopyReduction();
+    $('copyMarkedOffers').disabled=!$('enableDemandMarks').checked||!selectedOffers.size||reduction===null;
+    $('markedCopyReduction').setAttribute('aria-invalid',String(reduction===null));
+    $('markedCopyExample').textContent=reduction===null?'Enter a reduction from 0 to 100.':`Example: vendor 4% → copied ${Number(Math.max(0,4-reduction).toFixed(4))}%. Only copied text changes; minimum 0%.`;
     $('copyFeedback').textContent='';
   });
   $('copyMarkedOffers').addEventListener('click',async()=>{
@@ -363,7 +370,8 @@
       const [ad,ao]=a.split(':'),[bd,bo]=b.split(':');
       return Number(ad)-Number(bd)||(ao==='missing'?-1:bd==='missing'?1:Number(ao)-Number(bo));
     });
-    const reduction=[1,2].includes(Number($('markedCopyReduction').value))?Number($('markedCopyReduction').value):0;
+    const reduction=markedCopyReduction();
+    if(reduction===null)return;
     const value=entries.map(([,selected])=>offerCopyText(selected.offer,reduction)).join('\n');
     const button=$('copyMarkedOffers');
     try{
