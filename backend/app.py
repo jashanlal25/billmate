@@ -2662,6 +2662,7 @@ def _fetch_supplier_offer(url):
     providers = (
         ('tehseentraders.com', r'/offer-upload/index\.php\?open=[A-Za-z0-9_-]{1,200}', 'myTable', 'item'),
         ('anas-system.com', r'/clients/view/[0-9]{1,20}/[A-Fa-f0-9]{32}\?expires=[0-9]{1,12}', 'itemsBody', 'item-row'),
+        ('anassystem.com', r'/dotnetclients/s/[A-Za-z0-9_-]{8,128}', 'itemsBody', 'item-row'),
     )
     for host, path_pattern, table_id, row_class in providers:
         origin = 'https://' + host
@@ -2675,7 +2676,7 @@ def _fetch_supplier_offer(url):
     try:
         connection.request('GET', path, headers={'User-Agent': 'Mozilla/5.0 (compatible; Billmate Offer Import)'})
         with connection.getresponse() as response:
-            if host == 'anas-system.com' and response.status in (401, 403, 410):
+            if host in ('anas-system.com', 'anassystem.com') and response.status in (401, 403, 410):
                 raise ValueError('Anas System denied access. Ask your vendor for a fresh offer link.')
             if response.status != 200 or response.headers.get_content_type() != 'text/html':
                 raise ValueError('The supplier link did not return an offer page.')
@@ -2686,7 +2687,8 @@ def _fetch_supplier_offer(url):
         raise ValueError('Could not download the supplier list. Try again.') from None
     finally:
         connection.close()
-    soup = _get_bs4().BeautifulSoup(html.decode('utf-8', errors='replace'), 'html.parser')
+    from supplier_showcase import decode_showcase_html
+    soup = _get_bs4().BeautifulSoup(decode_showcase_html(html.decode('utf-8', errors='replace')), 'html.parser')
     table = soup.find('tbody', id=table_id)
     if not table or not html.rstrip(b' \r\n\t\x1a').lower().endswith(b'</html>'):
         raise ValueError('The supplier page is incomplete or has no offer table.')
@@ -2751,6 +2753,11 @@ def import_items():
         except Exception:
             return jsonify({'error': 'Could not read file'}), 400
 
+        from supplier_showcase import decode_showcase_html
+        try:
+            html = decode_showcase_html(html)
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
         soup = _get_bs4().BeautifulSoup(html, 'html.parser')
     # A Stock List export describes the shop's own inventory, not a supplier.
     own_stock = (not url and bool(soup.title and re.search(r'\bstock\s+list\b', soup.title.get_text(' ', strip=True), re.I))
