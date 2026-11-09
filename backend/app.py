@@ -2686,7 +2686,8 @@ def _fetch_supplier_offer(url):
         raise ValueError('Could not download the supplier list. Try again.') from None
     finally:
         connection.close()
-    soup = _get_bs4().BeautifulSoup(html.decode('utf-8', errors='replace'), 'html.parser')
+    from supplier_showcase import decode_showcase_html
+    soup = _get_bs4().BeautifulSoup(decode_showcase_html(html.decode('utf-8', errors='replace')), 'html.parser')
     table = soup.find('tbody', id=table_id)
     if not table or not html.rstrip(b' \r\n\t\x1a').lower().endswith(b'</html>'):
         raise ValueError('The supplier page is incomplete or has no offer table.')
@@ -2751,6 +2752,11 @@ def import_items():
         except Exception:
             return jsonify({'error': 'Could not read file'}), 400
 
+        from supplier_showcase import decode_showcase_html
+        try:
+            html = decode_showcase_html(html)
+        except ValueError as error:
+            return jsonify({'error': str(error)}), 400
         soup = _get_bs4().BeautifulSoup(html, 'html.parser')
     # A Stock List export describes the shop's own inventory, not a supplier.
     own_stock = (not url and bool(soup.title and re.search(r'\bstock\s+list\b', soup.title.get_text(' ', strip=True), re.I))
