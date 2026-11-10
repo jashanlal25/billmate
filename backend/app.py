@@ -86,6 +86,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 from models import db, Settings, Category, Item, Customer, Invoice, InvoiceLine, Supplier, Purchase, PurchaseLine, User, GuestLimit, UserItemDiscount, UserItemOverride, PasswordResetRequest, UserIPLog, SystemConfig, CustomerPayment, SupplierPayment, WhatsAppAgent, WhatsAppConversation, WhatsAppDraft, WhatsAppPartyNumber
 db.init_app(app)
 migrate = Migrate(app, db)
+from pos_purchase_history import bp as pos_purchase_history_bp
+app.register_blueprint(pos_purchase_history_bp)
 
 # Public APK metadata + download proxy. Keeps GitHub/repository URLs out of the browser.
 ANDROID_APK_VERSION = '1.14'
@@ -1734,6 +1736,9 @@ def _backup_payload(uid):
             rows = query.filter(model.user_id == uid).all()
         data[name] = [_backup_row(row, {'user_id'}) for row in rows]
     settings = Settings.query.filter_by(user_id=uid).first()
+    from pos_purchase_history import table_exists
+    from models import POSPurchase
+    data['pos_purchase_history'] = [_backup_row(row, {'user_id'}) for row in POSPurchase.query.filter_by(user_id=uid).all()] if table_exists() else []
     data['settings'] = [_backup_row(settings, {'id', 'user_id', *_BACKUP_SECRET_FIELDS})] if settings else []
     return {
         'format': _BACKUP_FORMAT,
@@ -1773,6 +1778,8 @@ def _validate_backup(payload):
         return 'Backup is missing required data sections'
     if any(not isinstance(payload['data'].get(key), list) for key in _BACKUP_TABLES):
         return 'Backup data sections must be lists'
+    if 'pos_purchase_history' in payload['data'] and not isinstance(payload['data']['pos_purchase_history'], list):
+        return 'POS purchase history must be a list'
     return None
 
 
@@ -1821,6 +1828,10 @@ def backup_restore():
             return Decimal(str(value))
         return datetime.fromisoformat(value.replace('Z', '+00:00')) if isinstance(column.type, sa.DateTime) else date.fromisoformat(value)
 
+    # Create the optional history table before opening the restore transaction.
+    if payload['data'].get('pos_purchase_history'):
+        from models import POSPurchase
+        POSPurchase.__table__.create(bind=db.engine, checkfirst=True)
     try:
         data = payload['data']
         maps = {name: {} for name in ('categories', 'items', 'customers', 'suppliers', 'purchases', 'invoices')}
@@ -1895,6 +1906,9 @@ def backup_restore():
                                and settings_rows[0].get(c.name) is not None}
             for key, value in settings_values.items():
                 setattr(settings, key, value)
+        if data.get('pos_purchase_history'):
+            from pos_purchase_history import restore_history
+            created['pos_purchase_history'] = restore_history(uid, data['pos_purchase_history'])
         db.session.commit()
         return jsonify({'success': True, 'created': created})
     except Exception:
@@ -1913,6 +1927,39 @@ def backup_page():
 @app.route('/purchase')
 def purchase_page():
     return render_template('purchase.html')
+
+@app.route('/profit')
+def profit_page():
+    return render_template('profit.html')
+
+
+@app.route('/api/profit')
+def profit_report_api():
+    uid = session.get('user_id')
+    if not uid or session.get('is_guest'):
+        return jsonify({'error': 'Registered accounts only'}), 403
+    from zoneinfo import ZoneInfo
+    from profit_data import read_profit_bills
+    from profit_report import build_profit_report
+    today = datetime.now(ZoneInfo('Asia/Karachi')).date()
+    try:
+        start = date.fromisoformat(request.args.get('start') or today.replace(day=1).isoformat())
+        end = date.fromisoformat(request.args.get('end') or today.isoformat())
+    except ValueError:
+        return jsonify({'error': 'Use valid dates in YYYY-MM-DD format'}), 400
+    if start > end:
+        return jsonify({'error': 'Start date must be before or equal to end date'}), 400
+    group_by = request.args.get('group_by', 'customer')
+    if group_by not in ('customer', 'item', 'day', 'month'):
+        return jsonify({'error': 'Invalid profit breakdown'}), 400
+    purchases, invoices, has_purchase_links = read_profit_bills(uid, end)
+    report = build_profit_report(purchases, invoices, start, end, group_by,
+                                 request.args.get('q', '').strip()[:200])
+    report['purchase_links_available'] = has_purchase_links
+    response = jsonify(report)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 
 @app.route('/demand-search')
 def demand_search_page():

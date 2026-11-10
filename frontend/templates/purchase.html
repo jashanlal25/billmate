@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Purchase</title>
 <style>
+.purchase-history-controls input,.purchase-history-controls select,.purchase-history-controls button{min-height:44px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--inp);color:var(--text);max-width:100%;min-width:0}
+#sesModal [hidden]{display:none!important}
+
 *{margin:0;padding:0;box-sizing:border-box}html{scrollbar-gutter:stable;background:#1a1a2e}
 :root{--bg:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);--card:#fff;--text:#1a1a2e;--sub:#555;--border:#e0e0e0;--inp:#f8f9fa;--shadow:0 4px 15px rgba(0,0,0,.1);--accent:#667eea;--row-hover:#f0f0ff;--red:#ef4444;--green:#10b981}
 [data-theme=dark]{--card:#1e1e2e;--text:#e0e0e0;--sub:#aaa;--border:#333;--inp:#2a2a3e;--shadow:0 4px 15px rgba(0,0,0,.3);--row-hover:#2e2e44}
@@ -135,6 +138,10 @@ input[type=number]{-moz-appearance:textfield}
   <div>
   <div class="panel">
     <div class="panel-title">🛒 Purchase Entry</div>
+    <div style="padding:12px;margin-bottom:14px;border:1px solid var(--border);border-radius:12px;background:var(--inp);color:var(--text)">
+      <strong>Purchases already entered in POS?</strong>
+      <p style="font-size:.85em;color:var(--sub);line-height:1.6;margin-top:6px">Upload your latest ZIP through <a href="/pos-import">POS Import</a>. Supplier bills, received quantities, bonus quantities, discounts and costs will appear in Purchase history below. Re-uploading refreshes the same bills. Use manual entry below for purchases made directly in BillMate.</p>
+    </div>
     <div style="margin-bottom:14px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--inp)">
       <div style="font-weight:700;margin-bottom:8px">Bring items from Billing</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -227,8 +234,17 @@ input[type=number]{-moz-appearance:textfield}
 
   <!-- Saved purchases -->
   <div id="histSection" style="display:none">
-    <div class="hist-title">Saved Purchases</div>
+    <div class="hist-title">Purchase History</div>
+    <div class="purchase-history-controls" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <input id="purchaseHistorySearch" placeholder="Supplier or bill number" aria-label="Search purchase history" style="flex:1;min-width:140px" onkeydown="if(event.key==='Enter')loadPurchaseHistory()">
+      <select id="purchaseHistorySource" aria-label="Purchase source" onchange="loadPurchaseHistory()"><option value="all">All purchases</option><option value="pos">POS imported</option><option value="manual">BillMate entered</option></select>
+      <input type="date" id="purchaseHistoryStart" aria-label="Purchase history from date" onchange="loadPurchaseHistory()">
+      <input type="date" id="purchaseHistoryEnd" aria-label="Purchase history to date" onchange="loadPurchaseHistory()">
+      <button type="button" onclick="loadPurchaseHistory()">Search</button>
+    </div>
+    <div id="purchaseHistoryCount" style="color:var(--sub);font-size:.85em;margin-bottom:10px"></div>
     <div class="hist-card" id="sessionList"></div>
+    <div style="display:flex;gap:12px;margin-top:12px"><button type="button" id="purchaseHistoryPrev" onclick="loadPurchaseHistory(Math.max(0,purchaseHistoryOffset-30))">← Previous</button><button type="button" id="purchaseHistoryNext" onclick="loadPurchaseHistory(purchaseHistoryOffset+30)">Next →</button></div>
   </div>
   </div><!-- /left column -->
 
@@ -277,6 +293,7 @@ input[type=number]{-moz-appearance:textfield}
         <span>Total Cost</span><span id="sm_total"></span>
       </div>
     </div>
+    <p id="sm_source_note" style="color:var(--sub);font-size:.85em;margin-top:12px"></p>
     <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
       <button onclick="viewPurchaseBill()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">👁️ View Bill</button>
       <button onclick="printPurchaseModal()" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:.88em;font-weight:600;cursor:pointer">🖨️ Print</button>
@@ -677,7 +694,7 @@ async function savePurchase(){
     for(const k of Object.keys(localStorage)){
       if(k.startsWith('items_cache_')) localStorage.removeItem(k);
     }
-    if(editingPurchaseId){ const ix=sessionPurchases.findIndex(p=>p.id===editingPurchaseId); if(ix>=0)sessionPurchases[ix]=res; editingPurchaseId=null; } else sessionPurchases.unshift(res);
+    if(editingPurchaseId){ const ix=sessionPurchases.findIndex(p=>p.id===editingPurchaseId&&p.source!=='pos'); if(ix>=0)sessionPurchases[ix]=res; editingPurchaseId=null; } else sessionPurchases.unshift(res);
     renderSessionHistory();
     loadPurchaseHistory();
     lines=[];
@@ -696,11 +713,11 @@ async function savePurchase(){
 }
 
 function renderSessionHistory(){
-  if(!sessionPurchases.length){document.getElementById('histSection').style.display='none';return;}
+  if(!sessionPurchases.length){document.getElementById('histSection').style.display='block';document.getElementById('sessionList').textContent='No purchases match. Import your POS ZIP to bring in supplier bills.';return;}
   document.getElementById('histSection').style.display='block';
   document.getElementById('sessionList').innerHTML=sessionPurchases.map((p,idx)=>`
     <div class="hist-row" style="grid-template-columns:auto 1fr auto auto">
-      <span class="hist-no">${p.purchase_number}</span>
+      <span class="hist-no">${esc(p.purchase_number)}<small style="display:block;color:var(--sub)">${esc(p.purchase_date)} · ${p.source==='pos'?'POS':'BillMate'}</small></span>
       <span style="font-size:.9em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
         ${esc(p.supplier_name)} &nbsp;·&nbsp; ${p.lines.map(l=>`${esc(l.item_name)}&nbsp;&nbsp;<span style="color:var(--accent)">TP:&nbsp;${(+l.tp).toFixed(0)}</span>&nbsp;&nbsp;<span style="color:var(--sub)">×&nbsp;${(+l.qty).toFixed(0)}</span>`).join('&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;')}
       </span>
@@ -711,37 +728,57 @@ function renderSessionHistory(){
     </div>`).join('');
 }
 
-async function loadPurchaseHistory(){
+let purchaseHistoryOffset=0, purchaseHistoryRequest=0;
+async function loadPurchaseHistory(offset=0){
+  const requestId=++purchaseHistoryRequest;
   try{
-    const r=await fetch('/api/purchases');
-    if(!r.ok)throw Error('Could not load saved purchases');
-    const purchases=await r.json();
+    const value=id=>document.getElementById(id)?.value||'';
+    const params=new URLSearchParams({offset:String(offset),limit:'30',q:value('purchaseHistorySearch'),source:value('purchaseHistorySource')||'all',start:value('purchaseHistoryStart'),end:value('purchaseHistoryEnd')});
+    const r=await fetch('/api/purchase-history?'+params);
+    const data=await r.json();
+    if(!r.ok)throw Error(data.error||'Could not load saved purchases');
+    if(requestId!==purchaseHistoryRequest)return;
+    const purchases=Array.isArray(data)?data:data.items;
     if(!Array.isArray(purchases))throw Error('Invalid purchase history');
+    purchaseHistoryOffset=offset;
     sessionPurchases=purchases;
     renderSessionHistory();
+    document.getElementById('purchaseHistoryCount').textContent=(data.total||0)+' bills · Total Rs. '+Number(data.total_cost||0).toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById('purchaseHistoryPrev').disabled=offset===0;
+    document.getElementById('purchaseHistoryNext').disabled=offset+30>=(data.total||0);
   }catch(e){
     document.getElementById('histSection').style.display='block';
-    document.getElementById('sessionList').textContent='Could not load saved purchases. Refresh to retry.';
+    document.getElementById('sessionList').textContent=e.message;
   }
 }
 
-function viewSessionPurchase(idx){
-  const p=sessionPurchases[idx];
+async function viewSessionPurchase(idx){
+  let p=sessionPurchases[idx];if(!p)return;
+  if(!p.lines?.length){
+    try{
+      const response=await fetch('/api/purchase-history/'+(p.source||'manual')+'/'+p.id);
+      const data=await response.json();if(!response.ok)throw Error(data.error||'Could not load purchase');
+      p=data;sessionPurchases[idx]=p;
+    }catch(error){toast(error.message,true);return;}
+  }
   currentViewPurchase=p;
-  document.getElementById('sm_no').textContent=p.purchase_number;
+  document.getElementById('sm_no').textContent=p.purchase_number+(p.source==='pos'?' · POS imported':'');
+  document.querySelector('[onclick="editCurrentPurchase()"]').hidden=!!p.read_only;
+  document.querySelector('[onclick="deleteCurrentPurchase()"]').hidden=!!p.read_only;
   document.getElementById('sm_date').textContent=p.purchase_date;
   document.getElementById('sm_sup').innerHTML=esc(p.supplier_name)+(p.source_invoice_number?`<div style="margin-top:5px;font-size:.78em;color:var(--accent)">Linked from invoice ${esc(p.source_invoice_number)}</div>`:'');
   document.getElementById('sm_lines').innerHTML=p.lines.map((l,i)=>`
     <tr>
       <td style="padding:8px 10px;color:var(--sub);border-bottom:1px solid var(--border)">${i+1}</td>
-      <td style="padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border)">${esc(l.item_name)}</td>
+      <td style="padding:8px 10px;font-weight:600;border-bottom:1px solid var(--border)">${esc(l.item_name)}${l.bonus_qty?`<small style="display:block;color:var(--sub)">Paid: ${l.paid_qty} · Supplier bonus: ${l.bonus_qty}</small>`:''}</td>
       <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.tp).toFixed(2)}</td>
       <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">Rs.${(+l.retail).toFixed(2)}</td>
-      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.disc_pct)>0?(+l.disc_pct).toFixed(1)+'%':'—'}</td>
-      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.qty).toFixed(0)}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.disc_pct)!==0?((+l.disc_pct)<0?'Surcharge '+Math.abs(+l.disc_pct).toFixed(1):(+l.disc_pct).toFixed(1))+'%':'—'}</td>
+      <td style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--border)">${(+l.qty).toLocaleString('en-PK',{maximumFractionDigits:3})}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:700;border-bottom:1px solid var(--border)">Rs.${(+l.line_total).toFixed(2)}</td>
     </tr>`).join('');
-  document.getElementById('sm_total').textContent='Rs.'+(+p.total_cost).toFixed(2);
+  document.getElementById('sm_total').textContent='Rs.'+(+p.total_cost).toFixed(2)+(p.adjustment?' (bill adjustment Rs. '+Number(p.adjustment).toFixed(2)+')':'');
+  document.getElementById('sm_source_note').textContent=p.read_only?'Imported POS history. Stock and supplier balances are synchronized separately. Correct this bill in POS and upload the latest ZIP to refresh it.':'';
   document.getElementById('sesModal').classList.add('open');
 }
 
@@ -750,6 +787,7 @@ function closeSesModal(){
 }
 async function editCurrentPurchase(){
   const p=currentViewPurchase;if(!p)return;
+  if(p.read_only){toast('Update this purchase in POS and synchronize the ZIP again.',true);return;}
   editingPurchaseId=p.id;
   sourceInvoiceId=p.source_invoice_id||null; sourceInvoiceNumber=p.source_invoice_number||'';
   lines=(p.lines||[]).map(l=>({item_id:l.item_id,name:l.item_name,tp:+l.tp,retail:+l.retail,disc:+l.disc_pct||0,tax:+l.tax||0,qty:+l.qty,currentQty:+l.current_stock||0}));
@@ -764,6 +802,7 @@ async function editCurrentPurchase(){
 
 async function deleteCurrentPurchase(){
   const p=currentViewPurchase;if(!p)return;
+  if(p.read_only){toast('Update this purchase in POS and synchronize the ZIP again.',true);return;}
   if(!confirm('Delete '+p.purchase_number+'? Purchased stock and supplier balance will be reversed.')) return;
   const r=await fetch('/api/purchases/'+p.id,{method:'DELETE'}),res=await r.json();
   if(!r.ok){toast(res.error||'Could not delete purchase',true);return;}
@@ -827,7 +866,7 @@ function buildPurchasePrintHtml(p, forPdf){
     <td style="text-align:right;font-weight:700;color:#1a1a2e">Rs.${(+l.line_total).toFixed(2)}</td>
   </tr>`).join('');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${p.purchase_number}</title>
+  <title>${esc(p.purchase_number)}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',Arial,sans-serif;padding:24px 30px;color:#1a1a2e;font-size:13px;background:#fff}
@@ -859,7 +898,7 @@ function buildPurchasePrintHtml(p, forPdf){
   <hr class="divider">
   <div class="pur-title">Purchase Invoice</div>
   <div class="info-row">
-    <div class="info-item"><div class="lbl">Purchase #</div><div class="val">${p.purchase_number}</div></div>
+    <div class="info-item"><div class="lbl">Purchase #</div><div class="val">${esc(p.purchase_number)}</div></div>
     <div class="info-item"><div class="lbl">Supplier</div><div class="val">${esc(p.supplier_name)}</div></div>
     <div class="info-item"><div class="lbl">Date</div><div class="val">${p.purchase_date}</div></div>
     ${p.source_invoice_number?`<div class="info-item"><div class="lbl">Linked Invoice</div><div class="val">${esc(p.source_invoice_number)}</div></div>`:''}
