@@ -42,6 +42,32 @@ ROWS = ('<tr class="item-row" data-tp="100" data-disc="12" '
         '<td>10+1</td><td>100</td><td>2</td></tr>')
 
 
+def newer_showcase(rows):
+    key = list(range(32))
+    seed = 0x1a4023
+    previous = 0x23
+    digest = 2166136261
+    packed = bytearray()
+    for i, value in enumerate(rows.encode()):
+        byte = value ^ ((key[(i + 26) & 31] + (i & 255) * 65 + previous) & 255)
+        packed.append(byte)
+        previous = byte
+        digest = ((digest ^ value) * 16777619) & 0xffffffff
+    encoded = base64.b64encode(packed).decode()
+    chunks = json.dumps([encoded[19:], encoded[:19]]).replace('+', r'\u002B')
+    return (
+        '<html><div>List No: 000099</div><table><tbody id="itemsBody"></tbody></table>'
+        '<script>var target=document.getElementById("itemsBody");'
+        'target.innerHTML=(function(){const _abc123_chunks=' + chunks +
+        ',_abc123_map=[1,0],_abc123_key=' + json.dumps(key) +
+        f',_abc123_seed={seed},_abc123_order=new Array(2);'
+        '_abc123_byte^((_abc123_key[(_abc123_i+_abc123_offset)&31]'
+        '+(_abc123_i&255)*_abc123_stride+_abc123_previous)&255);'
+        f'if(_abc123_hash!=={digest})throw new Error("Invalid offer data");'
+        '})()</script></html>'
+    )
+
+
 def test_decode_and_classic_passthrough():
     assert ROWS in decode_showcase_html(showcase(ROWS))
     assert decode_showcase_html(ROWS) == ROWS
@@ -134,6 +160,24 @@ def test_corrupt_payload_keeps_catalogue(env):
     assert response.status_code == 400
     assert 'previous catalogue was kept' in response.json['error']
     assert Item.query.filter_by(is_active=True).count() == 1
+
+
+def test_newer_showcase_upload_and_corrupt_checksum(env):
+    name = 'ACICON 20MG TAB. – TEST'
+    rows = ROWS.replace('ACICON 20MG TAB.', name)
+    html = newer_showcase(rows)
+    assert rows in decode_showcase_html(viewer(html))
+    first = upload(env, html)
+    assert first.status_code == 200 and first.json['added'] == 1
+    item = Item.query.one()
+    assert (item.name, item.vendor_code, item.vendor_list_no) == (name, '0041', '000099')
+    assert (float(item.tp), float(item.discount_pct), float(item.tax_pct), item.bonus_text) == (100, 12, 2, '10+1')
+
+    broken = re.sub(r'_abc123_hash!==\d+', '_abc123_hash!==0', html)
+    response = upload(env, broken)
+    assert response.status_code == 400
+    assert 'previous catalogue was kept' in response.json['error']
+    assert Item.query.filter_by(is_active=True).one().name == name
 
 
 @pytest.mark.parametrize('before,after', [(',b=[1,0]', ',b=[2,0]'),

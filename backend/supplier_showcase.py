@@ -46,15 +46,31 @@ def decode_showcase_html(html):
     for script in scripts:
         if not re.search(r'getElementById\([\'"]itemsBody[\'"]\)', script):
             continue
-        if 'target.innerHTML=(function(){var a=[' not in script:
-            continue
         error = 'Could not decode the supplier SHOWCASE list; the previous catalogue was kept'
-        match = re.search(
-            r'var a=(\[.*?\]),b=(\[.*?\]),c=(\[.*?\]),d=(\d+),t=\'\';',
-            script, re.S)
-        checksum = re.search(r'if\(f!==(\d+)\)throw 0', script)
-        # Require the known byte transform, rather than guessing future formats.
-        transform = 'n^((c[j%c.length]+((j%256)*31)+d)&255)'
+        legacy = 'target.innerHTML=(function(){var a=[' in script
+        if legacy:
+            match = re.search(
+                r'var a=(\[.*?\]),b=(\[.*?\]),c=(\[.*?\]),d=(\d+),t=\'\';',
+                script, re.S)
+            checksum = re.search(r'if\(f!==(\d+)\)throw 0', script)
+            transform = 'n^((c[j%c.length]+((j%256)*31)+d)&255)'
+            seed_limit = 255
+        else:
+            prefix_match = re.search(r'target\.innerHTML=\(function\(\)\{const (_[0-9a-fA-F]+)_chunks\s*=', script)
+            if not prefix_match:
+                continue
+            prefix = prefix_match[1]
+            match = re.search(
+                rf'{prefix}_chunks=(\[.*?\]),{prefix}_map=(\[.*?\]),'
+                rf'{prefix}_key=(\[.*?\]),{prefix}_seed=(\d+),',
+                script, re.S)
+            checksum = re.search(rf'if\({prefix}_hash!==(\d+)\)throw new Error\(', script)
+            transform = (
+                f'{prefix}_byte^(({prefix}_key[({prefix}_i+{prefix}_offset)&31]'
+                f'+({prefix}_i&255)*{prefix}_stride+{prefix}_previous)&255)'
+            )
+            seed_limit = 0xffffffff
+        # Decode only the two known byte transforms.
         if not match or not checksum or transform not in script:
             raise ValueError(error)
         try:
@@ -67,8 +83,15 @@ def decode_showcase_html(html):
                     or sorted(order) != list(range(len(chunks)))
                     or not isinstance(key, list) or not 0 < len(key) <= 256
                     or any(type(n) is not int or not 0 <= n <= 255 for n in key)
-                    or not 0 <= seed <= 255):
+                    or not 0 <= seed <= seed_limit):
                 raise ValueError(error)
+            stride, offset = 31, 0
+            if not legacy:
+                if len(key) != 32:
+                    raise ValueError(error)
+                stride = ((seed >> 8) & 255) | 1
+                offset = (seed >> 16) & 31
+            previous = seed & 255
             packed = ''.join(chunks[i] for i in order)
             if len(packed) > 12 * 1024 * 1024:
                 raise ValueError(error)
@@ -76,9 +99,9 @@ def decode_showcase_html(html):
             decoded = bytearray(len(data))
             digest = 2166136261
             for j, byte in enumerate(data):
-                value = byte ^ ((key[j % len(key)] + (j % 256) * 31 + seed) & 255)
+                value = byte ^ ((key[(j + offset) % len(key)] + (j & 255) * stride + previous) & 255)
                 decoded[j] = value
-                seed = byte
+                previous = byte
                 digest = ((digest ^ value) * 16777619) & 0xffffffff
             if digest != int(checksum[1]):
                 raise ValueError(error)
