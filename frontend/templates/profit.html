@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Profit — BillMate{% endblock %}
+{% block page_styles %}
+.profit-page [hidden]{display:none!important}
+.profit-page{max-width:1180px;margin:20px auto;color:var(--text)}
+.profit-heading{color:#fff;margin-bottom:18px}.profit-heading p{opacity:.8;margin-top:6px}
+.profit-panel{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;margin-bottom:16px}
+.profit-filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px}.profit-filters label{display:flex;flex:1 1 155px;flex-direction:column;gap:7px;font-size:13px;font-weight:600;min-width:0}
+.profit-page input,.profit-page select,.profit-page button{min-height:44px;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--inp);color:var(--text);font:inherit;min-width:0;max-width:100%}
+.profit-page button{cursor:pointer;background:var(--accent);color:#fff;font-weight:600}.profit-page button:disabled{opacity:.6;cursor:wait}
+.profit-presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.profit-presets button{background:var(--inp);color:var(--text);font-size:13px;min-height:36px}
+.profit-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.profit-stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;min-width:0}.profit-stat small{color:var(--sub);display:block;line-height:1.4}.profit-stat strong{display:block;font-size:clamp(18px,2vw,26px);margin:10px 0;overflow-wrap:anywhere}.profit-positive{color:var(--green)}.profit-negative{color:var(--red)}
+.profit-note{color:var(--sub);font-size:13px;line-height:1.6}.profit-warning{border-left:4px solid #d97706}.profit-status{margin-bottom:16px;color:var(--text);font-size:14px}
+.profit-table{width:100%;border-collapse:collapse;font-size:14px}.profit-table th,.profit-table td{padding:14px 10px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums}.profit-table th:first-child,.profit-table td:first-child{text-align:left;overflow-wrap:anywhere}.profit-table th{color:var(--sub);font-size:12px}.profit-table td small{display:block;color:var(--sub);margin-top:5px}.profit-panel h2{font-size:18px;margin-bottom:14px}.profit-empty{padding:30px;text-align:center;color:var(--sub)}
+@media(max-width:700px){.profit-page{margin-top:12px}.profit-panel{padding:14px}.profit-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.profit-stat{padding:14px}.profit-table thead{display:none}.profit-table,.profit-table tbody,.profit-table tr,.profit-table td{display:block}.profit-table tr{border:1px solid var(--border);border-radius:12px;margin-bottom:12px;padding:10px}.profit-table td{display:flex;justify-content:space-between;gap:16px;border:0;padding:7px 4px;font-size:13px}.profit-table td::before{content:attr(data-label);color:var(--sub);text-align:left}.profit-table td:first-child{display:block;font-size:15px;font-weight:700}.profit-table td:first-child::before{display:none}.profit-table td span{text-align:right}.profit-filters button{flex:1 1 100%}}
+{% endblock %}
+{% block content %}
+<main class="profit-page">
+  <div class="profit-heading"><h1>Profit</h1><p>Purchase costs, sales, and the profit on items sold.</p></div>
+  <section class="profit-panel" aria-label="Report filters">
+    <form id="profitFilters" class="profit-filters">
+      <label>From<input type="date" id="profitStart" required></label>
+      <label>To<input type="date" id="profitEnd" required></label>
+      <label>View by<select id="profitGroup"><option value="customer">Customer wise</option><option value="item">Item wise</option><option value="day">Day wise</option><option value="month">Month wise</option></select></label>
+      <label>Search breakdown<input type="search" id="profitSearch" placeholder="Customer name" maxlength="200"></label>
+      <button id="profitRefresh" type="submit">Show profit</button>
+    </form>
+    <div class="profit-presets"><button type="button" data-period="today">Today</button><button type="button" data-period="month">This month</button><button type="button" data-period="last-month">Last month</button><button type="button" data-period="year">This year</button></div>
+  </section>
+  <p class="profit-status" id="profitStatus" role="status" aria-live="polite">Loading profit…</p>
+  <div class="profit-summary" id="profitSummary" hidden></div>
+  <section class="profit-panel profit-warning" id="profitWarning" hidden></section>
+  <section class="profit-panel"><h2 id="profitTitle">Customer wise profit</h2><div id="profitRows"></div></section>
+  <section class="profit-panel profit-note">
+    <strong>How profit is calculated</strong><br>
+    Sales amount − purchase cost of the quantity sold. Bill discounts and fixed per-unit tax are included. Drafts, cancelled bills, previous balances, and payments are excluded. This is gross profit before shop expenses.<br>
+    Purchase total shows all purchases in the selected dates, including unsold items. Search filters the sales breakdown only.<br>
+    Manual receipts use the oldest available purchases first (FIFO). POS purchases imported through POS Import supply the latest purchase cost on or before a sale, including supplier bonus quantities and bill adjustments. This is a purchase-cost basis, not a reconstruction of the POS system’s historical average-cost valuation. Where invoice links are available, purchases created from a sales invoice are reserved for that invoice, including purchases entered later. Other purchases must be dated on or before the sale. Missing purchase costs are flagged and excluded from calculated profit; current catalog prices are never substituted.<br>
+    Reports recalculate from saved bills whenever this page loads, filters change, or you return to it. Edits to purchase bills update the report too.
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/profit.js?v=3"></script>{% endblock %}

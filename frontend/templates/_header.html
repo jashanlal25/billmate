@@ -11,6 +11,7 @@
     <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
     <a href="/customers" class="nav-link {{ 'active' if request.path == '/customers' else '' }}">👥 Customers</a>
     <a href="/purchase" class="nav-link {{ 'active' if request.path == '/purchase' else '' }}">🛒 Purchase</a>
+    {% if not is_guest and not session.get('is_guest') %}<a href="/profit" class="nav-link {{ 'active' if request.path == '/profit' else '' }}">📈 Profit</a>{% endif %}
     <a href="/payments" class="nav-link {{ 'active' if request.path == '/payments' else '' }}">💳 Payments</a>
     <a href="/backup" class="nav-link {{ 'active' if request.path == '/backup' else '' }}">💾 Backup</a>
     {% if not is_guest %}<a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>{% endif %}
@@ -31,6 +32,7 @@
   <a href="/demand-search" class="nav-link {{ 'active' if request.path == '/demand-search' else '' }}">🔎 Demand Search</a>
   <a href="/customers" class="nav-link {{ 'active' if request.path == '/customers' else '' }}">👥 Customers</a>
   <a href="/purchase" class="nav-link {{ 'active' if request.path == '/purchase' else '' }}">🛒 Purchase</a>
+  {% if not is_guest and not session.get('is_guest') %}<a href="/profit" class="nav-link {{ 'active' if request.path == '/profit' else '' }}">📈 Profit</a>{% endif %}
   <a href="/payments" class="nav-link {{ 'active' if request.path == '/payments' else '' }}">💳 Payments</a>
   <a href="/backup" class="nav-link {{ 'active' if request.path == '/backup' else '' }}">💾 Backup</a>
   {% if not is_guest %}<a href="/pos-import" class="nav-link {{ 'active' if request.path == '/pos-import' else '' }}">🔄 POS Import</a>{% endif %}
