@@ -23,7 +23,11 @@ def env():
     route.decorator_list = []
     namespace = dict(request=request, session=session, jsonify=jsonify, re=re,
                      os=__import__('os'), Item=Item, User=User, db=db,
-                     _get_bs4=lambda: bs4, _ensure_supplier=lambda *args: None)
+                     _get_bs4=lambda: bs4, _ensure_supplier=lambda *args: None,
+                     INVENTORY_FILE_EXTENSIONS=ast.literal_eval(next(
+                         n.value for n in tree.body if isinstance(n, ast.Assign)
+                         and isinstance(n.targets[0], ast.Name)
+                         and n.targets[0].id == 'INVENTORY_FILE_EXTENSIONS')))
     exec(compile(ast.Module(body=[route], type_ignores=[]), 'import_items', 'exec'), namespace)
     app.add_url_rule('/import', view_func=namespace['import_items'], methods=['POST'])
     with app.app_context():

@@ -8,6 +8,7 @@ if base_dir not in sys.path:
 
 from flask import Flask, render_template, request, jsonify, redirect, session, url_for, send_file, Response
 import base64
+import hashlib
 import io
 import json
 import re
@@ -20,6 +21,7 @@ from flask_migrate import Migrate
 from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func
 import sqlalchemy as sa
+from werkzeug.datastructures import FileStorage
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from device_auth import issue_token, read_token, matches_token
@@ -244,6 +246,10 @@ def serve_sw():
 
 @app.route('/share-target', methods=['GET'])
 def share_target_get():
+    if request.args.get('native') == '1' and re.search(r'\bBillMateNative/', request.user_agent.string):
+        response = app.make_response(render_template('share_bridge.html', payload={'ok': True, 'native': True}))
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     # Browsers occasionally GET the action URL; open Demand Search.
     return redirect('/demand-search')
 
@@ -2695,13 +2701,104 @@ def _fetch_supplier_offer(url):
     return soup, table.find_all('tr', class_=row_class, recursive=False)
 
 
+INVENTORY_CHUNK_THRESHOLD = 4_400_000
+INVENTORY_CHUNK_BYTES = 2_000_000
+INVENTORY_UPLOAD_MAX_BYTES = 15 * 1024 * 1024
+INVENTORY_FILE_EXTENSIONS = {'.html', '.htm', '.csv', '.txt'}
+
+
+def _ensure_inventory_upload_table(table):
+    connection = db.session.connection()
+    if sa.inspect(connection).has_table(table.name):
+        return
+    if connection.dialect.name == 'postgresql':
+        # Serialize first use across serverless instances, with no changes to existing tables.
+        connection.execute(sa.text('SELECT pg_advisory_xact_lock(181991033, 426194)'))
+    table.create(connection, checkfirst=True)
+
+
+@app.post('/api/items/import/chunk')
+def import_inventory_chunk():
+    from models import InventoryUpload, User
+
+    if session.get('is_guest'):
+        return jsonify({'error': 'Guests cannot import items.'}), 403
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'error': 'Login required'}), 401
+    if not re.search(r'\bBillMateNative/', request.user_agent.string):
+        return jsonify({'error': 'Chunked imports are available in the BillMate Android app.'}), 403
+
+    upload_id = request.form.get('upload_id', '')
+    digest = request.form.get('digest', '')
+    filename = request.form.get('filename', '')
+    vendor = request.form.get('vendor', '').strip()
+    part = request.files.get('chunk')
+    try:
+        size = int(request.form.get('size', ''))
+        offset = int(request.form.get('offset', ''))
+    except ValueError:
+        return jsonify({'error': 'Invalid chunk size or offset.'}), 400
+    if (not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', upload_id)
+            or not re.fullmatch(r'[0-9a-f]{64}', digest)
+            or not 0 < len(filename) <= 200 or len(vendor) > 200
+            or os.path.splitext(filename)[1].lower() not in INVENTORY_FILE_EXTENSIONS
+            or not INVENTORY_CHUNK_THRESHOLD < size <= INVENTORY_UPLOAD_MAX_BYTES
+            or not 0 <= offset < size or offset % INVENTORY_CHUNK_BYTES or part is None):
+        return jsonify({'error': 'Invalid inventory upload chunk.'}), 400
+    expected = min(INVENTORY_CHUNK_BYTES, size - offset)
+    chunk = part.read(expected + 1)
+    if len(chunk) != expected:
+        return jsonify({'error': 'Incomplete inventory upload chunk.'}), 400
+
+    # Serialize a user's upload requests across Vercel instances, including final retries.
+    user = User.query.filter_by(id=uid).with_for_update().first()
+    if user is None or not user.perm_items:
+        return jsonify({'error': 'Inventory access is required.'}), 403
+    _ensure_inventory_upload_table(InventoryUpload.__table__)
+    now = datetime.utcnow()
+    InventoryUpload.query.filter_by(user_id=uid).filter(InventoryUpload.expires_at <= now).delete()
+    upload = db.session.get(InventoryUpload, (uid, upload_id))
+    if upload is None:
+        if offset:
+            return jsonify({'error': 'Upload expired. Tap Import to start again.', 'restart': True}), 409
+        if InventoryUpload.query.filter_by(user_id=uid, result=None).count() >= 4:
+            return jsonify({'error': 'Too many unfinished inventory uploads. Try again later.'}), 429
+        upload = InventoryUpload(user_id=uid, upload_id=upload_id, filename=filename,
+                                 vendor=vendor, size=size, digest=digest, data=b'')
+        db.session.add(upload)
+    elif (filename, vendor, size, digest) != (upload.filename, upload.vendor, upload.size, upload.digest):
+        return jsonify({'error': 'Upload details changed. Select the file again.'}), 409
+    if upload.result is not None:
+        return jsonify(upload.result)
+
+    upload.expires_at = now + timedelta(hours=1)
+    received = len(upload.data)
+    if offset < received and upload.data[offset:offset + expected] == chunk:
+        return jsonify({'received': received})
+    if offset != received:
+        return jsonify({'error': 'Upload chunks arrived out of order.'}), 409
+
+    upload.data += chunk
+    if len(upload.data) < size:
+        db.session.commit()
+        return jsonify({'received': len(upload.data)})
+    if hashlib.sha256(upload.data).hexdigest() != digest:
+        db.session.delete(upload)
+        db.session.commit()
+        return jsonify({'error': 'The file could not be verified. Tap Import to retry.', 'restart': True}), 422
+
+    file = FileStorage(stream=io.BytesIO(upload.data), filename=filename)
+    return import_items(assembled_file=file, completed_upload=upload)
+
+
 @app.route('/api/items/import', methods=['POST'])
-def import_items():
+def import_items(assembled_file=None, completed_upload=None):
     if session.get('is_guest'):
         return jsonify({'error': 'Guests cannot import items.'}), 403
     if not session.get('user_id'):
         return jsonify({'error': 'Login required'}), 401
-    url = request.form.get('offer_url', '').strip()
+    url = '' if assembled_file is not None else request.form.get('offer_url', '').strip()
     link_rows = []
     if url:
         import hashlib
@@ -2733,19 +2830,18 @@ def import_items():
         if request.form.get('signature') != signature:
             return jsonify({'error': 'The supplier list changed. Preview it again before importing.'}), 409
     else:
-        if 'file' not in request.files:
+        f = assembled_file if assembled_file is not None else request.files.get('file')
+        if f is None:
             return jsonify({'error': 'No file uploaded'}), 400
-        f = request.files['file']
         if not f.filename:
             return jsonify({'error': 'Empty filename'}), 400
-        allowed_ext = {'.html', '.htm', '.csv', '.txt'}
         ext = os.path.splitext(f.filename)[1].lower()
-        if ext not in allowed_ext:
+        if ext not in INVENTORY_FILE_EXTENSIONS:
             return jsonify({'error': 'Only .html, .htm, .csv, .txt files are allowed'}), 400
         f.seek(0, 2)
         size = f.tell()
         f.seek(0)
-        if size > 4 * 1024 * 1024:  # 4 MB cap
+        if assembled_file is None and size > 4 * 1024 * 1024:  # Legacy upload limit
             return jsonify({'error': 'File too large (max 4 MB)'}), 400
 
         try:
@@ -2978,15 +3074,19 @@ def import_items():
                 else:
                     db.session.delete(item)
                     permanently_deleted += 1
+        result = {'added': added, 'updated': updated, 'skipped': skipped,
+                  'alongside_global': alongside_global, 'own_stock': own_stock,
+                  'archived': archived, 'stock_kept': stock_kept,
+                  'permanently_deleted': permanently_deleted, 'preserved': preserved}
+        if completed_upload is not None:
+            completed_upload.data = b''
+            completed_upload.result = result
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Import failed: {str(e)}'}), 500
 
-    return jsonify({'added': added, 'updated': updated, 'skipped': skipped,
-                    'alongside_global': alongside_global, 'own_stock': own_stock,
-                    'archived': archived, 'stock_kept': stock_kept,
-                    'permanently_deleted': permanently_deleted, 'preserved': preserved})
+    return jsonify(result)
 
 
 # ── Customers API ─────────────────────────────────────────────────────────────
@@ -4755,7 +4855,7 @@ import click
 
 @app.cli.command('create-superadmin')
 def create_superadmin_cmd():
-    """Create the super admin user (Admin / 2525)."""
+    """Create the superadmin user."""
     existing = User.query.filter_by(username='Admin').first()
     if existing:
         if not existing.is_superadmin:
@@ -4765,10 +4865,13 @@ def create_superadmin_cmd():
         else:
             click.echo('Superadmin already exists.')
         return
-    sa = User(username='Admin', password_hash=generate_password_hash('2525'), is_superadmin=True)
+    password = click.prompt('New superadmin password', hide_input=True, confirmation_prompt=True)
+    if len(password) < 12:
+        raise click.ClickException('The password must have at least 12 characters.')
+    sa = User(username='Admin', password_hash=generate_password_hash(password), is_superadmin=True)
     db.session.add(sa)
     db.session.commit()
-    click.echo('Superadmin created: username=Admin  password=2525')
+    click.echo('Superadmin created: username=Admin')
 
 
 from whatsapp_agent import install as install_whatsapp_agent

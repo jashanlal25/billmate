@@ -363,6 +363,7 @@ input[type=number]{-moz-appearance:textfield}
 </div>
 
 <script src="/static/share-store.js"></script>
+<script src="/static/js/inventory-chunks.js"></script>
 <script>
 const CAN_DELETE_GLOBAL = {{ 'true' if can_delete_global else 'false' }};
 const IS_GUEST = {{ 'true' if is_guest else 'false' }};
@@ -1037,9 +1038,10 @@ async function doImport(){
 
   // ── Registered user: upload to server ───────────────────────────────────────
   btn.disabled = true; btn.textContent = 'Importing…';
+  const chunked = !url && window.InventoryChunks?.applies(_importFile);
   const fd = new FormData();
   if(url) fd.append('offer_url', url);
-  else fd.append('file', _importFile);
+  else if(!chunked) fd.append('file', _importFile);
   fd.append('vendor', vendor);
   try{
     if(url){
@@ -1057,9 +1059,13 @@ async function doImport(){
       fd.delete('preview');
       fd.set('signature', data.signature);
     }
-    const r = await fetch('/api/items/import', {method:'POST', body: fd});
-    const res = await r.json();
-    if(r.ok){
+    const r = chunked ? null : await fetch('/api/items/import', {method:'POST', body: fd});
+    const res = chunked
+      ? await InventoryChunks.upload(_importFile, vendor, (part, total) => {
+          btn.textContent = part === total ? `Uploading ${part} of ${total} and importing…` : `Uploading ${part} of ${total}…`;
+        })
+      : await r.json();
+    if(chunked || r.ok){
       const globalNote = res.alongside_global > 0 ? ` · ${res.alongside_global} kept alongside global` : '';
       const replaceNote = res.own_stock ? '' : ` · Archived: ${res.archived || 0}${res.stock_kept ? ' · Kept with stock balance: ' + res.stock_kept : ''}`;
       _showImportResult(true, `${res.own_stock?'Own stock imported':'Done'}! Added: ${res.added} · Updated: ${res.updated} · Skipped: ${res.skipped}${replaceNote}${globalNote}`);
@@ -1067,7 +1073,7 @@ async function doImport(){
       _cacheClear();
       loadItems(document.getElementById('searchBox').value);
     } else { _showImportResult(false, res.error || 'Import failed'); }
-  } catch(e){ _showImportResult(false, url ? e.message : 'Network error'); }
+  } catch(e){ _showImportResult(false, chunked || url ? e.message : 'Network error'); }
   finally {
     btn.disabled = !_importFile && !document.getElementById('importOfferUrl').value.trim();
     btn.textContent = document.getElementById('importOfferUrl').value.trim() ? 'Preview Import' : 'Import';

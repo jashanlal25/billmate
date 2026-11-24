@@ -30,8 +30,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // POST /share-target is a one-shot upload with a fresh bridge page each
   // time — never cache or intercept it (network-only).
-  if (event.request.method === 'POST' &&
-      new URL(event.request.url).pathname === '/share-target') {
+  const path = new URL(event.request.url).pathname;
+  // Android WebView serves this URL from the staged attachment on the phone.
+  if (path.startsWith('/share-target/native-file/')) return;
+  if (event.request.method === 'POST' && path === '/share-target') {
     return; // let it hit the network untouched
   }
 

@@ -43,7 +43,7 @@
   <!-- Must load BEFORE the inline script below — it uses ShareStore. -->
   <script src="/static/share-store.js"></script>
   <script>
-  (function(){
+  (async function(){
     const _t0 = performance.now();
     const _dbg = (label) => console.debug('[billmate-share-timing] bridge ' + label,
       Math.round(performance.now() - _t0) + 'ms');
@@ -66,7 +66,7 @@
       return;
     }
 
-    document.getElementById('fname').textContent = payload.filename;
+    if(payload.filename) document.getElementById('fname').textContent = payload.filename;
 
     if(typeof indexedDB === 'undefined'){
       fail('This browser cannot store shared files. Please open Inventory or Demand Search and select the file there.');
@@ -76,11 +76,21 @@
     try{
       // Decode base64 → bytes → real File, store in IndexedDB, then move on.
       // Strip any whitespace/newlines defensively; atob requires pure base64.
-      const b64 = String(payload.data).replace(/\s+/g, '');
-      const bin = atob(b64);
-      _dbg('atob-complete');
-      const bytes = new Uint8Array(bin.length);
-      for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      let bytes;
+      if(payload.native){
+        const token = location.hash.slice(1);
+        if(!/^[0-9a-f-]{36}$/.test(token)) throw new Error('Invalid shared file token');
+        const local = await fetch('/share-target/native-file/' + token, {cache:'no-store'});
+        if(!local.ok) throw new Error('Shared file is unavailable');
+        payload.filename = decodeURIComponent(local.headers.get('X-BillMate-Filename'));
+        bytes = await local.arrayBuffer();
+      }else{
+        const b64 = String(payload.data).replace(/\s+/g, '');
+        const bin = atob(b64);
+        _dbg('atob-complete');
+        bytes = new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      }
       _dbg('uint8array-complete');
       const file = new File([bytes], payload.filename, {
         type: payload.type || 'text/html',

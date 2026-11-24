@@ -551,3 +551,17 @@ class SupplierPayment(db.Model):
             'notes': self.notes or '',
             'created_at': self.created_at.isoformat(),
         }
+
+
+class InventoryUpload(db.Model):
+    __tablename__ = 'inventory_uploads'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    upload_id = db.Column(db.String(36), primary_key=True)
+    filename = db.Column(db.String(200), nullable=False)
+    vendor = db.Column(db.String(200), nullable=False)
+    size = db.Column(db.Integer, nullable=False)
+    digest = db.Column(db.String(64), nullable=False)
+    data = db.Column(db.LargeBinary, nullable=False)
+    result = db.Column(db.JSON(none_as_null=True))
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)

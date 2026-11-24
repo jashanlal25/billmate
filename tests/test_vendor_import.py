@@ -2,6 +2,8 @@
 import os
 import sys
 import io
+import hashlib
+import uuid
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -30,6 +32,36 @@ class VendorImportTest(unittest.TestCase):
 
     def tearDown(self):
         db.session.remove(); db.drop_all(); self.ctx.pop()
+
+    def test_android_chunk_retry_and_inventory_commit(self):
+        content = (
+            '<html><table>'
+            '<tr class="item"><td>101</td><td>First Item</td><td></td><td>13%</td><td></td><td>100</td><td>0</td></tr>'
+            '<tr class="item"><td>102</td><td>Second Item</td><td></td><td>10%</td><td></td><td>150</td><td>0</td></tr>'
+            '</table></html>'
+        ).encode()
+        content = content + b' ' * (4_400_001 - len(content))
+        upload_id = str(uuid.uuid4())
+        digest = hashlib.sha256(content).hexdigest()
+
+        def send(offset, *, size=len(content), agent='Mozilla BillMateNative/1.15'):
+            return self.client.post('/api/items/import/chunk', headers={'User-Agent': agent}, data={
+                'upload_id': upload_id, 'digest': digest, 'filename': 'list.htm',
+                'vendor': 'DOSANI', 'size': size, 'offset': offset,
+                'chunk': (io.BytesIO(content[offset:offset + 2_000_000]), 'chunk.bin'),
+            })
+
+        assert send(0, size=4_400_000).status_code == 400
+        assert send(0, agent='Mozilla').status_code == 403
+        assert send(2_000_000).status_code == 409
+        assert send(0).json == {'received': 2_000_000}
+        assert send(0).json == {'received': 2_000_000}
+        assert send(2_000_000).json == {'received': 4_000_000}
+        assert Item.query.count() == 0
+        result = send(4_000_000)
+        assert result.status_code == 200 and result.json['added'] == 2
+        assert send(4_000_000).json == result.json
+        assert Item.query.count() == 2
 
     def upload(self, vendor='A', code='0296', name='EXACT  NAME.', bonus='10+1', list_no='000052', admin=False):
         html=f'<div>List No : {list_no}</div><table><tr class="item"><td>{code}</td><td>{name}</td><td><input></td><td>13%</td><td>{bonus}</td><td>100</td><td>0</td></tr></table>'
