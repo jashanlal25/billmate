@@ -42,6 +42,18 @@ public final class MainActivity extends FragmentActivity {
     private ValueCallback<Uri[]> fileCallback;
     private File pendingShare, pendingDownload, pendingUpdateApk;
     private String pendingName;
+    private volatile NativeInventoryFile nativeInventoryFile;
+
+    private static final class NativeInventoryFile {
+        final File file;
+        final String name;
+        final String path = "/share-target/native-file/" + UUID.randomUUID();
+
+        NativeInventoryFile(File file, String name) {
+            this.file = file;
+            this.name = name;
+        }
+    }
     private boolean busy;
     private BiometricVault biometricVault;
     private boolean activityResumed;
@@ -148,6 +160,27 @@ public final class MainActivity extends FragmentActivity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         web.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                NativeInventoryFile local = nativeInventoryFile;
+                Uri url = request.getUrl();
+                if (local == null || request.isForMainFrame() || !"GET".equals(request.getMethod())
+                        || !ShareUpload.isTrusted(url.toString()) || !local.path.equals(url.getEncodedPath())) {
+                    return null;
+                }
+                try {
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Cache-Control", "no-store");
+                    headers.put("Content-Disposition", "attachment");
+                    headers.put("X-Content-Type-Options", "nosniff");
+                    headers.put("X-BillMate-Filename", Uri.encode(local.name));
+                    return new WebResourceResponse("application/octet-stream", null, 200, "OK",
+                        headers, new FileInputStream(local.file));
+                } catch (IOException e) {
+                    return new WebResourceResponse("text/plain", "UTF-8", 404, "File unavailable",
+                        Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
+                }
+            }
+
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (ShareUpload.isTrusted(request.getUrl().toString())) return false;
                 if (request.isForMainFrame()) openExternal(request.getUrl());
@@ -264,6 +297,7 @@ public final class MainActivity extends FragmentActivity {
                     // POS backups are handled locally by the POS Import page. Do not
                     // send ZIP bytes through /share-target or route them to Inventory/Demand.
                     if (filename.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+                        nativeInventoryFile = null;
                         if (pendingShare != null) pendingShare.delete();
                         pendingShare = null;
                         pendingName = null;
@@ -279,6 +313,7 @@ public final class MainActivity extends FragmentActivity {
                         }, 300);
                         return;
                     }
+                    nativeInventoryFile = null;
                     if (pendingShare != null) pendingShare.delete();
                     pendingShare = ready;
                     pendingName = filename;
@@ -295,6 +330,14 @@ public final class MainActivity extends FragmentActivity {
 
     private void openPending() {
         if (busy || pendingShare == null) return;
+        if (ShareUpload.useLocalInventoryBridge(pendingShare.length(), pendingName)) {
+            NativeInventoryFile local = new NativeInventoryFile(pendingShare, pendingName);
+            nativeInventoryFile = local;
+            retry.setVisibility(View.GONE);
+            web.loadUrl(ShareUpload.ORIGIN + "/share-target?native=1&t=" + System.nanoTime() + "#" +
+                local.path.substring(local.path.lastIndexOf('/') + 1));
+            return;
+        }
         busy = true;
         retry.setVisibility(View.GONE);
         toolbar.setVisibility(View.VISIBLE);

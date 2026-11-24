@@ -11,6 +11,10 @@ final class ShareUpload {
     static final int MAX_FILE_BYTES = 15 * 1024 * 1024; // Leave room in the server's 16 MiB request limit.
     static final int MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
 
+    static boolean useLocalInventoryBridge(long size, String name) {
+        return size > 4_400_000 && name.toLowerCase(Locale.ROOT).matches(".*\\.(html?|csv|txt)$");
+    }
+
     static boolean isTrusted(String value) {
         try {
             URI uri = new URI(value);

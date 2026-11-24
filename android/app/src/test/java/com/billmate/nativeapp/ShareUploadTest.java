@@ -6,6 +6,14 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 
 public class ShareUploadTest {
+    @Test public void onlyLargeInventoryFilesUseTheLocalBridge() {
+        assertFalse(ShareUpload.useLocalInventoryBridge(4_399_999, "list.htm"));
+        assertFalse(ShareUpload.useLocalInventoryBridge(4_400_000, "list.htm"));
+        assertTrue(ShareUpload.useLocalInventoryBridge(4_400_001, "list.htm"));
+        assertTrue(ShareUpload.useLocalInventoryBridge(5_438_164, "25.NOV.26.HTM"));
+        assertFalse(ShareUpload.useLocalInventoryBridge(5_438_164, "report.pdf"));
+    }
+
     @Test public void originIsExactAndHttpsOnly() {
         assertTrue(ShareUpload.isTrusted("https://billmate-med.vercel.app/make_html"));
         assertTrue(ShareUpload.isTrusted("https://billmate-med.vercel.app:443/"));
