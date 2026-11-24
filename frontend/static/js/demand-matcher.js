@@ -10,6 +10,7 @@
     cream:'cream', crm:'cream', oint:'ointment', ointment:'ointment', gel:'gel', emulgel:'gel',
     lotion:'lotion', shampoo:'shampoo', shampo:'shampoo', solution:'solution', sol:'solution', spray:'spray'
   };
+  const packLabels = new Set(['small', 'medium', 'large']);
   function profile(name, ignoreShelf=false){
     let text=String(name||'').toLowerCase().normalize('NFKC');
     if(ignoreShelf) text=text.replace(/\s+[a-z]-\d+\s*$/i,'');
@@ -29,6 +30,8 @@
     const form=[...new Set(tokens.filter(t=>Object.values(forms).includes(t)))].sort();
     const numbers=tokens.filter(t=>/^\d/.test(t)).sort();
     const words=[...new Set(tokens.filter(t=>!form.includes(t)&&!/^\d/.test(t)))].sort();
+    const pack = words.filter(word => packLabels.has(word));
+    const brand = tokens.find(token => words.includes(token) && !packLabels.has(token));
     const specs={};
     for(const token of numbers){
       const unit=token.match(/(?:mg|mcg|ml|iu|g|%)$/);
@@ -37,7 +40,7 @@
     }
     const combinedStrength=(text.match(/\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?/g)||[])
       .map(value=>value.replace(/\s+/g,'')).sort();
-    return {form,numbers,specs,words,combinedStrength,notes,formCorrections,ambiguousLiquid,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
+    return {form,numbers,specs,words,pack,brand,combinedStrength,notes,formCorrections,ambiguousLiquid,plus:/\+/.test(text),key:[...new Set(tokens)].sort().join(' ')};
   }
   function distance(a,b){
     let prev=Array.from({length:b.length+1},(_,i)=>i);
@@ -71,8 +74,12 @@
       }
     }
     if(!d.words.length||!v.words.length) return null;
+    if(d.pack.length && v.pack.length && !same(d.pack,v.pack)) return null;
+    const missingPackLabel = Boolean(d.pack.length) !== Boolean(v.pack.length)
+      && d.brand === v.brand && d.form.length > 0 && same(d.form,v.form)
+      && same(d.words.filter(word => !packLabels.has(word)),v.words.filter(word => !packLabels.has(word)));
     const exactWords=same(d.words,v.words);
-    if(!exactWords){
+    if(!exactWords && !missingPackLabel){
       if(d.words.length!==v.words.length) return null;
       let edits=0;
       for(let i=0;i<d.words.length;i++){
@@ -87,7 +94,8 @@
     if(d.formCorrections.length||v.formCorrections.length)reasons.push('Form spelling corrected: '+[...d.formCorrections,...v.formCorrections].join(', '));
     if(d.notes.length||v.notes.length)reasons.push('Vendor annotation differs: '+[...d.notes,...v.notes].join(', '));
     if(d.ambiguousLiquid||v.ambiguousLiquid)reasons.push('Sup abbreviation: verify syrup or suspension');
-    if(!exactWords) reasons.push('Spelling differs');
+    if(missingPackLabel) reasons.push('Verify pack size');
+    else if(!exactWords) reasons.push('Spelling differs');
     if(!d.form.length) reasons.push('Choose / verify form');
     else if(!v.form.length) reasons.push('Vendor form missing');
     if(!same(d.numbers,v.numbers)) reasons.push('Check strength / pack size and units');

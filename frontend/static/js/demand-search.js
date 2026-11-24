@@ -220,6 +220,7 @@
       if(!offers.length&&filter!=='all'&&!(filter==='missing'&&result.status==='missing'))continue;
       visibleItems++;visibleOffers+=offers.length;
       offers.sort((a,b)=>{
+        if(a.status!==b.status) return a.status==='match' ? -1 : 1;
         if(sort==='vendor')return String(a.item.vendor||'').localeCompare(String(b.item.vendor||''));
         if(sort==='discount')return Number(b.item.discount_pct||0)-Number(a.item.discount_pct||0);
         return tpValue(a.item.tp)-tpValue(b.item.tp);

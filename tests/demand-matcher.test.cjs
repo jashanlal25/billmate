@@ -100,3 +100,20 @@ test('screenshot: Panadol STOCK drops remain separate from Extra',()=>{
  assert.equal(result.offers[0].item.discount_pct,30);
  assert.equal(JSON.stringify(items),before);
 });
+
+test('missing pack labels appear for review alongside exact supplier offers',()=>{
+ const inventory=m.prepare([
+   offer('CALPOL SYP LARGE','S.K.R'),
+   {...offer('CALPOL SYP.','Jangda'),discount_pct:13},
+   offer('CALPOL SYP SMALL','Different pack'),
+   offer('CALPOL TAB','Different form'),
+   offer('CALPOL 6 PLUS SYP','Different variant')
+ ]);
+ const result=m.match({name:'CALPOL SYP LARGE'},inventory);
+ assert.equal(result.status,'match');
+ assert.deepEqual(result.offers.map(o=>[o.item.vendor,o.status]),[['S.K.R','match'],['Jangda','review']]);
+ assert.equal(result.offers[1].reason,'Verify pack size');
+ assert.equal(result.offers[1].item.discount_pct,13);
+ assert.equal(m.compare(m.profile('ONSET SYP'),m.profile('ONSET SYP MEDIUM')).status,'review');
+ assert.equal(m.compare(m.profile('CALPOL SYP LARGE 120MG'),m.profile('CALPOL SYP 250MG')),null);
+});
