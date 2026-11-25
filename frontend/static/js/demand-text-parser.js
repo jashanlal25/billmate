@@ -50,7 +50,7 @@
       if(required)line=line.replace(/\s*lazmi\s*$/i,'').trim();
       // Multiple dots (or an ellipsis) separate quantity; a single decimal dot does not.
       const bottleQuantity=line.match(/\s*\((\d+)\s+bottles?(?:\s+(small|large))?\s*\)\s*$/i);
-      let quantity=bottleQuantity||line.match(/\s*\((\d+)\)\s*$/)
+      let quantity=bottleQuantity||line.match(/\s*\(+(\d+)\)\s*$/)
         ||line.match(/[\s.\-…]+(\d+)\s*(?:pcs?|pieces?|x)\s*$/i)
         ||line.match(/\s*(?:\.{2,}|…+|-{2,})\s*(\d+)\s*$/);
       if(quantity){

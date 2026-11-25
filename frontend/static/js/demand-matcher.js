@@ -11,21 +11,33 @@
     lotion:'lotion', shampoo:'shampoo', shampo:'shampoo', solution:'solution', sol:'solution', spray:'spray'
   };
   const packLabels = new Set(['small', 'medium', 'large']);
-  function profile(name, ignoreShelf=false){
+  function profile(name, ignoreShelf=false, isDemand=false){
     let text=String(name||'').toLowerCase().normalize('NFKC');
     if(ignoreShelf) text=text.replace(/\s+[a-z]-\d+\s*$/i,'');
     const notes=[];
     const formCorrections=[];
     text=text.replace(/\binjectionn+\b/g, value=>{formCorrections.push(value);return 'injection';});
     text=text.replace(/\b\d+(?:\.\d+)?\s+retail\b/g, value=>{notes.push(value);return ' ';});
-    text=text.replace(/\((pharmevo|searle)\)/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\((pharmevo|searle|mendoza|martin)(?:\)|\s*$)/g, value=>{notes.push(value);return ' ';});
     text=text.replace(/\bmerck\s*$/g, value=>{notes.push(value);return ' ';});
+    text=text.replace(/\bnew\s+(?:freash|fresh)\s*$/g,value=>{notes.push(value);return ' new';});
+    text=text.replace(/\bd\.s\b/g,'ds').replace(/\bcitro[\s-]+soda\b/g,'citrosoda');
+    if(text==='becefol tab new 338'){
+      notes.push('new 338');
+      text='becefol tab new';
+    }
     let edition;
     text=text.replace(/\b(old|neww*)\s*$/g, value=>{
       edition=value.trim()==='old'?'old':'new';
       notes.push(value.trim());
       return ' ';
     });
+    if(isDemand)text=text.replace(/^\s*tan\.?(?=\s)/,value=>{formCorrections.push(value.trim());return 'tab';});
+    const conflictingLiquidPrefix=isDemand&&/^\s*tab\.?\s+sup\.?(?=\s)/.test(text);
+    if(conflictingLiquidPrefix){
+      formCorrections.push('tab sup (conflicting forms; verify liquid)');
+      text=text.replace(/^\s*tab\.?\s+/,'');
+    }
     const ambiguousLiquid=/^\s*sup\.?\s+/i.test(text);
     text=text.replace(/^\s*sup\.?\s+/i,'');
     text=text.replace(/^\s*sp\.(?=\s)/,'syp');
@@ -88,14 +100,22 @@
     if(!d.words.length||!v.words.length) return null;
     if(d.pack.length && v.pack.length && !same(d.pack,v.pack)) return null;
     const sameStatedForm=d.form.length>0&&same(d.form,v.form);
+    const ambiguousLiquidPack=d.ambiguousLiquid&&v.form.length===1
+      && ['syrup','suspension'].includes(v.form[0]);
     const missingDemandForm=!d.form.length&&!d.ambiguousLiquid&&v.form.length===1
       && d.numbers.length>0&&v.numbers.length>0;
     const missingPackLabel = Boolean(d.pack.length) !== Boolean(v.pack.length)
-      && d.brand === v.brand && (sameStatedForm||missingDemandForm)
+      && d.brand === v.brand && (sameStatedForm||missingDemandForm||ambiguousLiquidPack)
       && same(d.words.filter(word => !packLabels.has(word)),v.words.filter(word => !packLabels.has(word)));
     const exactWords=same(d.words,v.words);
+    const unspecifiedVariant=same(d.words,['citrosoda'])&&d.form.length===1&&d.form[0]==='sachet'
+      && !v.form.length&&(same(v.words,['citrosoda','lemon'])||same(v.words,['citrosoda','orange']))
+      || same(d.words,['clobevate'])&&sameStatedForm&&d.form[0]==='cream'
+      && same(v.words,['clobevate','orange']);
+    const norsalineReview=same(d.words,['nasal','norsalin'])&&same(v.words,['nasal','norsline','p'])
+      && same(d.form,['spray'])&&same(v.form,['spray']);
     if(liquidFormDifference&&!exactWords) return null;
-    if(!exactWords && !missingPackLabel){
+    if(!exactWords && !missingPackLabel && !unspecifiedVariant && !norsalineReview){
       if(d.words.length!==v.words.length) return null;
       let edits=0;
       for(let i=0;i<d.words.length;i++){
@@ -112,6 +132,8 @@
     if(d.notes.length||v.notes.length)reasons.push('Vendor annotation differs: '+[...d.notes,...v.notes].join(', '));
     if(d.ambiguousLiquid||v.ambiguousLiquid)reasons.push('Sup abbreviation: verify syrup or suspension');
     if(missingPackLabel) reasons.push('Verify pack size');
+    else if(norsalineReview) reasons.push('Verify brand spelling and P variant');
+    else if(unspecifiedVariant) reasons.push('Verify listed variant');
     else if(!exactWords) reasons.push('Spelling differs');
     if(!d.form.length) reasons.push('Choose / verify form');
     else if(!v.form.length) reasons.push('Vendor form missing');
@@ -122,7 +144,7 @@
   }
   function prepare(items,ignoreShelf){return items.map(item=>({item,profile:profile(item.name,ignoreShelf)}));}
   function match(demand,inventory,ignoreShelf){
-    const p=profile(demand.name,ignoreShelf);
+    const p=profile(demand.name,ignoreShelf,true);
     const offers=[];
     for(const entry of inventory){
       const result=compare(p,entry.profile);

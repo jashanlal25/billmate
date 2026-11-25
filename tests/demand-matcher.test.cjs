@@ -170,3 +170,58 @@ test('Azomax demand finds SSD stock code 524 with compact syrup pack notation',(
  assert.equal(result.offers[0].item.qty,2);
  assert.equal(m.match({name:'Azomax Syp 30ML'},m.prepare([items[0]])).status,'missing');
 });
+
+test('reported Nuberol, Domel and Bofalgan demand lines yield review candidates',()=>{
+ const {parse}=require('../frontend/static/js/demand-text-parser.js');
+ const rows=parse('Tan nubrol forte (5)\nTab Sup domel (4)\nInj bofalgon ((5)');
+ const inventory=m.prepare([
+  offer('NUBEROL FORTE TAB','STOCK'),offer('NUBEROL FORTE','G.H.'),
+  offer('DOMEL SYP','STOCK'),offer('DOMEL TAB','Supplier'),
+  offer('BOFALGAN INJ','Jangda')
+ ]);
+ assert.deepEqual(rows.map(r=>[r.name,r.qty]),[
+  ['Tan nubrol forte','5'],['Tab Sup domel','4'],['Inj bofalgon','5']
+ ]);
+ const results=rows.map(row=>m.match(row,inventory));
+ assert.deepEqual(results.map(r=>r.offers.map(o=>[o.item.vendor,o.status])),[
+  [['STOCK','review'],['G.H.','review']],[['STOCK','review']],[['Jangda','review']]
+ ]);
+ assert.match(results[1].offers[0].reason,/conflicting forms/);
+});
+
+test('exact inventory rows verified in BillMate are recovered with review',()=>{
+ const cases=[
+  ['Tan nubrol forte','NUBEROL FORTE NEW FREASH'],
+  ['Citrosoda sache','CITRO SODA (LEMON)'],
+  ['Sup siroline','SIROLINE-SYRUP. (MENDOZA)'],
+  ['Tab proxen 250','PROXEN-250 MG TAB.(MARTIN'],
+  ['Sup dolor ds','DOLOR-D.S SYRUP.'],
+  ['Tab becefol','BECEFOL TAB NEW 338'],
+  ['Clobevate cream','CLOBEVATE CREAM ORANGE'],
+  ['Sup amoxil 125','AMOXIL 125 SYP 90ML LARGE']
+ ];
+ for(const [name,stock] of cases){
+  const result=m.match({name},m.prepare([offer(stock,'A')]));
+  assert.equal(result.offers.length,1,stock);
+  assert.equal(result.status,'review',stock);
+ }
+ for(const [name,stock] of [
+  ['Sup dolor ds','DOLOR-SYRUP.'],
+  ['Tab proxen 250','PROXEN-500 MG TAB.(MARTIN'],
+  ['Clobevate cream','CLOBEVATE OINT LARGE'],
+  ['Sup amoxil 125','AMOXIL 250MG SYP 90ML LARGE']
+ ]){
+  assert.equal(m.match({name},m.prepare([offer(stock,'A')])).status,'missing',stock);
+ }
+});
+
+test('Norsalin demand surfaces the exact S.K.R. nasal spray listing for review',()=>{
+ const stock=m.prepare([
+  {...offer('NORSLINE P NASAL SPRAY','S.K.R'),code:'ITM4440'},
+  offer('NORSALINE-P DROP.','NOMAN IMPEX'),
+  offer('TARISIN NASAL SPRAY','STOCK')
+ ]);
+ const result=m.match({name:'Norsalin nasal spray'},stock);
+ assert.deepEqual(result.offers.map(o=>[o.item.code,o.status]),[['ITM4440','review']]);
+ assert.match(result.offers[0].reason,/P variant/);
+});
