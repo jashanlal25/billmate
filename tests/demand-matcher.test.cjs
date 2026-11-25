@@ -153,3 +153,20 @@ test('Augmentin 625 finds both STOCK pack labels when demand omits the form',()=
  assert(result.offers.every(o=>/Verify pack size.*verify form/.test(o.reason)));
  assert.equal(m.match({name:'Augmentin 625 Small'},inventory).status,'missing');
 });
+
+test('Azomax demand finds SSD stock code 524 with compact syrup pack notation',()=>{
+ const {parse}=require('../frontend/static/js/demand-text-parser.js');
+ const [demand]=parse('Azomax syp.......2');
+ const items=[
+  {...offer('AZOMAX SYP.15ML','STOCK'),code:'524',qty:2,tp:348.50,discount_pct:11},
+  offer('AZOMAX SYRUP','GCOUNTER'),
+  offer('AZOMAX 500 OLD','K.K TRADERS'),
+  offer('AZOMAX 250 CAP NEW','STOCK')
+ ];
+ const result=m.match(demand,m.prepare(items));
+ assert.equal(demand.qty,'2');
+ assert.deepEqual(result.offers.map(o=>[o.item.vendor,o.status]),[['STOCK','review'],['GCOUNTER','match']]);
+ assert.equal(result.offers[0].item.code,'524');
+ assert.equal(result.offers[0].item.qty,2);
+ assert.equal(m.match({name:'Azomax Syp 30ML'},m.prepare([items[0]])).status,'missing');
+});

@@ -31,6 +31,8 @@
     text=text.replace(/^\s*sp\.(?=\s)/,'syp');
     text=text.replace(/(\d)\s+(mg|mcg|g|ml|iu)\b/g,'$1$2')
       .replace(/(\d),(?=\d{3}\b)/g,'$1').replace(/(\d)\s*[x×]\s*(\d)/g,'$1x$2');
+    // A period after a form abbreviation can introduce an adjacent pack size.
+    text=text.replace(/([a-z])\.(?=\d)/g,'$1 ');
     const tokens=(text.match(/[a-z0-9]+(?:[.][0-9]+)?%?/g)||[]).map(t=>forms[t]||t);
     const form=[...new Set(tokens.filter(t=>Object.values(forms).includes(t)))].sort();
     const numbers=tokens.filter(t=>/^\d/.test(t)).sort();
@@ -61,6 +63,8 @@
     // An explicit conflicting form or strength/pack never becomes an offer.
     if(d.ambiguousLiquid&&v.form.some(f=>!['syrup','suspension'].includes(f)))return null;
     if(v.ambiguousLiquid&&d.form.some(f=>!['syrup','suspension'].includes(f)))return null;
+    if(d.form.some(f=>['syrup','suspension'].includes(f))&&!v.form.length&&!v.ambiguousLiquid
+      && v.numbers.length&&!v.specs.ml) return null;
     if(d.edition&&v.edition&&d.edition!==v.edition) return null;
     const liquidFormDifference=d.form.length===1&&v.form.length===1
       && d.form[0]==='syrup'&&v.form[0]==='suspension';
