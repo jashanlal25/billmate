@@ -113,6 +113,9 @@ test('descriptive bottle quantities retain requested size',()=>{
  assert.equal(parse('Medicine (500 mg)')[0].qty,'');
 });
 
-test('a quantity on a separate line gives its line number and correction',()=>{
- assert.throws(()=>parse('Tab erliplus XR 5/1000\n(1)'),/Line 2: Put \(1\) on the same line as the preceding item name/);
+test('a quantity on a separate line identifies the item and shows the corrected line',()=>{
+ const text='Tab erliplus XR 5/1000\n(1)';
+ assert.throws(()=>parse(text),/Line 2: \(1\) is on a line by itself.*erliplus[^\n]*\nCorrected line: Tab erliplus XR 5\/1000 \(1\)/);
+ assert.throws(()=>parse('Tab erliplus XR 5/1000 (2)\n(1)'),/already has quantity 2/);
+ assert.throws(()=>parse('(1)'),/Add the medicine name before the quantity/);
 });

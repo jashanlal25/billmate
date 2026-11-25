@@ -39,7 +39,11 @@
       let line=raw.trim().replace(/^\s*(?:[-•*]\s+|\d+[.)]\s+)/,'').trim();
       if(!line)continue;
       if(/^\(\d+\)$/.test(line)){
-        throw Error(`Line ${index+1}: Put ${line} on the same line as the preceding item name.`);
+        const previous=rows.at(-1);
+        const issue=`Line ${index+1}: ${line} is on a line by itself.`;
+        if(!previous)throw Error(`${issue} Add the medicine name before the quantity.`);
+        if(previous.qty)throw Error(`${issue} The preceding item “${previous.name}” already has quantity ${previous.qty}. Check which item this quantity belongs to.`);
+        throw Error(`${issue} Put the quantity beside “${previous.name}”.\nCorrected line: ${previous.name} ${line}${previous.required?' lazmi':''}`);
       }
       if(!/[a-z]/i.test(line))throw Error(`Line ${index+1}: Invalid demand item: ${line.slice(0,60)}`);
       const required=/\s*lazmi\s*$/i.test(line);
