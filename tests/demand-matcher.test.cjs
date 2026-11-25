@@ -117,3 +117,39 @@ test('missing pack labels appear for review alongside exact supplier offers',()=
  assert.equal(m.compare(m.profile('ONSET SYP'),m.profile('ONSET SYP MEDIUM')).status,'review');
  assert.equal(m.compare(m.profile('CALPOL SYP LARGE 120MG'),m.profile('CALPOL SYP 250MG')),null);
 });
+
+test('reported demand lines distinguish Synalgo, Azomax liquids, Augmentin 625 and Flagyl OLD',()=>{
+ const {parse}=require('../frontend/static/js/demand-text-parser.js');
+ const rows=parse('Synalgo........1\nAzomax syp.......2\nAugmentin 625.......2\nFlagyl tab........1');
+ const names=[
+  'Synalar Cream','Synalgo Tab',
+  'Azomax Suspension','Azomax 500 Tab','Azomax Drops','Azomax Syp',
+  'Augmentin 625mg Tab','Augmentin 375mg Tab','Augmentin DS 457mg Suspension',
+  'Flagyl Tab Old','Flagyl Tab','Flagyl Tab New'
+ ];
+ const stock=m.prepare(names.map(name=>offer(name,'A')));
+ const search=row=>m.match(row,stock).offers.map(o=>[o.item.name,o.status]);
+ assert.deepEqual(rows.map(row=>row.qty),['1','2','2','1']);
+ assert.deepEqual(search(rows[0]),[['Synalgo Tab','review']]);
+ assert.deepEqual(search(rows[1]),[['Azomax Suspension','review'],['Azomax Syp','match']]);
+ assert.deepEqual(search(rows[2]),[['Augmentin 625mg Tab','review']]);
+ assert.deepEqual(search(rows[3]),[['Flagyl Tab Old','review'],['Flagyl Tab','match'],['Flagyl Tab New','review']]);
+ assert.deepEqual(search({name:'Flagyl Tab Old'}),[['Flagyl Tab Old','review'],['Flagyl Tab','review']]);
+ assert.deepEqual(search({name:'flaygyl tab old'}),[['Flagyl Tab Old','review'],['Flagyl Tab','review']]);
+ assert.equal(m.compare(m.profile('Azomax 100mg Syp'),m.profile('Azomax 200mg Suspension')),null);
+ assert.equal(m.compare(m.profile('Azomax Syp'),m.profile('Azmax Suspension')),null);
+});
+
+test('Augmentin 625 finds both STOCK pack labels when demand omits the form',()=>{
+ const items=[
+  {...offer('AUGMENTIN 625 TAB LARGE','STOCK'),code:'7992',qty:-1},
+  {...offer('AUGMENTIN 625 TAB LARGE NEW','STOCK'),code:'465',qty:13},
+  offer('AUGMENTIN 375 TAB LARGE','A'),
+  offer('AUGMENTIN SYP LARGE','B')
+ ];
+ const inventory=m.prepare(items);
+ const result=m.match({name:'Augmentin 625'},inventory);
+ assert.deepEqual(result.offers.map(o=>[o.item.code,o.status]),[['7992','review'],['465','review']]);
+ assert(result.offers.every(o=>/Verify pack size.*verify form/.test(o.reason)));
+ assert.equal(m.match({name:'Augmentin 625 Small'},inventory).status,'missing');
+});
