@@ -35,10 +35,13 @@
   function parse(text){
     if(/^\s*\*?ITM\*?\s*:/im.test(String(text||'')))return parseOrderMessage(text);
     const rows=[];
-    for(const raw of String(text||'').split(/\r?\n/)){
+    for(const [index,raw] of String(text||'').split(/\r?\n/).entries()){
       let line=raw.trim().replace(/^\s*(?:[-•*]\s+|\d+[.)]\s+)/,'').trim();
       if(!line)continue;
-      if(!/[a-z]/i.test(line))throw Error(`Invalid demand item: ${line.slice(0,60)}`);
+      if(/^\(\d+\)$/.test(line)){
+        throw Error(`Line ${index+1}: Put ${line} on the same line as the preceding item name.`);
+      }
+      if(!/[a-z]/i.test(line))throw Error(`Line ${index+1}: Invalid demand item: ${line.slice(0,60)}`);
       const required=/\s*lazmi\s*$/i.test(line);
       if(required)line=line.replace(/\s*lazmi\s*$/i,'').trim();
       // Multiple dots (or an ellipsis) separate quantity; a single decimal dot does not.

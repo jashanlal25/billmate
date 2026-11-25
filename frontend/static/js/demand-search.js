@@ -51,6 +51,7 @@
   }
   async function load(file,pasted=false,restored=false){
     const ticket=++version;
+    $('pastedDemandError').textContent='';
     offerDiscounts.clear();
     demands=[];results=[];currentFile=file||null;currentPasted=pasted;
     selectedOffers.clear();updateSelectionPanel();
@@ -85,7 +86,14 @@
       $('previewRows').innerHTML=demands.map(d=>`<tr><td>${esc(d.code)}</td><td>${esc(d.name)}</td><td>${esc(d.qty?`${d.qty}${d.required?' · Lazmi':''}`:'')}</td><td>${esc(d.box)}</td><td>${esc(d.pcs)}</td><td>${d.tp?esc(Number(d.tp).toFixed(2)):'—'}</td><td>${d.retail?esc(Number(d.retail).toFixed(2)):'—'}</td><td>${d.discount_pct==null?'—':esc(`${d.discount_pct}%`)}</td></tr>`).join('');
       $('demandPreview').hidden=false;
       status(`${pasted?'Pasted demand':file.name} — ${demands.length} demand items ready. Tap Run Search.${saved?'':' This device could not save the demand for later.'}`);
-    }catch(e){if(ticket===version) status(e.message);}
+    }catch(e){
+      if(ticket===version){
+        if(pasted){
+          status('Text demand could not be loaded.');
+          $('pastedDemandError').textContent=e.message;
+        }else status(e.message);
+      }
+    }
     controls();
   }
   $('demandFile').addEventListener('change',async e=>{
@@ -93,7 +101,10 @@
     await ShareStore.clearPendingSharedFile();
     await load(e.target.files[0]);
   });
-  $('pastedDemand').addEventListener('input',controls);
+  $('pastedDemand').addEventListener('input',()=>{
+    $('pastedDemandError').textContent='';
+    controls();
+  });
   $('loadTextDemand').addEventListener('click',async()=>{
     const text=$('pastedDemand').value;
     if(!text.trim()||busy)return;

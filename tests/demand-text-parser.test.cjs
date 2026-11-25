@@ -112,3 +112,7 @@ test('descriptive bottle quantities retain requested size',()=>{
  assert.deepEqual(parse('Liquid parafin (2 bottles)').map(r=>[r.name,r.qty]),[['Liquid parafin bottle','2']]);
  assert.equal(parse('Medicine (500 mg)')[0].qty,'');
 });
+
+test('a quantity on a separate line gives its line number and correction',()=>{
+ assert.throws(()=>parse('Tab erliplus XR 5/1000\n(1)'),/Line 2: Put \(1\) on the same line as the preceding item name/);
+});
