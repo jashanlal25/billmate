@@ -340,7 +340,7 @@ input[type=number]{-moz-appearance:textfield}
     <div class="form-group" id="importVendorRow" style="display:none;margin-top:14px">
       <label for="importVendor">Vendor for these items</label>
       <input id="importVendor" autocomplete="off" placeholder="e.g. dosani" maxlength="50">
-      <div class="import-vendor-hint" id="importVendorHint" style="font-size:.78em;color:var(--sub);margin-top:4px">Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.</div>
+      <div class="import-vendor-hint" id="importVendorHint" style="font-size:.78em;color:var(--sub);margin-top:4px">Use the same supplier name each time, or choose an existing supplier.</div>
     </div>
     <div id="importResult" style="display:none;margin-top:16px;padding:14px;border-radius:12px;font-size:.88em;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0"></div>
     </div>
@@ -887,12 +887,19 @@ document.getElementById('importVendorRow').addEventListener('focusout', ()=>requ
 function _vendorFromFilename(fn){
   return (fn || '').replace(/\.[^.]+$/,'').trim().split(/\s+/)[0].slice(0,50);
 }
-function _setImportVendor(fn){
-  const row = document.getElementById('importVendorRow');
-  const inp = document.getElementById('importVendor');
-  document.getElementById('importVendorHint').textContent = 'Auto-filled from the filename. Use the same supplier name each time, or choose an existing supplier.';
-  if(fn){ inp.value = _vendorFromFilename(fn); row.style.display = 'block'; }
-  else  { inp.value = ''; row.style.display = 'none'; }
+function _vendorFromListHeader(html){
+  // Keep uploaded markup inert, including scripts and external resources.
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const header = template.content.querySelector('h1.shopname, h2.shopname') ||
+    template.content.querySelector('.invoice-box tr.top h2');
+  return (header?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50);
+}
+
+function _setImportVendor(name, visible, hint = 'Use the same supplier name each time, or choose an existing supplier.'){
+  document.getElementById('importVendor').value = name;
+  document.getElementById('importVendorRow').style.display = visible ? 'block' : 'none';
+  document.getElementById('importVendorHint').textContent = hint;
 }
 
 function openImportModal(){
@@ -929,6 +936,7 @@ function closeImportModal(){
   const overlay = document.getElementById('importModal');
   if(overlay.contains(document.activeElement)) document.activeElement.blur();
   overlay.classList.remove('open');
+  _importFile = null;
   if(window.ShareStore) ShareStore.clearPendingSharedFile();
 }
 function closeImportOnBg(e){ if(e.target === document.getElementById('importModal')) closeImportModal(); }
@@ -956,17 +964,45 @@ function prepareOfferLink(){
   btn.textContent = 'Preview Import';
 }
 
-function prepareImportFile(file){
+async function prepareImportFile(file){
   if(!IS_GUEST) document.getElementById('importOfferUrl').value = '';
   _importFile = file || null;
-  document.getElementById('importModal').classList.toggle('has-file', !!_importFile);
-  document.getElementById('importFileName').textContent = _importFile ? _importFile.name : '';
-  _setImportVendor(_importFile ? _importFile.name : '');
+  const modal = document.getElementById('importModal');
+  const input = document.getElementById('importVendor');
   const btn = document.getElementById('importBtn');
+  modal.classList.toggle('has-file', !!file);
+  document.getElementById('importFileName').textContent = file ? file.name : '';
+  _setImportVendor('', !!file);
   btn.textContent = 'Import';
-  btn.disabled = !_importFile;
-  btn.style.opacity = _importFile ? '1' : '.5';
+  btn.disabled = true;
+  btn.style.opacity = '.5';
   document.getElementById('importResult').style.display = 'none';
+  if(!file) return;
+
+  let edited = false;
+  const markEdited = () => { edited = true; };
+  input.addEventListener('input', markEdited, {once:true});
+  let headerName = '';
+  try{
+    headerName = _vendorFromListHeader(await file.slice(0, 256 * 1024).text());
+  }catch(e){
+    // Keep the existing filename fallback when the header cannot be read.
+  }finally{
+    input.removeEventListener('input', markEdited);
+  }
+  if(_importFile !== file || !modal.classList.contains('open')) return;
+
+  if(!edited){
+    const normalize = name => name.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+    const savedNames = headerName ? supplierNames.filter(name => normalize(name) === normalize(headerName)) : [];
+    const vendor = savedNames.length === 1 ? savedNames[0] : headerName || _vendorFromFilename(file.name);
+    const hint = headerName
+      ? 'Filled from the list heading. You can edit it or choose an existing supplier.'
+      : 'Filled from the filename because no supplier heading was found. Check the name before importing.';
+    _setImportVendor(vendor, true, hint);
+  }
+  btn.disabled = false;
+  btn.style.opacity = '1';
 }
 function importDragOver(e){
   e.preventDefault();
