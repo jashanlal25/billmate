@@ -557,7 +557,8 @@ def index():
         return redirect('/superadmin/users')
     if session.get('user_id') or session.get('is_guest'):
         return redirect('/billing')
-    return render_template('welcome.html', denied=request.args.get('denied'))
+    return render_template('welcome.html', denied=request.args.get('denied'),
+                           android_apk_version=ANDROID_APK_VERSION)
 
 @app.route('/pos-import')
 def pos_import_page():
