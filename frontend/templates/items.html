@@ -896,6 +896,12 @@ function _vendorFromListHeader(html){
   return (header?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50);
 }
 
+function _vendorFromOfferMetadata(text){
+  // SHOWCASE stores the heading as a quoted string after the encoded rows.
+  const title = text.match(/^\s*var OFFLINE_META\s*=\s*\{\s*offerId\s*:\s*(?:"(?:\\.|[^"\\])*"|\d+)\s*,\s*shopTitle\s*:\s*("(?:\\.|[^"\\])*")/m);
+  return title ? JSON.parse(title[1]).replace(/\s+/g, ' ').trim().slice(0, 50) : '';
+}
+
 function _setImportVendor(name, visible, hint = 'Use the same supplier name each time, or choose an existing supplier.'){
   document.getElementById('importVendor').value = name;
   document.getElementById('importVendorRow').style.display = visible ? 'block' : 'none';
@@ -985,6 +991,9 @@ async function prepareImportFile(file){
   let headerName = '';
   try{
     headerName = _vendorFromListHeader(await file.slice(0, 256 * 1024).text());
+    if(!headerName){
+      headerName = _vendorFromOfferMetadata(await file.slice(-256 * 1024).text());
+    }
   }catch(e){
     // Keep the existing filename fallback when the header cannot be read.
   }finally{
